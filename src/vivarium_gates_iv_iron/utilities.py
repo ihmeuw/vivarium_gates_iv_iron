@@ -46,14 +46,16 @@ def delete_if_exists(*paths: Union[Path, List[Path]], confirm=False):
             # Assumes all paths have the same root dir
             root = existing_paths[0].parent
             names = [p.name for p in existing_paths]
-            click.confirm(f"Existing files {names} found in directory {root}. Do you want to delete and replace?",
-                          abort=True)
+            click.confirm(
+                f"Existing files {names} found in directory {root}. Do you want to delete and replace?",
+                abort=True,
+            )
         for p in existing_paths:
-            logger.info(f'Deleting artifact at {str(p)}.')
+            logger.info(f"Deleting artifact at {str(p)}.")
             p.unlink()
 
 
-def read_data_by_draw(artifact_path: str, key : str, draw: int) -> pd.DataFrame:
+def read_data_by_draw(artifact_path: str, key: str, draw: int) -> pd.DataFrame:
     """Reads data from the artifact on a per-draw basis. This
     is necessary for Low Birthweight Short Gestation (LBWSG) data.
 
@@ -68,12 +70,14 @@ def read_data_by_draw(artifact_path: str, key : str, draw: int) -> pd.DataFrame:
 
     """
     key = key.replace(".", "/")
-    with pd.HDFStore(artifact_path, mode='r') as store:
-        index = store.get(f'{key}/index')
-        draw = store.get(f'{key}/draw_{draw}')
+    with pd.HDFStore(artifact_path, mode="r") as store:
+        index = store.get(f"{key}/index")
+        draw = store.get(f"{key}/draw_{draw}")
     draw = draw.rename("value")
     data = pd.concat([index, draw], axis=1)
-    data = data.drop(columns='location')
+    data = data.drop(columns="location")
     data = pivot_categorical(data)
-    data[project_globals.LBWSG_MISSING_CATEGORY.CAT] = project_globals.LBWSG_MISSING_CATEGORY.EXPOSURE
+    data[
+        project_globals.LBWSG_MISSING_CATEGORY.CAT
+    ] = project_globals.LBWSG_MISSING_CATEGORY.EXPOSURE
     return data

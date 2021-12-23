@@ -63,11 +63,11 @@ def load_and_write_data(artifact: Artifact, key: str, location: str):
 
     """
     if key in artifact:
-        logger.debug(f'Data for {key} already in artifact.  Skipping...')
+        logger.debug(f"Data for {key} already in artifact.  Skipping...")
     else:
-        logger.debug(f'Loading data for {key} for location {location}.')
+        logger.debug(f"Loading data for {key} for location {location}.")
         data = loader.get_data(key, location)
-        logger.debug(f'Writing data for {key} to artifact.')
+        logger.debug(f"Writing data for {key} to artifact.")
         artifact.write(key, data)
     return artifact.load(key)
 
@@ -86,11 +86,12 @@ def write_data(artifact: Artifact, key: str, data: pd.DataFrame):
 
     """
     if key in artifact:
-        logger.debug(f'Data for {key} already in artifact.  Skipping...')
+        logger.debug(f"Data for {key} already in artifact.  Skipping...")
     else:
-        logger.debug(f'Writing data for {key} to artifact.')
+        logger.debug(f"Writing data for {key} to artifact.")
         artifact.write(key, data)
     return artifact.load(key)
+
 
 # TODO - writing and reading by draw is necessary if you are using
 #        LBWSG data. Find the read function in utilities.py
@@ -108,10 +109,10 @@ def write_data_by_draw(artifact: Artifact, key: str, data: pd.DataFrame):
         The data to write.
 
     """
-    with pd.HDFStore(artifact.path, complevel=9, mode='a') as store:
+    with pd.HDFStore(artifact.path, complevel=9, mode="a") as store:
         key = EntityKey(key)
         artifact._keys.append(key)
-        store.put(f'{key.path}/index', data.index.to_frame(index=False))
+        store.put(f"{key.path}/index", data.index.to_frame(index=False))
         data = data.reset_index(drop=True)
         for c in data.columns:
-            store.put(f'{key.path}/{c}', data[c])
+            store.put(f"{key.path}/{c}", data[c])
