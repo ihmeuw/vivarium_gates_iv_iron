@@ -58,11 +58,22 @@ COLUMN_TEMPLATES = {
 NON_COUNT_TEMPLATES = []
 
 POP_STATES = ("living", "dead", "tracked", "untracked")
-SEXES = ("male", "female")
-# TODO - add literals for years in the model
-YEARS = ()
+SEXES = ("female")
+YEARS = tuple(range(2022, 2025))
 # TODO - add literals for ages in the model
-AGE_GROUPS = ()
+AGE_GROUPS = (
+    '5_to_9',
+    '10_to_14',
+    '15_to_19',
+    '20_to_24',
+    '25_to_29',
+    '30_to_34',
+    '35_to_39',
+    '40_to_44',
+    '45_to_49',
+    '50_to_54',
+    '55_to_59',
+)
 # TODO - add causes of death
 CAUSES_OF_DEATH = (
     "other_causes",
@@ -134,7 +145,5 @@ def RESULTS_MAP(kind):
         )
     df = pd.DataFrame(value_groups, columns=map(lambda x: x.lower(), fields))
     df["key"] = columns
-    df[
-        "measure"
-    ] = kind  # per researcher feedback, this column is useful, even when it's identical for all rows
+    df["measure"] = kind
     return df.set_index("key").sort_index()

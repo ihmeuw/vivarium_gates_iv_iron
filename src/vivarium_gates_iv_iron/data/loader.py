@@ -71,6 +71,24 @@ def load_population_location(key: str, location: str) -> str:
 
 
 def load_population_structure(key: str, location: str) -> pd.DataFrame:
+    # TODO: this is a copypasta from SR CC
+    def get_row(sex, year):
+        return {
+            'location': location,
+            'sex': sex,
+            'age_start': 7,
+            'age_end': 54,
+            'year_start': year,
+            'year_end': year + 1,
+            'value': 100,
+        }
+
+    # TODO there is an issue in vivarium_public_health.population.data_transformations.assign_demographic_proportions()
+    #   where this fails if there is only one provided year
+    return pd.DataFrame([
+        get_row('Female', 2021),
+        get_row('Female', 2022)
+    ]).set_index(['location', 'sex', 'age_start', 'age_end', 'year_start', 'year_end'])
     return interface.get_population_structure(location)
 
 
@@ -79,12 +97,20 @@ def load_age_bins(key: str, location: str) -> pd.DataFrame:
 
 
 def load_demographic_dimensions(key: str, location: str) -> pd.DataFrame:
-    return interface.get_demographic_dimensions(location)
+    return pd.DataFrame([
+        {
+            'location': location,
+            'sex': 'Female',
+            'age_start': 7,
+            'age_end': 54,
+            'year_start': 2021,
+            'year_end': 2022,
+        }
+    ]).set_index(['location', 'sex', 'age_start', 'age_end', 'year_start', 'year_end'])
+    # return interface.get_demographic_dimensions(location)
 
 
-def load_theoretical_minimum_risk_life_expectancy(
-    key: str, location: str
-) -> pd.DataFrame:
+def load_theoretical_minimum_risk_life_expectancy(key: str, location: str) -> pd.DataFrame:
     return interface.get_theoretical_minimum_risk_life_expectancy()
 
 
