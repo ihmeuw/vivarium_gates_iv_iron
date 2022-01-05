@@ -17,7 +17,12 @@ import pandas as pd
 from gbd_mapping import causes, covariates, risk_factors
 from vivarium.framework.artifact import EntityKey
 from vivarium_gbd_access import gbd
-from vivarium_inputs import globals as vi_globals, interface, utilities as vi_utils, utility_data
+from vivarium_inputs import (
+    globals as vi_globals,
+    interface,
+    utilities as vi_utils,
+    utility_data,
+)
 from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys
@@ -46,7 +51,6 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
-
         # TODO - add appropriate mappings
         # data_keys.DIARRHEA_PREVALENCE: load_standard_data,
         # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
@@ -61,7 +65,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
 
 def load_population_location(key: str, location: str) -> str:
     if key != data_keys.POPULATION.LOCATION:
-        raise ValueError(f'Unrecognized key {key}')
+        raise ValueError(f"Unrecognized key {key}")
 
     return location
 
@@ -78,21 +82,23 @@ def load_demographic_dimensions(key: str, location: str) -> pd.DataFrame:
     return interface.get_demographic_dimensions(location)
 
 
-def load_theoretical_minimum_risk_life_expectancy(key: str, location: str) -> pd.DataFrame:
+def load_theoretical_minimum_risk_life_expectancy(
+    key: str, location: str
+) -> pd.DataFrame:
     return interface.get_theoretical_minimum_risk_life_expectancy()
 
 
 def load_standard_data(key: str, location: str) -> pd.DataFrame:
     key = EntityKey(key)
     entity = get_entity(key)
-    return interface.get_measure(entity, key.measure, location).droplevel('location')
+    return interface.get_measure(entity, key.measure, location).droplevel("location")
 
 
 def load_metadata(key: str, location: str):
     key = EntityKey(key)
     entity = get_entity(key)
     entity_metadata = entity[key.measure]
-    if hasattr(entity_metadata, 'to_dict'):
+    if hasattr(entity_metadata, "to_dict"):
         entity_metadata = entity_metadata.to_dict()
     return entity_metadata
 
@@ -105,8 +111,12 @@ def _load_em_from_meid(location, meid, measure):
     data = data.filter(vi_globals.DEMOGRAPHIC_COLUMNS + vi_globals.DRAW_COLUMNS)
     data = vi_utils.reshape(data)
     data = vi_utils.scrub_gbd_conventions(data, location)
-    data = vi_utils.split_interval(data, interval_column='age', split_column_prefix='age')
-    data = vi_utils.split_interval(data, interval_column='year', split_column_prefix='year')
+    data = vi_utils.split_interval(
+        data, interval_column="age", split_column_prefix="age"
+    )
+    data = vi_utils.split_interval(
+        data, interval_column="year", split_column_prefix="year"
+    )
     return vi_utils.sort_hierarchical_data(data)
 
 
@@ -116,10 +126,10 @@ def _load_em_from_meid(location, meid, measure):
 def get_entity(key: str):
     # Map of entity types to their gbd mappings.
     type_map = {
-        'cause': causes,
-        'covariate': covariates,
-        'risk_factor': risk_factors,
-        'alternative_risk_factor': alternative_risk_factors
+        "cause": causes,
+        "covariate": covariates,
+        "risk_factor": risk_factors,
+        "alternative_risk_factor": alternative_risk_factors,
     }
     key = EntityKey(key)
     return type_map[key.type][key.name]
