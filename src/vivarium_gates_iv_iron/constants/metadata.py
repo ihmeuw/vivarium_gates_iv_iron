@@ -14,8 +14,9 @@ MAKE_ARTIFACT_RUNTIME = "3:00:00"
 MAKE_ARTIFACT_SLEEP = 10
 
 LOCATIONS = [
-    "Sub Saharan Africa",
-    # TODO: add "South Asia" and "LMICs"
+    "Sub-Saharan Africa",
+    "South Asia",
+    # TODO: add "LMICs"
 ]
 
 
