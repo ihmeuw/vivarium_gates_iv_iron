@@ -23,7 +23,8 @@ STANDARD_COLUMNS = {
     "total_ylds": TOTAL_YLDS_COLUMN,
 }
 
-THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
+# TODO: uncomment
+# THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
 PERSON_TIME_COLUMN_TEMPLATE = (
