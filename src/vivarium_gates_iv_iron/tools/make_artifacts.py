@@ -56,7 +56,7 @@ def check_for_existing(output_dir: Path, location: str, append: bool):
         for loc in existing:
             path = output_dir / f"{loc}.hdf"
             logger.info(f"Deleting artifact at {str(path)}.")
-            path.unlink()
+            path.unlink(missing_ok=True)
 
 
 def build_single(location: str, output_dir: str, append: bool):
