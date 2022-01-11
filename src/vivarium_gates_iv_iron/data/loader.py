@@ -71,24 +71,7 @@ def load_population_location(key: str, location: str) -> str:
 
 
 def load_population_structure(key: str, location: str) -> pd.DataFrame:
-    # TODO: this is a copypasta from SR CC
-    def get_row(sex, year):
-        return {
-            'location': location,
-            'sex': sex,
-            'age_start': 7,
-            'age_end': 54,
-            'year_start': year,
-            'year_end': year + 1,
-            'value': 100,
-        }
-
-    # TODO there is an issue in vivarium_public_health.population.data_transformations.assign_demographic_proportions()
-    #   where this fails if there is only one provided year
-    return pd.DataFrame([
-        get_row('Female', 2021),
-        get_row('Female', 2022)
-    ]).set_index(['location', 'sex', 'age_start', 'age_end', 'year_start', 'year_end'])
+    #TODO: Check if LIMC for location and do sum.
     return interface.get_population_structure(location)
 
 
