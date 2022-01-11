@@ -71,8 +71,13 @@ def load_population_location(key: str, location: str) -> str:
 
 
 def load_population_structure(key: str, location: str) -> pd.DataFrame:
-    #TODO: Check if LIMC for location and do sum.
-    return interface.get_population_structure(location)
+    if location == "LMICs":
+        world_bank_1 = filter_population(interface.get_population_structure("World Bank Low Income"))
+        world_bank_2 = filter_population(interface.get_population_structure("World Bank Lower Middle Income"))
+        population_structure = pd.concat([world_bank_1, world_bank_2])
+    else:
+        population_structure = filter_population(interface.get_population_structure(location))
+    return population_structure
 
 
 def load_age_bins(key: str, location: str) -> pd.DataFrame:
@@ -142,3 +147,10 @@ def get_entity(key: str):
     }
     key = EntityKey(key)
     return type_map[key.type][key.name]
+
+
+def filter_population(df):
+    df = df.reset_index()
+    df = df[(df.sex == "Female") & (df.age_start >= 5) & (df.age_end <= 60)]
+
+    return df

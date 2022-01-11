@@ -16,7 +16,7 @@ MAKE_ARTIFACT_SLEEP = 10
 LOCATIONS = [
     "Sub-Saharan Africa",
     "South Asia",
-    # TODO: add "LMICs"
+    "LMICs"
 ]
 
 
