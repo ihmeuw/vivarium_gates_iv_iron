@@ -27,6 +27,14 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys
 
+ARTIFACT_INDEX_COLUMNS = [
+    'location',
+    'sex',
+    'age_start',
+    'age_end',
+    'year_start',
+    'year_end'
+]
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
     """Retrieves data from an appropriate source.
@@ -152,5 +160,6 @@ def get_entity(key: str):
 def filter_population(df):
     df = df.reset_index()
     df = df[(df.sex == "Female") & (df.age_start >= 5) & (df.age_end <= 60)]
+    df = df.set_index(ARTIFACT_INDEX_COLUMNS)
 
     return df
