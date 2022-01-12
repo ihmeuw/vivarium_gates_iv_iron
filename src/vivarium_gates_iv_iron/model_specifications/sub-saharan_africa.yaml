@@ -15,7 +15,7 @@ configuration:
         input_draw_number: 0
     interpolation:
         order: 0
-        extrapolate: False
+        extrapolate: True
     randomness:
         map_size: 1_000_000
         key_columns: ['entrance_time', 'age']
