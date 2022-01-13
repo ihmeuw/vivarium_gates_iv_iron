@@ -35,11 +35,14 @@ class TransitionString(str):
 #         "transitions": SOME_DISEASE_MODEL_TRANSITIONS,
 #     },
 # }
-#
-#
+
+
 # STATES = tuple(
 #     state for model in STATE_MACHINE_MAP.values() for state in model["states"]
 # )
 # TRANSITIONS = tuple(
 #     state for model in STATE_MACHINE_MAP.values() for state in model["transitions"]
 # )
+
+STATES = tuple()
+TRANSITIONS = tuple()
