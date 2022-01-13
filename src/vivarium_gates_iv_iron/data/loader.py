@@ -26,7 +26,7 @@ from vivarium_inputs import (
 from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys
-
+from vivarium_gates_iv_iron.constants.metadata import ARTIFACT_INDEX_COLUMNS
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
     """Retrieves data from an appropriate source.
@@ -71,7 +71,13 @@ def load_population_location(key: str, location: str) -> str:
 
 
 def load_population_structure(key: str, location: str) -> pd.DataFrame:
-    return interface.get_population_structure(location)
+    if location == "LMICs":
+        world_bank_1 = filter_population(interface.get_population_structure("World Bank Low Income"))
+        world_bank_2 = filter_population(interface.get_population_structure("World Bank Lower Middle Income"))
+        population_structure = pd.concat([world_bank_1, world_bank_2])
+    else:
+        population_structure = filter_population(interface.get_population_structure(location))
+    return population_structure
 
 
 def load_age_bins(key: str, location: str) -> pd.DataFrame:
@@ -79,12 +85,20 @@ def load_age_bins(key: str, location: str) -> pd.DataFrame:
 
 
 def load_demographic_dimensions(key: str, location: str) -> pd.DataFrame:
-    return interface.get_demographic_dimensions(location)
+    return pd.DataFrame([
+        {
+            'location': location,
+            'sex': 'Female',
+            'age_start': 7,
+            'age_end': 54,
+            'year_start': 2021,
+            'year_end': 2022,
+        }
+    ]).set_index(['location', 'sex', 'age_start', 'age_end', 'year_start', 'year_end'])
+    # return interface.get_demographic_dimensions(location)
 
 
-def load_theoretical_minimum_risk_life_expectancy(
-    key: str, location: str
-) -> pd.DataFrame:
+def load_theoretical_minimum_risk_life_expectancy(key: str, location: str) -> pd.DataFrame:
     return interface.get_theoretical_minimum_risk_life_expectancy()
 
 
@@ -133,3 +147,11 @@ def get_entity(key: str):
     }
     key = EntityKey(key)
     return type_map[key.type][key.name]
+
+
+def filter_population(unfiltered: pd.DataFrame) -> pd.DataFrame:
+    unfiltered = unfiltered.reset_index()
+    filtered_pop = unfiltered[(unfiltered.sex == "Female") & (unfiltered.age_start >= 5) & (unfiltered.age_end <= 60)]
+    filtered_pop = filtered_pop.set_index(ARTIFACT_INDEX_COLUMNS)
+
+    return filtered_pop
