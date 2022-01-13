@@ -4,6 +4,15 @@ from typing import NamedTuple
 # Project metadata #
 ####################
 
+ARTIFACT_INDEX_COLUMNS = [
+    'location',
+    'sex',
+    'age_start',
+    'age_end',
+    'year_start',
+    'year_end'
+]
+
 PROJECT_NAME = "vivarium_gates_iv_iron"
 CLUSTER_PROJECT = "proj_cost_effect"
 

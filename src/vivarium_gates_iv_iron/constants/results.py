@@ -59,7 +59,7 @@ COLUMN_TEMPLATES = {
 NON_COUNT_TEMPLATES = []
 
 POP_STATES = ("living", "dead", "tracked", "untracked")
-SEXES = ("female")
+SEXES = ("female",)
 YEARS = tuple(range(2022, 2025))
 # TODO - add literals for ages in the model
 AGE_GROUPS = (
