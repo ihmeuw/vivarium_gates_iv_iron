@@ -8,41 +8,38 @@ class TransitionString(str):
         obj.from_state, obj.to_state = value.split("_TO_")
         return obj
 
-
-###########################
-# Disease Model variables #
-###########################
+#############################
+# Pregnancy Model Variables #
+#############################
 
 # TODO input details of model states and transitions
-# SOME_MODEL_NAME = data_keys.SOME_DISEASE.name
-# SUSCEPTIBLE_STATE_NAME = f"susceptible_to_{SOME_MODEL_NAME}"
-# FIRST_STATE_NAME = "first_state"
-# SECOND_STATE_NAME = "second_state"
-# SOME_DISEASE_MODEL_STATES = (
-#     SUSCEPTIBLE_STATE_NAME,
-#     FIRST_STATE_NAME,
-#     SECOND_STATE_NAME,
-# )
-# SOME_DISEASE_MODEL_TRANSITIONS = (
-#     TransitionString(f"{SUSCEPTIBLE_STATE_NAME}_TO_{FIRST_STATE_NAME}"),
-#     TransitionString(f"{FIRST_STATE_NAME}_TO_{SECOND_STATE_NAME}"),
-#     TransitionString(f"{SECOND_STATE_NAME}_TO_{FIRST_STATE_NAME}"),
-# )
-#
-# STATE_MACHINE_MAP = {
-#     SOME_MODEL_NAME: {
-#         "states": SOME_DISEASE_MODEL_STATES,
-#         "transitions": SOME_DISEASE_MODEL_TRANSITIONS,
-#     },
-# }
+
+PREGNANCY_MODEL_NAME = data_keys.PREGNANCY.name
+SUSCEPTIBLE_STATE = f"susceptible_to_{PREGNANCY_MODEL_NAME}"
+PREGNANT_STATE = "pregnant"
+POSTPARTUM_STATE = "postpartum"
+PREGNANCY_MODEL_STATES = (
+    SUSCEPTIBLE_STATE,
+    PREGNANT_STATE,
+    POSTPARTUM_STATE,
+)
+PREGNANCY_MODEL_TRANSITIONS = (
+    TransitionString(f"{SUSCEPTIBLE_STATE}_TO_{PREGNANT_STATE}"),
+    TransitionString(f"{PREGNANT_STATE}_TO_{POSTPARTUM_STATE}"),
+    TransitionString(f"{POSTPARTUM_STATE}_TO_{SUSCEPTIBLE_STATE}"),
+)
+
+STATE_MACHINE_MAP = {
+    PREGNANCY_MODEL_NAME: {
+        "states": PREGNANCY_MODEL_STATES,
+        "transitions": PREGNANCY_MODEL_TRANSITIONS,
+    },
+}
 
 
-# STATES = tuple(
-#     state for model in STATE_MACHINE_MAP.values() for state in model["states"]
-# )
-# TRANSITIONS = tuple(
-#     state for model in STATE_MACHINE_MAP.values() for state in model["transitions"]
-# )
-
-STATES = tuple()
-TRANSITIONS = tuple()
+STATES = tuple(
+    state for model in STATE_MACHINE_MAP.values() for state in model["states"]
+)
+TRANSITIONS = tuple(
+    state for model in STATE_MACHINE_MAP.values() for state in model["transitions"]
+)
