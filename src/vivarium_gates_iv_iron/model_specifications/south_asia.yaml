@@ -3,12 +3,10 @@ components:
         population:
             - BasePopulation()
             - Mortality()
-        metrics:
-            - DisabilityObserver()
-            - MortalityObserver()
 
-    # Causes an error if left empty. Uncomment when you have components. 
-    # vivarium_gates_iv_iron.components:
+    vivarium_gates_iv_iron.components:
+        - DisabilityObserver()
+        - MortalityObserver()
 
 configuration:
     input_data:
@@ -39,10 +37,10 @@ configuration:
 
     metrics:
         disability:
-            by_age: False
-            by_sex: False
-            by_year: False
+            by_age: True
+            by_sex: True
+            by_year: True
         mortality:
-            by_age: False
-            by_sex: False
-            by_year: False
+            by_age: True
+            by_sex: True
+            by_year: True

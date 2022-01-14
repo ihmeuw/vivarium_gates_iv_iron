@@ -15,7 +15,7 @@ TOTAL_YLLS_COLUMN = "years_of_life_lost"
 # Columns from parallel runs
 INPUT_DRAW_COLUMN = "input_draw"
 RANDOM_SEED_COLUMN = "random_seed"
-OUTPUT_SCENARIO_COLUMN = "screening_algorithm.scenario"
+OUTPUT_SCENARIO_COLUMN = "placeholder_branch_name.scenario"
 
 STANDARD_COLUMNS = {
     "total_population": TOTAL_POPULATION_COLUMN,
@@ -23,8 +23,7 @@ STANDARD_COLUMNS = {
     "total_ylds": TOTAL_YLDS_COLUMN,
 }
 
-# TODO: uncomment
-# THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
+THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
 PERSON_TIME_COLUMN_TEMPLATE = (
