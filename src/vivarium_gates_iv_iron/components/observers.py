@@ -10,6 +10,7 @@ from vivarium_public_health.metrics import (MortalityObserver as MortalityObserv
                                             CategoricalRiskObserver as CategoricalRiskObserver_)
 from vivarium_public_health.metrics.utilities import (get_deaths, get_state_person_time, get_transition_count,
                                                       get_years_lived_with_disability, get_years_of_life_lost,
+                                                      get_person_time,
                                                       TransitionString)
 
 from vivarium_gates_iv_iron.constants import models, results, data_keys
@@ -25,14 +26,8 @@ class ResultsStratifier:
 
     """
 
-    def __init__(self, observer_name: str = 'False', by_wasting: str = 'False', by_sqlns: str = 'False',
-                 by_wasting_treatment: str = 'False', by_x_factor: str = 'False', by_stunting: str = 'False'):
+    def __init__(self, observer_name: str = 'False'):
         self.name = f'{observer_name}_results_stratifier'
-        self.by_wasting = by_wasting != 'False'
-        self.by_sqlns = by_sqlns != 'False'
-        self.by_wasting_treatment = by_wasting_treatment != 'False'
-        self.by_x_factor = by_x_factor != 'False'
-        self.by_stunting = by_stunting != 'False'
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
@@ -61,27 +56,6 @@ class ResultsStratifier:
                 self.pipelines[source_name] = builder.value.get_value(source_name)
             else:
                 columns_required.append(data_keys.WASTING.name)
-
-        if self.by_wasting:
-            setup_stratification(data_keys.WASTING.name, False, 'wasting_state', models.WASTING.STATES)
-
-        if self.by_stunting:
-            setup_stratification(f'{data_keys.STUNTING.name}.exposure', True, 'stunting_state', range(4, 0, -1))
-
-        if self.by_wasting_treatment:
-            setup_stratification(f'{data_keys.SAM_TREATMENT.name}.exposure', True, 'sam_treatment',
-                                 {'covered': data_keys.SAM_TREATMENT.COVERED_CATEGORIES,
-                                  'uncovered': data_keys.SAM_TREATMENT.UNCOVERED_CATEGORIES})
-            setup_stratification(f'{data_keys.MAM_TREATMENT.name}.exposure', True, 'mam_treatment',
-                                 {'covered': data_keys.MAM_TREATMENT.COVERED_CATEGORIES,
-                                  'uncovered': data_keys.MAM_TREATMENT.UNCOVERED_CATEGORIES})
-
-        if self.by_sqlns:
-            setup_stratification(data_keys.SQ_LNS.COVERAGE_PIPELINE, True, 'sq_lns',
-                                 {'covered': True, 'uncovered': False})
-
-        if self.by_x_factor:
-            setup_stratification('x_factor.exposure', True, 'x_factor', ('cat2', 'cat1'))
 
         self.population_view = builder.population.get_view(columns_required)
         self.stratification_groups: pd.Series = None
@@ -198,6 +172,7 @@ class MortalityObserver(MortalityObserver_):
 
         measure_getters = (
             (get_deaths, (self.causes,)),
+            (get_person_time, ()),
             (get_years_of_life_lost, (self.life_expectancy, self.causes)),
         )
 
