@@ -8,7 +8,6 @@ import yaml
 
 from vivarium_gates_iv_iron.constants import results
 
-
 SCENARIO_COLUMN = "scenario"
 GROUPBY_COLUMNS = [results.INPUT_DRAW_COLUMN, SCENARIO_COLUMN]
 OUTPUT_COLUMN_SORT_ORDER = [
@@ -34,12 +33,12 @@ def make_measure_data(data):
         ylds=get_by_cause_measure_data(data, "ylds"),
         deaths=get_by_cause_measure_data(data, "deaths"),
         # TODO duplicate for each model
-        disease_state_person_time=get_state_person_time_measure_data(
-            data, "disease_state_person_time"
-        ),
-        disease_transition_count=get_transition_count_measure_data(
-            data, "disease_transition_count"
-        ),
+        #     disease_state_person_time=get_state_person_time_measure_data(
+        #         data, "disease_state_person_time"
+        #     ),
+        #     disease_transition_count=get_transition_count_measure_data(
+        #         data, "disease_transition_count"
+        #     ),
     )
     return measure_data
 
@@ -50,9 +49,10 @@ class MeasureData(NamedTuple):
     ylls: pd.DataFrame
     ylds: pd.DataFrame
     deaths: pd.DataFrame
+
     # TODO duplicate for each model
-    disease_state_person_time: pd.DataFrame
-    disease_transition_count: pd.DataFrame
+    # disease_state_person_time: pd.DataFrame
+    # disease_transition_count: pd.DataFrame
 
     def dump(self, output_dir: Path):
         for key, df in self._asdict().items():
@@ -65,8 +65,8 @@ def read_data(path: Path, single_run: bool) -> (pd.DataFrame, List[str]):
     # noinspection PyUnresolvedReferences
     data = (
         data.drop(columns=data.columns.intersection(results.THROWAWAY_COLUMNS))
-        .reset_index(drop=True)
-        .rename(columns={results.OUTPUT_SCENARIO_COLUMN: SCENARIO_COLUMN})
+            .reset_index(drop=True)
+            .rename(columns={results.OUTPUT_SCENARIO_COLUMN: SCENARIO_COLUMN})
     )
     if single_run:
         data[results.INPUT_DRAW_COLUMN] = 0
@@ -125,9 +125,9 @@ def aggregate_over_seed(data):
 def pivot_data(data):
     return (
         data.set_index(GROUPBY_COLUMNS)
-        .stack()
-        .reset_index()
-        .rename(columns={f"level_{len(GROUPBY_COLUMNS)}": "key", 0: "value"})
+            .stack()
+            .reset_index()
+            .rename(columns={f"level_{len(GROUPBY_COLUMNS)}": "key", 0: "value"})
     )
 
 
@@ -154,7 +154,7 @@ def get_population_data(data):
             [results.TOTAL_POPULATION_COLUMN]
             + results.RESULT_COLUMNS("population")
             + GROUPBY_COLUMNS
-        ]
+            ]
     )
     total_pop = total_pop.rename(columns={"key": "measure"})
     return sort_data(total_pop)
