@@ -28,6 +28,7 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 from vivarium_gates_iv_iron.constants import data_keys
 from vivarium_gates_iv_iron.constants.metadata import ARTIFACT_INDEX_COLUMNS
 
+
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
     """Retrieves data from an appropriate source.
 
@@ -51,6 +52,11 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
+        data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
+        data_keys.PREGNANCY.INCIDENCE_C995: load_incidence,
+        data_keys.PREGNANCY.INCIDENCE_C374: load_incidence,
+        data_keys.PREGNANCY.ASFR: load_asfr,
+        data_keys.PREGNANCY.SBR: load_sbr,
         # TODO - add appropriate mappings
         # data_keys.DIARRHEA_PREVALENCE: load_standard_data,
         # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
@@ -135,6 +141,27 @@ def _load_em_from_meid(location, meid, measure):
 
 
 # TODO - add project-specific data functions here
+def load_pregnancy_incidence_rate(key: str, location: str):
+    # This is incidence_p = (ASFR + ASFR * SBR + incidence_c995 + incidence_c374) / prevalence_np
+    #TODO make function to actually do this
+    pass
+
+
+def load_incidence(key: str, location: str):
+    #TODO write function to load incidence for c995 and c374
+    pass
+
+
+def load_asfr(key: str, location: str):
+    #TODO implement this to pull rates
+    # Regional, get_covariate_estimates: decomp_step=’step4’ or ‘iterative’ for GBD 2019, ‘step3’ or ‘iterative’ for GBD 2020
+    pass
+
+
+def load_sbr(key: str, location: str):
+    #TODO implement
+    # get_covariate_estimates: decomp_step =’step4’ or ‘iterative’ for GBD 2019, ‘step3’ or ‘iterative’ for GBD 2020
+    pass
 
 
 def get_entity(key: str):
