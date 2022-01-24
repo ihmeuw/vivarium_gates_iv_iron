@@ -79,3 +79,28 @@ MAKE_ARTIFACT_KEY_GROUPS = [
     # TODO: list all key groups here
     PREGNANCY
 ]
+
+
+class __LowBirthWeightShortGestation(NamedTuple):
+    # Keys that will be loaded into the artifact. must have a colon type declaration
+    EXPOSURE: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.exposure'
+    DISTRIBUTION: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.distribution'
+    CATEGORIES: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.categories'
+    #RELATIVE_RISK: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.relative_risk'
+    #RELATIVE_RISK_INTERPOLATOR: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.relative_risk_interpolator'
+
+    #PAF: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.population_attributable_fraction'
+
+    # Useful keys not for the artifact - distinguished by not using the colon type declaration
+    #BIRTH_WEIGHT_EXPOSURE = TargetString('risk_factor.low_birth_weight.birth_exposure')
+
+    @property
+    def name(self):
+        return 'low_birth_weight_and_short_gestation'
+
+    @property
+    def log_name(self):
+        return 'low birth weight and short gestation'
+
+
+LBWSG = __LowBirthWeightShortGestation()

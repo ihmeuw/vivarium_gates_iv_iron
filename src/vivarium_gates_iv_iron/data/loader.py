@@ -16,7 +16,7 @@ import pandas as pd
 
 from gbd_mapping import causes, covariates, risk_factors
 from vivarium.framework.artifact import EntityKey
-from vivarium_gbd_access import gbd
+from vivarium_gbd_access import constants as gbd_constants, gbd
 from vivarium_inputs import (
     globals as vi_globals,
     interface,
@@ -25,8 +25,8 @@ from vivarium_inputs import (
 )
 from vivarium_inputs.mapping_extension import alternative_risk_factors
 
-from vivarium_gates_iv_iron.constants import data_keys
-from vivarium_gates_iv_iron.constants.metadata import ARTIFACT_INDEX_COLUMNS
+from vivarium_gates_iv_iron.constants import data_keys, metadata
+from vivarium_gates_iv_iron.data import utilities
 
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
@@ -57,6 +57,9 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY.INCIDENCE_C374: load_incidence,
         data_keys.PREGNANCY.ASFR: load_asfr,
         data_keys.PREGNANCY.SBR: load_sbr,
+        data_keys.LBWSG.DISTRIBUTION: load_metadata,
+        data_keys.LBWSG.CATEGORIES: load_metadata,
+        data_keys.LBWSG.EXPOSURE: load_lbwsg_exposure,
         # TODO - add appropriate mappings
         # data_keys.DIARRHEA_PREVALENCE: load_standard_data,
         # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
@@ -179,6 +182,21 @@ def get_entity(key: str):
 def filter_population(unfiltered: pd.DataFrame) -> pd.DataFrame:
     unfiltered = unfiltered.reset_index()
     filtered_pop = unfiltered[(unfiltered.sex == "Female") & (unfiltered.age_start >= 5) & (unfiltered.age_end <= 60)]
-    filtered_pop = filtered_pop.set_index(ARTIFACT_INDEX_COLUMNS)
+    filtered_pop = filtered_pop.set_index(metadata.ARTIFACT_INDEX_COLUMNS)
 
     return filtered_pop
+
+
+def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
+    if key != data_keys.LBWSG.EXPOSURE:
+        raise ValueError(f'Unrecognized key {key}')
+
+    key = EntityKey(key)
+    entity = utilities.get_entity(key)
+    data = utilities.get_data(key, entity, location, gbd_constants.SOURCES.EXPOSURE, 'rei_id',
+                              metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE, metadata.GBD_2019_ROUND_ID, 'step4')
+    data = data[data['year_id'] == 2019].drop(columns='year_id')
+    data = utilities.process_exposure(data, key, entity, location, metadata.GBD_2019_ROUND_ID,
+                                      metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE | metadata.AGE_GROUP.GBD_2020)
+    data = data[data.index.get_level_values('year_start') == 2019]
+    return data
