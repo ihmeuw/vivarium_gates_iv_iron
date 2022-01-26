@@ -49,9 +49,9 @@ class __Pregnancy(NamedTuple):
     )
     SBR: TargetString = TargetString("cause.pregnancy.still_birth_to_live_birth_ratio"
     )
-    INCIDENCE_C995: TargetString = TargetString("cause.pregnancy.incidence_c995"
+    INCIDENCE_C374: TargetString = TargetString("cause.ectopic_pregnancy.incidence_rate"
     )
-    INCIDENCE_C374: TargetString = TargetString("cause.pregnancy.incidence_c374"
+    INCIDENCE_C995: TargetString = TargetString("cause.maternal_abortion_and_miscarriage.incidence_rate"
     )
     EMR: TargetString = TargetString("cause.pregnancy.excess_mortality_rate")
     CSMR: TargetString = TargetString(

@@ -53,8 +53,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
         data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
-        data_keys.PREGNANCY.INCIDENCE_C995: load_incidence,
-        data_keys.PREGNANCY.INCIDENCE_C374: load_incidence,
+        data_keys.PREGNANCY.INCIDENCE_C995: load_standard_data,
+        data_keys.PREGNANCY.INCIDENCE_C374: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
         data_keys.PREGNANCY.SBR: load_sbr,
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
@@ -156,7 +156,8 @@ def load_incidence(key: str, location: str):
 
 
 def load_asfr(key: str, location: str):
-    #TODO implement this to pull rates
+    #asfr = utilities.get_data(key, entity, location, gbd_constants.SOURCES.EXPOSURE, 'rei_id',
+    #                         metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE, metadata.GBD_2019_ROUND_ID, 'step4')
     # Regional, get_covariate_estimates: decomp_step=’step4’ or ‘iterative’ for GBD 2019, ‘step3’ or ‘iterative’ for GBD 2020
     pass
 
@@ -200,3 +201,21 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
                                       metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE | metadata.AGE_GROUP.GBD_2020)
     data = data[data.index.get_level_values('year_start') == 2019]
     return data
+
+
+# def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
+#     np_prevalence = 1 - get_prevalence_pregnant() - get_prevalence_postpartum()
+#
+#     return np_prevalence
+#
+#
+# def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
+#     pregnancy_prevalence = (load_asfr() + load_asfr() * load_sbr() + incidence:c995 + incidence:c374) * 40/52
+#
+#     return pregnancy_prevalence
+#
+#
+# def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
+#     postpartum_prevalence = (load_asfr()+ load_asfr() * load_sbr() + incidence:c995 + incidence:c374) * 6/52
+#
+#     return postpartum_prevalence
