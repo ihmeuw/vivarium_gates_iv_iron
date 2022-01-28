@@ -45,7 +45,7 @@ class __Pregnancy(NamedTuple):
     DISABILITY_WEIGHT: TargetString = TargetString(
         "cause.pregnancy.disability_weight"
     )
-    ASFR: TargetString = TargetString("cause.pregnancy.age_specific_fertility_rate"
+    ASFR: TargetString = TargetString('covariate.age_specific_fertility_rate.estimate'
     )
     SBR: TargetString = TargetString("cause.pregnancy.still_birth_to_live_birth_ratio"
     )

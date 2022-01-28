@@ -27,7 +27,10 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys, metadata
 from vivarium_gates_iv_iron.data import utilities
-
+from vivarium_gates_iv_iron.utilities import (
+    get_norm_from_quantiles,
+    get_random_variable_draws_for_location,
+)
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
     """Retrieves data from an appropriate source.
@@ -156,10 +159,20 @@ def load_incidence(key: str, location: str):
 
 
 def load_asfr(key: str, location: str):
-    #asfr = utilities.get_data(key, entity, location, gbd_constants.SOURCES.EXPOSURE, 'rei_id',
-    #                         metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE, metadata.GBD_2019_ROUND_ID, 'step4')
-    # Regional, get_covariate_estimates: decomp_step=’step4’ or ‘iterative’ for GBD 2019, ‘step3’ or ‘iterative’ for GBD 2020
-    pass
+
+    asfr = load_standard_data(key, location)
+
+    # pivot
+    asfr = asfr.reset_index()
+    asfr = asfr[(asfr.sex == 'Female') &
+                (asfr.age_start >= 7) &
+                (asfr.age_end <= 57) &
+                (asfr.year_start == 2019)]
+    asfr_pivot = asfr.pivot(index=[col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"],
+                            columns='parameter', values='value')
+    asfr_draws = asfr_pivot.apply(create_draws, args=(key, location), axis=1)
+
+    return asfr_draws
 
 
 def load_sbr(key: str, location: str):
@@ -203,6 +216,28 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     return data
 
 
+def create_draws(df: pd.DataFrame, key: str, location: str):
+    """
+    Parameters
+    ----------
+    df: Multi-index dataframe with mean, lower, and upper values columns.
+    location
+    key:
+    Returns
+    -------
+
+    """
+    # location defined in namespace outside of function
+    mean = df['mean_value']
+    lower = df['lower_value']
+    upper = df['upper_value']
+
+    Tuple = (key, get_norm_from_quantiles(mean=mean, lower=lower, upper=upper))
+    # pull index from constants
+    draws = get_random_variable_draws_for_location(pd.Index([f'draw_{i}' for i in range(0, 1000)]), location, *Tuple)
+
+    return (draws)
+
 # def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
 #     np_prevalence = 1 - get_prevalence_pregnant() - get_prevalence_postpartum()
 #
@@ -219,3 +254,5 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
 #     postpartum_prevalence = (load_asfr()+ load_asfr() * load_sbr() + incidence:c995 + incidence:c374) * 6/52
 #
 #     return postpartum_prevalence
+
+

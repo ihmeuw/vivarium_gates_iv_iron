@@ -1,8 +1,8 @@
 import click
 import numpy as np
 import pandas as pd
-
-from typing import NamedTuple, Union, List
+from scipy import stats
+from typing import NamedTuple, Union, List, Tuple
 from pathlib import Path
 from loguru import logger
 
@@ -92,3 +92,14 @@ def get_random_variable_draws(columns: pd.Index, seed: str, distribution) -> pd.
 def get_random_variable(draw: int, seed: str, distribution) -> pd.Series:
     np.random.seed(get_hash(f'{seed}_draw_{draw}'))
     return distribution.rvs()
+
+
+def get_random_variable_draws_for_location(columns: pd.Index, location: str, seed: str, distribution) -> pd.Series:
+    return get_random_variable_draws(columns, f"{seed}_{location}", distribution)
+
+
+def get_norm_from_quantiles(mean: float, lower: float, upper: float,
+                            quantiles: Tuple[float, float] = (0.025, 0.975)) -> stats.norm:
+    stdnorm_quantiles = stats.norm.ppf(quantiles)
+    sd = (upper - lower) / (stdnorm_quantiles[1] - stdnorm_quantiles[0])
+    return stats.norm(loc=mean, scale=sd)
