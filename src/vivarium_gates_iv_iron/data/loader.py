@@ -61,7 +61,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
-        data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
+        #data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
         data_keys.PREGNANCY.INCIDENCE_C995: load_standard_data,
         data_keys.PREGNANCY.INCIDENCE_C374: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
