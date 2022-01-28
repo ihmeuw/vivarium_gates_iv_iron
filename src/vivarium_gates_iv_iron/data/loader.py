@@ -61,7 +61,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
-        #data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
+        data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
+        data_keys.PREGNANCY.PREGNANCY_PREVALENCE: get_prevalence_pregnant,
         data_keys.PREGNANCY.INCIDENCE_C995: load_standard_data,
         data_keys.PREGNANCY.INCIDENCE_C374: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
@@ -154,9 +155,16 @@ def _load_em_from_meid(location, meid, measure):
 
 # TODO - add project-specific data functions here
 def load_pregnancy_incidence_rate(key: str, location: str):
-    # This is incidence_p = (ASFR + ASFR * SBR + incidence_c995 + incidence_c374) / prevalence_np
-    #TODO make function to actually do this
-    pass
+
+    not_pregnant = get_prevalence_not_pregnant(key, location)
+    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
+    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
+    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
+
+    pregnancy_incidence_rate = (asfr + asfr * sbr + incidence_c995 + incidence_c374) / not_pregnant
+
+    return pregnancy_incidence_rate
 
 
 def load_asfr(key: str, location: str):
@@ -317,21 +325,30 @@ def create_draws(df: pd.DataFrame, key: str, location: str):
 
     return draws
 
-# def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
-#     np_prevalence = 1 - get_prevalence_pregnant() - get_prevalence_postpartum()
-#
-#     return np_prevalence
-#
-#
-# def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
-#     pregnancy_prevalence = (load_asfr() + load_asfr() * load_sbr() + incidence:c995 + incidence:c374) * 40/52
-#
-#     return pregnancy_prevalence
-#
-#
-# def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
-#     postpartum_prevalence = (load_asfr()+ load_asfr() * load_sbr() + incidence:c995 + incidence:c374) * 6/52
-#
-#     return postpartum_prevalence
+
+def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
+    np_prevalence = 1 - get_prevalence_pregnant(key, location) - get_prevalence_postpartum(key, location)
+
+    return np_prevalence
 
 
+def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
+    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
+    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
+    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
+
+    pregnancy_prevalence = (asfr + asfr * sbr + incidence_c995 + incidence_c374) * 40 / 52
+
+    return pregnancy_prevalence
+
+
+def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
+    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
+    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
+    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
+
+    postpartum_prevalence = (asfr + asfr * sbr + incidence_c995 + incidence_c374) * 6 / 52
+
+    return postpartum_prevalence
