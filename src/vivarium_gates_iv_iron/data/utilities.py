@@ -63,7 +63,7 @@ def validate_and_reshape_gbd_data(data: pd.DataFrame, entity: ModelableEntity, k
     data = vi_utils.reshape(data, value_cols=vi_globals.DRAW_COLUMNS)
 
     # from interface.get_measure
-    data = _scrub_gbd_conventions(data, location, age_group_ids)
+    data = scrub_gbd_conventions(data, location, age_group_ids)
 
     estimation_years = get_gbd_estimation_years(gbd_round_id)
     validation_years = pd.DataFrame({'year_start': range(min(estimation_years), max(estimation_years) + 1)})
@@ -146,7 +146,7 @@ def get_gbd_estimation_years(gbd_round_id: int) -> List[int]:
     return get_demographics(gbd_constants.CONN_DEFS.EPI, gbd_round_id=gbd_round_id)['year_id']
 
 
-def _scrub_gbd_conventions(data: pd.DataFrame, location: str, age_group_ids: List[int] = None) -> pd.DataFrame:
+def scrub_gbd_conventions(data: pd.DataFrame, location: str, age_group_ids: List[int] = None) -> pd.DataFrame:
     data = vi_utils.scrub_location(data, location)
     data = vi_utils.scrub_sex(data)
     data = _scrub_age(data, age_group_ids)

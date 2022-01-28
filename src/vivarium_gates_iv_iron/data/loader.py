@@ -15,6 +15,11 @@ for an example.
 import pandas as pd
 
 from gbd_mapping import causes, covariates, risk_factors
+from db_queries import (
+    get_covariate_estimates,
+    get_location_metadata,
+    get_population,
+)
 from vivarium.framework.artifact import EntityKey
 from vivarium_gbd_access import constants as gbd_constants, gbd
 from vivarium_inputs import (
@@ -31,6 +36,7 @@ from vivarium_gates_iv_iron.utilities import (
     get_norm_from_quantiles,
     get_random_variable_draws_for_location,
 )
+
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
     """Retrieves data from an appropriate source.
@@ -55,11 +61,11 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
-        #data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
+        data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
         data_keys.PREGNANCY.INCIDENCE_C995: load_standard_data,
         data_keys.PREGNANCY.INCIDENCE_C374: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
-        #data_keys.PREGNANCY.SBR: load_sbr,
+        data_keys.PREGNANCY.SBR: load_sbr,
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
         data_keys.LBWSG.CATEGORIES: load_metadata,
         data_keys.LBWSG.EXPOSURE: load_lbwsg_exposure,
@@ -153,11 +159,6 @@ def load_pregnancy_incidence_rate(key: str, location: str):
     pass
 
 
-def load_incidence(key: str, location: str):
-    #TODO write function to load incidence for c995 and c374
-    pass
-
-
 def load_asfr(key: str, location: str):
 
     asfr = load_standard_data(key, location)
@@ -176,9 +177,80 @@ def load_asfr(key: str, location: str):
 
 
 def load_sbr(key: str, location: str):
-    #TODO implement
-    # get_covariate_estimates: decomp_step =’step4’ or ‘iterative’ for GBD 2019, ‘step3’ or ‘iterative’ for GBD 2020
-    pass
+
+    index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
+
+    child_locs = get_child_locs(location)
+    child_dfs = [get_child_sbr_with_weighting_unit(loc) for loc in child_locs]
+
+    disaggregated_df = pd.concat(child_dfs)
+
+    df = pd.concat([weighted_average(disaggregated_df, 'sbr', f"draw_{i}", index_cols) for i in range(1000)],
+                   axis=1)
+    df.columns = [f"draw_{i}" for i in range(1000)]
+
+    return df
+
+
+def get_child_sbr_with_weighting_unit(location: str):
+
+    sbr_df = get_weighting_units(location)
+    sbr_df['sbr'] = load_sbr(location)
+    sbr_df['location'] = location
+    sbr_df = sbr_df.reset_index()
+
+    return sbr_df
+
+
+def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4'):
+
+    parent_id = utility_data.get_location_id(location)
+    loc_metadata = get_location_metadata(location_set_id=location_set_id,
+                                         decomp_step=decomp,
+                                         gbd_round_id=metadata.GBD_2019_ROUND_ID)
+
+    child_locs = loc_metadata.loc[loc_metadata.parent_id == parent_id, 'location_name'].tolist()
+
+    return child_locs
+
+
+def get_weighting_units(location):
+    asfr_draws = load_asfr(data_keys.PREGNANCY.ASFR, location)
+    wra = get_wra(location)
+
+    df = pd.concat([asfr_draws, wra], axis=1)
+    draw_cols = [f"draw_{i}" for i in range(1000)]
+    wu_df = df[draw_cols].multiply(wra['wra'], axis=0)
+    wu_df.index = df.index
+
+    return wu_df
+
+
+def get_wra(location: str, decomp: str = "step4"):
+    location_id = utility_data.get_location_id(location)
+    wra = get_population(decomp_step=decomp, age_group_id=[7, 8, 9, 10, 11, 12, 13, 14, 15], sex_id=2,
+                         gbd_round_id=metadata.GBD_2019_ROUND_ID, location_id=location_id)
+
+    # reshape to vivarium format
+    wra = wra.set_index(['age_group_id', 'location_id', 'sex_id', 'year_id']).drop('run_id', axis=1)
+    wra = utilities.scrub_gbd_conventions(wra, location)
+    wra = vi_utils.split_interval(wra, interval_column='age', split_column_prefix='age')
+    wra = vi_utils.split_interval(wra, interval_column='year', split_column_prefix='year')
+    wra = vi_utils.sort_hierarchical_data(wra)
+
+    wra = wra.rename({'population': 'wra'}, axis=1)
+    wra.index = wra.index.droplevel('location')
+
+    return wra
+
+
+def weighted_average(df, data_col, weight_col, by_col):
+
+    df['_data_times_weight'] = df[data_col] * df[weight_col]
+    g = df.groupby(by_col)
+    result = g['_data_times_weight'].sum() / g[weight_col].sum()
+    del df['_data_times_weight'], df[weight_col]
+    return result
 
 
 def get_entity(key: str):
@@ -236,7 +308,7 @@ def create_draws(df: pd.DataFrame, key: str, location: str):
     # pull index from constants
     draws = get_random_variable_draws_for_location(pd.Index([f'draw_{i}' for i in range(0, 1000)]), location, *Tuple)
 
-    return (draws)
+    return draws
 
 # def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
 #     np_prevalence = 1 - get_prevalence_pregnant() - get_prevalence_postpartum()
