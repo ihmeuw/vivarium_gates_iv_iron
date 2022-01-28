@@ -47,8 +47,8 @@ class __Pregnancy(NamedTuple):
     # )
     ASFR: TargetString = TargetString('covariate.age_specific_fertility_rate.estimate'
     )
-    SBR: TargetString = TargetString("cause.pregnancy.still_birth_to_live_birth_ratio"
-    )
+    # SBR: TargetString = TargetString("cause.pregnancy.still_birth_to_live_birth_ratio"
+    # )
     INCIDENCE_C374: TargetString = TargetString("cause.ectopic_pregnancy.incidence_rate"
     )
     INCIDENCE_C995: TargetString = TargetString("cause.maternal_abortion_and_miscarriage.incidence_rate"
