@@ -195,7 +195,7 @@ def load_sbr(key: str, location: str):
 def get_child_sbr_with_weighting_unit(location: str):
 
     sbr_df = get_weighting_units(location)
-    sbr_df['sbr'] = load_sbr(location)
+    sbr_df['sbr'] = load_sbr(data_keys.PREGNANCY.SBR, location)
     sbr_df['location'] = location
     sbr_df = sbr_df.reset_index()
 
