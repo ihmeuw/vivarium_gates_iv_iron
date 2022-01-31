@@ -209,7 +209,7 @@ def _scrub_age(data: pd.DataFrame, age_group_ids: List[int] = None) -> pd.DataFr
         id_levels = data.index.levels[data.index.names.index('age_group_id')]
         interval_levels = [pd.Interval(age_bins.age_start[age_id], age_bins.age_end[age_id], closed='left')
                            for age_id in id_levels]
-        data.index = data.index.rename('age', 'age_group_id').set_levels(interval_levels, 'age')
+        data.index = data.index.rename('age', 'age_group_id').set_levels(levels=interval_levels, level='age')
     return data
 
 
