@@ -224,7 +224,8 @@ def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4'):
                                          decomp_step=decomp,
                                          gbd_round_id=metadata.GBD_2019_ROUND_ID)
 
-    child_locs = loc_metadata.loc[loc_metadata.parent_id == parent_id, 'location_name'].tolist()
+    admin0 = loc_metadata[loc_metadata.level == 3]
+    child_locs = admin0.loc[(admin0['parent_id'] == 167) | (admin0['parent_id'] == 174), 'location_name'].to_list()
 
     return child_locs
 
