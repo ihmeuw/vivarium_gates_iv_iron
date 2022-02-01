@@ -223,9 +223,13 @@ def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4'):
     loc_metadata = get_location_metadata(location_set_id=location_set_id,
                                          decomp_step=decomp,
                                          gbd_round_id=metadata.GBD_2019_ROUND_ID)
-
+    # Subset to country level data
     admin0 = loc_metadata[loc_metadata.level == 3]
-    child_locs = admin0.loc[(admin0['parent_id'] == 167) | (admin0['parent_id'] == 174), 'location_name'].to_list()
+    # This assumes location is a super region (admin level 1: location_id will be second number in path_to_top_parent)
+    admin0['super_region_id'] = admin0['path_to_top_parent'].str.split(",").str[1]
+    admin0['super_region_id'] = admin0['super_region_id'].astype(int)
+    child_locs = admin0.loc[admin0['super_region_id'] == parent_id]
+    child_locs = child_locs['location_name'].to_list()
 
     return child_locs
 
