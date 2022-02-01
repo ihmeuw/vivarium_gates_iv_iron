@@ -220,7 +220,7 @@ def get_child_sbr_with_weighting_unit(location: str):
     return sbr_df
 
 
-def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4', level=3):
+def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4'):
     # Level = 3 default parameter pulls child locations at national level
     # location_set_id = 35 is for GBD model results
 
@@ -234,7 +234,7 @@ def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4', l
     is_child_loc = [parent_id in path_list for path_list in path_lists]
 
     # Subset to level
-    is_country = loc_metadata.level == level
+    is_country = loc_metadata.location_type == "admin0"
     child_locs = loc_metadata.loc[(is_child_loc) & (is_country), 'location_name'].tolist()
 
     return child_locs
