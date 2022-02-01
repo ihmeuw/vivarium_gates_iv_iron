@@ -217,19 +217,21 @@ def get_child_sbr_with_weighting_unit(location: str):
     return sbr_df
 
 
-def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4'):
+def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4', level=3):
+    # Level default parameter pulls child locations at national level
 
     parent_id = utility_data.get_location_id(location)
     loc_metadata = get_location_metadata(location_set_id=location_set_id,
                                          decomp_step=decomp,
                                          gbd_round_id=metadata.GBD_2019_ROUND_ID)
-    # Subset to country level data
-    admin0 = loc_metadata[loc_metadata.level == 3]
-    # This assumes location is a super region (admin level 1: location_id will be second number in path_to_top_parent)
-    admin0['super_region_id'] = admin0['path_to_top_parent'].str.split(",").str[1]
-    admin0['super_region_id'] = admin0['super_region_id'].astype(int)
-    child_locs = admin0.loc[admin0['super_region_id'] == parent_id]
-    child_locs = child_locs['location_name'].to_list()
+
+    path_lists = [[int(loc) for loc in path.split(',')] for path in loc_metadata.path_to_top_parent]
+
+    is_child_loc = [parent_id in path_list for path_list in path_lists]
+
+    # Subset to level
+    is_country = loc_metadata.level == level
+    child_locs = loc_metadata.loc[(is_child_loc) & (is_country), 'location_name'].tolist()
 
     return child_locs
 
