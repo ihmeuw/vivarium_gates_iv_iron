@@ -70,6 +70,9 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
         data_keys.LBWSG.CATEGORIES: load_metadata,
         data_keys.LBWSG.EXPOSURE: load_lbwsg_exposure,
+        data_keys.PREGNANCY_OUTCOMES.STILLBIRTH: load_pregnancy_outcome,
+        data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH: load_pregnancy_outcome,
+        data_keys.PREGNANCY_OUTCOMES.OTHER: load_pregnancy_outcome,
         # TODO - add appropriate mappings
         # data_keys.DIARRHEA_PREVALENCE: load_standard_data,
         # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
@@ -360,3 +363,33 @@ def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
     postpartum_prevalence = (asfr + asfr * sbr + incidence_c995 + incidence_c374) * 6 / 52
 
     return postpartum_prevalence
+
+
+def _get_pregnancy_outcome_denominator(key: str, location: str):
+    # ASFR + ASFR * SBR + incidence_c995 + incidence_c374)
+
+    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
+    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
+    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
+
+    return asfr + asfr * sbr + incidence_c995 + incidence_c374
+
+
+def load_pregnancy_outcome(key: str, location: str):
+    # live_birht =  asfr/denom
+    # stillbirth =  asfr*sbr
+    # other = addition both incidence
+    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
+    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
+    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
+
+    if key == data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH:
+        return asfr / _get_pregnancy_outcome_denominator(key, location)
+    elif key == data_keys.PREGNANCY_OUTCOMES.STILLBIRTH:
+        return (asfr * sbr) / _get_pregnancy_outcome_denominator(key, location)
+    elif key == data_keys.PREGNANCY_OUTCOMES.OTHER:
+        return (incidence_c374 + incidence_c995) / _get_pregnancy_outcome_denominator(key, location)
+    else:
+        raise ValueError(f'Unrecognized key {key}')

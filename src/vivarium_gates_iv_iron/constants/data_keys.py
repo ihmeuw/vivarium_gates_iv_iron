@@ -30,6 +30,24 @@ class __Population(NamedTuple):
 POPULATION = __Population()
 
 
+class __PregnancyOutcomes(NamedTuple):
+    # Live birth, still birth, other
+    STILLBIRTH: TargetString = TargetString("pregnancy_outcomes.stillbirth")
+    LIVE_BIRTH: TargetString = TargetString("pregnancy_outcomes.live_birth")
+    OTHER: TargetString = TargetString("pregnancy_outcomes.other")  # (abortion, miscarriage, ectopic pregnancy)
+
+    @property
+    def name(self):
+        return "pregnancy_outcomes"
+
+    @property
+    def log_name(self):
+        return "pregnancy_outcomes"
+
+
+PREGNANCY_OUTCOMES = __PregnancyOutcomes()
+
+
 class __Pregnancy(NamedTuple):
 
     # Keys that will be loaded into the artifact. must have a colon type declaration
