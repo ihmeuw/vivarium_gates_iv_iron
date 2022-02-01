@@ -92,12 +92,6 @@ class __Pregnancy(NamedTuple):
 
 PREGNANCY = __Pregnancy()
 
-MAKE_ARTIFACT_KEY_GROUPS = [
-    POPULATION,
-    # TODO: list all key groups here
-    PREGNANCY
-]
-
 
 class __LowBirthWeightShortGestation(NamedTuple):
     # Keys that will be loaded into the artifact. must have a colon type declaration
@@ -122,3 +116,11 @@ class __LowBirthWeightShortGestation(NamedTuple):
 
 
 LBWSG = __LowBirthWeightShortGestation()
+
+
+MAKE_ARTIFACT_KEY_GROUPS = [
+    POPULATION,
+    PREGNANCY,
+    PREGNANCY_OUTCOMES,
+    LBWSG
+]
