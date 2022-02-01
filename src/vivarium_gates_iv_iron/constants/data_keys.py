@@ -32,9 +32,9 @@ POPULATION = __Population()
 
 class __PregnancyOutcomes(NamedTuple):
     # Live birth, still birth, other
-    STILLBIRTH: TargetString = TargetString("pregnancy_outcomes.stillbirth")
-    LIVE_BIRTH: TargetString = TargetString("pregnancy_outcomes.live_birth")
-    OTHER: TargetString = TargetString("pregnancy_outcomes.other")  # (abortion, miscarriage, ectopic pregnancy)
+    STILLBIRTH: str = "pregnancy_outcomes.stillbirth"
+    LIVE_BIRTH: str = "pregnancy_outcomes.live_birth"
+    OTHER: str = "pregnancy_outcomes.other"  # (abortion, miscarriage, ectopic pregnancy)
 
     @property
     def name(self):
