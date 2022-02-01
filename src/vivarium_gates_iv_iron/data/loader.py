@@ -218,7 +218,8 @@ def get_child_sbr_with_weighting_unit(location: str):
 
 
 def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4', level=3):
-    # Level default parameter pulls child locations at national level
+    # Level = 3 default parameter pulls child locations at national level
+    # location_set_id = 35 is for GBD model results
 
     parent_id = utility_data.get_location_id(location)
     loc_metadata = get_location_metadata(location_set_id=location_set_id,
