@@ -200,7 +200,7 @@ def load_sbr(key: str, location: str):
 def get_child_sbr_with_weighting_unit(location: str):
 
     def get_sbr_value():
-        sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
+        sbr = get_data(data_keys.PREGNANCY.SBR, location)
         sbr = sbr.reset_index()
         sbr = sbr[(sbr.year_start == 2019) & (sbr.parameter == 'mean_value')]['value'].values[0]
         return sbr
@@ -234,7 +234,7 @@ def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4'):
 
 
 def get_weighting_units(location):
-    asfr_draws = load_asfr(data_keys.PREGNANCY.ASFR, location)
+    asfr_draws = get_data(data_keys.PREGNANCY.ASFR, location)
     wra = get_wra(location)
 
     df = pd.concat([asfr_draws, wra], axis=1)
@@ -346,13 +346,18 @@ def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
     return _get_pregnancy_outcome_denominator(key, location) * 6 / 52
 
 
-def _get_pregnancy_outcome_denominator(key: str, location: str):
-    # ASFR + ASFR * SBR + incidence_c995 + incidence_c374)
+def _get_pregnancy_outcome_denominator(key: str, location: str, asfr=None, sbr=None,
+                                       incidence_c995=None, incidence_c374=None):
 
-    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
-    sbr = get_data(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
-    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
+    # ASFR + ASFR * SBR + incidence_c995 + incidence_c374)
+    if asfr is None:
+        asfr = get_data(data_keys.PREGNANCY.ASFR, location)
+    if sbr is None:
+        sbr = get_data(data_keys.PREGNANCY.SBR, location)
+    if incidence_c995 is None:
+        incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    if incidence_c374 is None:
+        incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
 
     return asfr + asfr * sbr + incidence_c995 + incidence_c374
 
@@ -363,14 +368,16 @@ def load_pregnancy_outcome(key: str, location: str):
     # other = addition both incidence
     asfr = get_data(data_keys.PREGNANCY.ASFR, location)
     sbr = get_data(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
-    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
+    incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
+    pregnancy_denominator = _get_pregnancy_outcome_denominator(key, location, asfr=asfr, sbr=sbr,
+                                                         incidence_c995=incidence_c995, incidence_c374=incidence_c374)
 
     if key == data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH:
-        return asfr / _get_pregnancy_outcome_denominator(key, location)
+        return asfr / pregnancy_denominator
     elif key == data_keys.PREGNANCY_OUTCOMES.STILLBIRTH:
-        return (asfr * sbr) / _get_pregnancy_outcome_denominator(key, location)
+        return (asfr * sbr) / pregnancy_denominator
     elif key == data_keys.PREGNANCY_OUTCOMES.OTHER:
-        return (incidence_c374 + incidence_c995) / _get_pregnancy_outcome_denominator(key, location)
+        return (incidence_c374 + incidence_c995) / pregnancy_denominator
     else:
         raise ValueError(f'Unrecognized key {key}')
