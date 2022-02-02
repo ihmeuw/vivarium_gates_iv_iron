@@ -200,7 +200,7 @@ def load_sbr(key: str, location: str):
 def get_child_sbr_with_weighting_unit(location: str):
 
     def get_sbr_value():
-        sbr = get_data(data_keys.PREGNANCY.SBR, location)
+        sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
         sbr = sbr.reset_index()
         sbr = sbr[(sbr.year_start == 2019) & (sbr.parameter == 'mean_value')]['value'].values[0]
         return sbr
