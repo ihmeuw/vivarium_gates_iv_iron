@@ -61,10 +61,10 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
-        data_keys.PREGNANCY.PREGNANCY_INCIDENCE_RATE: load_pregnancy_incidence_rate,
-        data_keys.PREGNANCY.PREGNANCY_PREVALENCE: get_prevalence_pregnant,
-        data_keys.PREGNANCY.INCIDENCE_C995: load_standard_data,
-        data_keys.PREGNANCY.INCIDENCE_C374: load_standard_data,
+        data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
+        data_keys.PREGNANCY.PREVALENCE: get_prevalence_pregnant,
+        data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE: load_standard_data,
+        data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
         data_keys.PREGNANCY.SBR: load_sbr,
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
@@ -156,16 +156,10 @@ def _load_em_from_meid(location, meid, measure):
     return vi_utils.sort_hierarchical_data(data)
 
 
-# TODO - add project-specific data functions here
 def load_pregnancy_incidence_rate(key: str, location: str):
 
     not_pregnant = get_prevalence_not_pregnant(key, location)
-    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
-    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
-    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
-
-    pregnancy_incidence_rate = (asfr + asfr * sbr + incidence_c995 + incidence_c374) / not_pregnant
+    pregnancy_incidence_rate = _get_pregnancy_outcome_denominator(key, location) / not_pregnant
 
     return pregnancy_incidence_rate
 
@@ -176,10 +170,10 @@ def load_asfr(key: str, location: str):
 
     # pivot
     asfr = asfr.reset_index()
-    asfr = asfr[(asfr.sex == 'Female') &
-                (asfr.age_start >= 7) &
-                (asfr.age_end <= 57) &
-                (asfr.year_start == 2019)]
+    asfr = asfr[(asfr.sex == 'Female')
+                & (asfr.age_start >= 7)
+                & (asfr.age_end <= 57)
+                & (asfr.year_start == 2019)]
     asfr_pivot = asfr.pivot(index=[col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"],
                             columns='parameter', values='value')
     asfr_draws = asfr_pivot.apply(create_draws, args=(key, location), axis=1)
@@ -203,17 +197,16 @@ def load_sbr(key: str, location: str):
     return df
 
 
-def get_sbr_value(location):
-    sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
-    sbr = sbr.reset_index()
-    sbr = sbr[(sbr.year_start == 2019) & (sbr.parameter == 'mean_value')]['value'].values[0]
-    return sbr
-
-
 def get_child_sbr_with_weighting_unit(location: str):
 
+    def get_sbr_value():
+        sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
+        sbr = sbr.reset_index()
+        sbr = sbr[(sbr.year_start == 2019) & (sbr.parameter == 'mean_value')]['value'].values[0]
+        return sbr
+
     sbr_df = get_weighting_units(location)
-    sbr_df['sbr'] = get_sbr_value(location)
+    sbr_df['sbr'] = get_sbr_value()
     sbr_df['location'] = location
     sbr_df = sbr_df.reset_index()
 
@@ -344,34 +337,22 @@ def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
 
 
 def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
-    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
-    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
-    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
 
-    pregnancy_prevalence = (asfr + asfr * sbr + incidence_c995 + incidence_c374) * 40 / 52
-
-    return pregnancy_prevalence
+    return _get_pregnancy_outcome_denominator(key, location) * 40 / 52
 
 
 def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
-    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
-    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
-    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
 
-    postpartum_prevalence = (asfr + asfr * sbr + incidence_c995 + incidence_c374) * 6 / 52
-
-    return postpartum_prevalence
+    return _get_pregnancy_outcome_denominator(key, location) * 6 / 52
 
 
 def _get_pregnancy_outcome_denominator(key: str, location: str):
     # ASFR + ASFR * SBR + incidence_c995 + incidence_c374)
 
-    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
-    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
-    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
+    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
+    sbr = get_data(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
 
     return asfr + asfr * sbr + incidence_c995 + incidence_c374
 
@@ -380,10 +361,10 @@ def load_pregnancy_outcome(key: str, location: str):
     # live_birht =  asfr/denom
     # stillbirth =  asfr*sbr
     # other = addition both incidence
-    asfr = load_asfr(data_keys.PREGNANCY.ASFR, location)
-    sbr = load_sbr(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C995, location)
-    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_C374, location)
+    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
+    sbr = get_data(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
 
     if key == data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH:
         return asfr / _get_pregnancy_outcome_denominator(key, location)
