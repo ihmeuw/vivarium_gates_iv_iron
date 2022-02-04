@@ -4,6 +4,9 @@ from vivarium_public_health.disease import (DiseaseState, DiseaseModel, Suscepti
 from vivarium_gates_iv_iron.constants import models, data_keys, data_values
 
 
+# XXX TODO: Add DiseaseModel subclass that creates the columns we need to track
+
+
 def Pregnancy():
     not_pregnant = SusceptibleState(models.PREGNANCY_MODEL_NAME)
     pregnant = DiseaseState(
@@ -11,9 +14,11 @@ def Pregnancy():
         get_data_functions={
             'disability_weight': lambda *_: 0,
             'excess_mortality_rate': lambda *_: 0,
-            # TODO: update with gestational age
+            # TODO: update with gestational age dwell time
             'dwell_time': lambda *_: '9 months'
+            # XXX TODO: define side effect function to determine pregnancy attrs.
         },
+        # side_effect_function=func
     )
     postpartum = DiseaseState(
         models.POSTPARTUM_STATE,
@@ -51,3 +56,5 @@ def Pregnancy():
         #     'incidence_rate': lambda _, builder: builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
         # }
     )
+    return DiseaseModel(
+        models.PREGNANCY_MODEL_NAME, states=[not_pregnant, pregnant, postpartum], initial_state=not_pregnant)
