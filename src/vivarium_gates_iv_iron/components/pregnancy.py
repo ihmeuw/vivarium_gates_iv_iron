@@ -95,14 +95,6 @@ class ChildSex(Risk):
             requires_columns=[self.propensity_column_name]
         )
 
-    ##################################
-    # Pipeline sources and modifiers #
-    ##################################
-
-    def _get_current_exposure(self, index: pd.Index) -> pd.Series:
-        propensity = self.propensity(index)
-        return pd.Series(self.exposure_distribution.ppf(propensity), index=index)
-
 
 class PregnancyOutcome(Risk):
     pass
