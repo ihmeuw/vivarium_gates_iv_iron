@@ -18,6 +18,15 @@ class PregnancyDisease(DiseaseModel):
         """Perform this component's setup."""
         super().setup(builder)
 
+        columns_created = [
+            'pregnancy_status',  # not_pregnant, pregnant, post-partum
+            'pregnancy_outcome',
+            'child_sex',
+            'birth_weight',
+            'conception_date',
+            'pregnancy_duration',
+        ]
+
         self.configuration_age_start = builder.configuration.population.age_start
         self.configuration_age_end = builder.configuration.population.age_end
 
@@ -78,8 +87,42 @@ class PregnancyDisease(DiseaseModel):
         self.population_view.update(condition_column)
 
 
-class ChildSex(Risk):
+class Pregnancy():
+    def __init__(self, cause: str):
+        self.cause = cause
 
+    @property
+    def name(self):
+        return f"disease_model.{self.cause}"
+
+    def setup(self, builder: Builder):
+        child_born = []
+
+        columns_created = [
+            'pregnancy_status',  # not_pregnant, pregnant, post-partum
+            'pregnancy_outcome',
+            'child_sex',
+            'birth_weight',
+            'conception_date',
+            'pregnancy_duration',
+        ]
+
+        pipelines = [
+            'pregnancy_outcome',
+            'birth_weight_shift',
+        ]
+
+    def on_initialize_simulants(self):
+        # TODO sample pregnant | age, year, assign pregnancy status
+        # TODO sample pregnancy outcome | pregnancy status
+        # TODO sample child sex | pregnancy outcome
+        # TODO sample gestational_age | pregnancy_status, child_sex, pregnancy_outcome) assign pregnancy duration
+        # TODO conception_date | gestational_age) (uniformly between now and gestational age
+        pass
+
+
+class ChildSex(Risk):
+    # Risk effect to deterine child sex
     def setup(self, builder: Builder) -> None:
         self.randomness = self._get_randomness_stream(builder)
         self.propensity = self._get_sex_propensity_pipeline(builder)
@@ -97,7 +140,21 @@ class ChildSex(Risk):
 
 
 class PregnancyOutcome(Risk):
-    pass
+    #TODO fix to get pregnancy outcome off of probabilities
+    def setup(self, builder: Builder) -> None:
+        self.randomness = self._get_randomness_stream(builder)
+        self.propensity = self._get_outcome_propensity_pipeline(builder)
+        self.exposure = self._get_exposure_pipeline(builder)
+        self.population_view = self._get_population_view(builder)
+
+        self._register_simulant_initializer(builder)
+
+    def _get_outcome_propensity_pipeline(self, builder: Builder) -> Pipeline:
+        return builder.value.register_value_producer(
+            self.propensity_pipeline_name,
+            source=self.randomness.get_draw,
+            requires_columns=[self.propensity_column_name]
+        )
 
 
 def determine_pregnancy_outcomes(index: pd.Index, event_time: 'Time') -> None:
