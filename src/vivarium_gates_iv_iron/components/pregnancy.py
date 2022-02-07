@@ -47,7 +47,7 @@ class Pregnancy:
         # do you get pregnant, if so, sample gestational age, set pregnancy status and gestational age and conception date
 
         # if pregnant
-        # do you move to post partum (is conception date + pregnancy_duration > t)
+        # do you move to postpartum (is conception date + pregnancy_duration > t)
 
         # if postpartum
         # do you move to not pregnant
@@ -63,6 +63,26 @@ class Pregnancy:
         # write to file
         ...
 
+    def determine_pregnancy_state(self):
+        #TODO: give simulant outcome: do they transition or stay in current state?
+        pass
+
+    def get_pregnancy_outcome(self):
+        #TODO: get result of pregnancy [stillbirth, live_birth, other]
+        pass
+
+    def get_sex_of_child(self):
+        #TODO: use location probabilities to get sex of child IF determine_prenancy_ouotcome is stillbirth or live_birth
+        pass
+
+    def get_pregnancy_data(self):
+        #TODO: get gestational age - do we also need birth weight?
+        #TODO: get pregnancy duration
+        #TODO: get conception date
+
+    def clean_newborn_data(self):
+        #TODO: clean/prep data to be input for child model
+        pass
 
 class LBWSGDistribution:
     # Wrap around core pieces of LBWSG risk component
