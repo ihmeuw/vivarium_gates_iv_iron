@@ -15,7 +15,7 @@ class TransitionString(str):
 # TODO input details of model states and transitions
 
 PREGNANCY_MODEL_NAME = data_keys.PREGNANCY.name
-SUSCEPTIBLE_STATE = f"susceptible_to_{PREGNANCY_MODEL_NAME}"
+SUSCEPTIBLE_STATE = "not_pregnant"
 PREGNANT_STATE = "pregnant"
 POSTPARTUM_STATE = "postpartum"
 PREGNANCY_MODEL_STATES = (

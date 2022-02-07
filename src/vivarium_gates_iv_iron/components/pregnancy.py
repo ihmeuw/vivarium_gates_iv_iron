@@ -12,6 +12,7 @@ from vivarium_gates_iv_iron.constants import models, data_keys, data_values
 
 class Pregnancy:
     def __init__(self):
+        pass
 
     @property
     def name(self):
@@ -29,13 +30,18 @@ class Pregnancy:
             'pregnancy_duration',
         ]
 
+        outcomes = ["stillbirth", "live birth", "other"]
+
         # pipelines = [
         #     'pregnancy_outcome',
         #     'birth_weight_shift',
         # ]
 
+        prevalence = builder.data.load(data_keys.PREGNANCY.PREVALENCE)
+
     def on_initialize_simulants(self):
         # TODO sample pregnant | age, year, assign pregnancy status
+
         # TODO sample pregnancy outcome | pregnancy status
         # TODO sample child sex | pregnancy outcome
         # TODO sample gestational_age | pregnancy_status, child_sex, pregnancy_outcome) assign pregnancy duration
@@ -79,6 +85,7 @@ class Pregnancy:
         #TODO: get gestational age - do we also need birth weight?
         #TODO: get pregnancy duration
         #TODO: get conception date
+        pass
 
     def clean_newborn_data(self):
         #TODO: clean/prep data to be input for child model
