@@ -10,96 +10,18 @@ from vivarium_public_health.risks.base_risk import Risk
 from vivarium_gates_iv_iron.constants import models, data_keys, data_values
 
 
-# XXX TODO: Add DiseaseModel subclass that creates the columns we need to track
-
-
-class PregnancyDisease(DiseaseModel):
-    def setup(self, builder):
-        """Perform this component's setup."""
-        super().setup(builder)
-
-        columns_created = [
-            'pregnancy_status',  # not_pregnant, pregnant, post-partum
-            'pregnancy_outcome',
-            'child_sex',
-            'birth_weight',
-            'conception_date',
-            'pregnancy_duration',
-        ]
-
-        self.configuration_age_start = builder.configuration.population.age_start
-        self.configuration_age_end = builder.configuration.population.age_end
-
-        cause_specific_mortality_rate = self.load_cause_specific_mortality_rate_data(builder)
-        self.cause_specific_mortality_rate = builder.lookup.build_table(cause_specific_mortality_rate,
-                                                                        key_columns=['sex'],
-                                                                        parameter_columns=['age', 'year'])
-        builder.value.register_value_modifier('cause_specific_mortality_rate',
-                                              self.adjust_cause_specific_mortality_rate,
-                                              requires_columns=['age', 'sex'])
-
-        self.population_view = builder.population.get_view(['age', 'sex', self.state_column])
-        builder.population.initializes_simulants(self.on_initialize_simulants,
-                                                 creates_columns=[self.state_column],
-                                                 requires_columns=['age', 'sex'],
-                                                 requires_streams=[f'{self.state_column}_initial_states'])
-        self.randomness = builder.randomness.get_stream(f'{self.state_column}_initial_states')
-
-        builder.event.register_listener('time_step', self.on_time_step)
-        builder.event.register_listener('time_step__cleanup', self.on_time_step_cleanup)
-
-
-    #TODO create columns
-    #TODO on initialize_simulants populate the columns
-
-    def on_initialize_simulants(self, pop_data):
-        population = self.population_view.subview(['age', 'sex']).get(pop_data.index)
-
-        assert self.initial_state in {s.state_id for s in self.states}
-
-        # Assumption being made there is no fertility in this model
-        state_names, weights_bins = self.get_state_weights(pop_data.index, "prevalence")
-
-        if state_names and not population.empty:
-            # only do this if there are states in the model that supply prevalence data
-            population['sex_id'] = population.sex.apply({'Male': 1, 'Female': 2}.get)
-
-            condition_column = self.assign_initial_status_to_simulants(population, state_names, weights_bins,
-                                                                       self.randomness.get_draw(population.index))
-
-            condition_column = condition_column.rename(columns={'condition_state': self.state_column})
-        else:
-            condition_column = pd.Series(self.initial_state, index=population.index, name=self.state_column)
-
-        #TODO initialize values for new columns (child sex, pregnancy outcome, gestational age, birth weight)
-        #TODO create all columns with index and default values for non-pregnant women
-        #TODO if woman is pregnant, find sex of child
-        #    -get propensity for each simulant by calling randomness stream (add additional key for child sex)
-
-        #TODO create risk component for child sex
-        #    -generate pregnancy_pipeline for sex and another pipeline for outcome, get_current_exposure in risk pipeline
-
-        #TODO create risk component for pregnancy outcome
-
-        #TODO for outcomes of livebirth, find gestational age and birth weight
-        #    -apply LBWGG risk
-
-        self.population_view.update(condition_column)
-
-
-class Pregnancy():
-    def __init__(self, cause: str):
-        self.cause = cause
+class Pregnancy:
+    def __init__(self):
 
     @property
     def name(self):
-        return f"disease_model.{self.cause}"
+        return models.PREGNANCY_MODEL_NAME
 
     def setup(self, builder: Builder):
-        child_born = []
+        children_born = []  # This will be input for child model
 
         columns_created = [
-            'pregnancy_status',  # not_pregnant, pregnant, post-partum
+            'pregnancy_status',  # not_pregnant, pregnant, postpartum
             'pregnancy_outcome',
             'child_sex',
             'birth_weight',
@@ -107,10 +29,10 @@ class Pregnancy():
             'pregnancy_duration',
         ]
 
-        pipelines = [
-            'pregnancy_outcome',
-            'birth_weight_shift',
-        ]
+        # pipelines = [
+        #     'pregnancy_outcome',
+        #     'birth_weight_shift',
+        # ]
 
     def on_initialize_simulants(self):
         # TODO sample pregnant | age, year, assign pregnancy status
@@ -120,8 +42,40 @@ class Pregnancy():
         # TODO conception_date | gestational_age) (uniformly between now and gestational age
         pass
 
+    def on_time_step(self):
+        # if not pregnant,
+        # do you get pregnant, if so, sample gestational age, set pregnancy status and gestational age and conception date
 
-class ChildSex(Risk):
+        # if pregnant
+        # do you move to post partum (is conception date + pregnancy_duration > t)
+
+        # if postpartum
+        # do you move to not pregnant
+        ...
+
+    def on_collect_metrics(self):
+        # Record births, append (sex, bw, ga, birth date, maternal characteristics) tuple to list
+        ...
+
+    def on_simulation_end(self):
+        # coerce list of children tuples to dataframe
+        # Get output directory from configuration (can be special config key or get from general results key)
+        # write to file
+        ...
+
+
+class LBWSGDistribution:
+    # Wrap around core pieces of LBWSG risk component
+
+    def setup(self, builder):
+        pass
+
+    def sample(self, list_of_sexes) -> List[Tuple(float, float)]:
+        # take an int n_samples, give back a list of (bw, ga) tuples of length n_samples
+        pass
+
+
+class SexOfChild(Risk):
     # Risk effect to deterine child sex
     def setup(self, builder: Builder) -> None:
         self.randomness = self._get_randomness_stream(builder)
