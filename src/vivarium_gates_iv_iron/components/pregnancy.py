@@ -56,7 +56,8 @@ class Pregnancy:
         self.randomness = builder.randomness.get_stream(self.name)
 
     def _get_population_view(self, builder: Builder) -> PopulationView:
-        return builder.population.get_view(['tracked', self.exposure_column_name])
+        # just pregnancy status for now
+        return builder.population.get_view(['tracked', 'pregnancy_status'])
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         # TODO sample pregnant | age, year, assign pregnancy status
@@ -71,7 +72,6 @@ class Pregnancy:
 
         # TODO sample gestational_age | pregnancy_status, child_sex, pregnancy_outcome) assign pregnancy duration
         # TODO conception_date | gestational_age) (uniformly between now and gestational age
-        pass
 
     def on_time_step(self):
         # if not pregnant,
