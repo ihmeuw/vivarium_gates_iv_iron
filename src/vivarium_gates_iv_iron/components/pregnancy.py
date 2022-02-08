@@ -11,6 +11,9 @@ from vivarium_gates_iv_iron.constants import models, data_keys, data_values, met
 
 
 class Pregnancy:
+    PREGNANCY_STATUSES = ('not_pregnant', 'pregnant', 'postpartum')
+    PREGNANCY_OUTCOMES = ("stillbirth", "live_birth", "other")
+
     def __init__(self):
         pass
 
@@ -19,50 +22,34 @@ class Pregnancy:
         return models.PREGNANCY_MODEL_NAME
 
     def setup(self, builder: Builder):
-        self.population_view = self._get_population_view(builder)
+        self.randomness = builder.randomness.get_stream(self.name)
 
-        children_born = []  # This will be input for child model
+        #children_born = []  # This will be input for child model
 
         columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
-            'pregnancy_outcome',
-            'child_sex',
-            'birth_weight',
-            'conception_date',
-            'pregnancy_duration',
+            # 'pregnancy_outcome',
+            # 'child_sex',
+            # 'birth_weight',
+            # 'conception_date',
+            # 'pregnancy_duration',
         ]
 
-        outcomes = ["stillbirth", "live_birth", "other"]
-
-        # pipelines = [
-        #     'pregnancy_outcome',
-        #     'birth_weight_shift',
-        # ]
-
-        index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
-        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREVALENCE)
-                               .dropna()
-                               .reset_index()
-                               .set_index(index_cols)
-                               .drop('index', axis=1))
-        postpartum_prevalence = pregnant_prevalence * 6 / 40
-        not_pregnant_prevalence = 1 - (postpartum_prevalence + pregnant_prevalence)
-        prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
-        prevalences.columns = ['not_pregnant', 'pregnant', 'postpartum']
-        self.prevalence = builder.lookup.build_table(prevalences.reset_index(),
+        prevalences = self.load_pregnancy_prevalence(builder)
+        self.prevalence = builder.lookup.build_table(prevalences,
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
-        builder.population.initializes_simulants(self.on_initialize_simulants)
-        self.randomness = builder.randomness.get_stream(self.name)
 
-    def _get_population_view(self, builder: Builder) -> PopulationView:
-        # just pregnancy status for now
-        return builder.population.get_view(['tracked', 'pregnancy_status'])
+        self.population_view = builder.population.get_view(columns_created)
+        builder.population.initializes_simulants(self.on_initialize_simulants,
+                                                 creates_columns=columns_created,
+                                                 requires_streams=[self.name])
+
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         # TODO sample pregnant | age, year, assign pregnancy status
-        pregnancy_status = self.randomness.choice(pop_data.index, choices=['np','pp','p'], p=self.prevalence(pop_data.index))
-        pregnancy_status = pd.Series(pregnancy_status, name='pregnancy_status')
+        p = self.prevalence(pop_data.index)
+        pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p)
         self.population_view.update(pregnancy_status)
         # TODO sample pregnancy outcome | pregnancy status
         # is_pregnant = self.population_view.subview(['pregnancy_status']).get(pop_data.index).squeeze(axis=1) == 'p'
@@ -94,24 +81,19 @@ class Pregnancy:
         # write to file
         ...
 
-    def determine_pregnancy_state(self):
-        #TODO: give simulant outcome: do they transition or stay in current state?
-        pass
 
-    def get_pregnancy_outcome(self):
-        #TODO: get result of pregnancy [stillbirth, live_birth, other]
-        pass
+    def load_pregnancy_prevalence(self, builder: Builder) -> pd.DataFrame:
 
-    def get_sex_of_child(self):
-        #TODO: use location probabilities to get sex of child IF determine_prenancy_ouotcome is stillbirth or live_birth
-        pass
+        index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
+        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREVALENCE)
+                               .dropna()
+                               .reset_index()
+                               .set_index(index_cols)
+                               .drop('index', axis=1))
+        postpartum_prevalence = pregnant_prevalence * 6 / 40
+        not_pregnant_prevalence = 1 - (postpartum_prevalence + pregnant_prevalence)
+        # order of prevalences must match order of PREGNANCY_STATUSES
+        prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
+        prevalences.columns = list(self.PREGNANCY_STATUSES)
 
-    def get_pregnancy_data(self):
-        #TODO: get gestational age - do we also need birth weight?
-        #TODO: get pregnancy duration
-        #TODO: get conception date
-        pass
-
-    def clean_newborn_data(self):
-        #TODO: clean/prep data to be input for child model
-        pass
+        return prevalences.reset_index()
