@@ -19,6 +19,8 @@ class Pregnancy:
         return models.PREGNANCY_MODEL_NAME
 
     def setup(self, builder: Builder):
+        self.population_view = self._get_population_view(builder)
+
         children_born = []  # This will be input for child model
 
         columns_created = [
@@ -52,6 +54,9 @@ class Pregnancy:
                                                      parameter_columns=['age', 'year'])
         builder.population.initializes_simulants(self.on_initialize_simulants)
         self.randomness = builder.randomness.get_stream(self.name)
+
+    def _get_population_view(self, builder: Builder) -> PopulationView:
+        return builder.population.get_view(['tracked', self.exposure_column_name])
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         # TODO sample pregnant | age, year, assign pregnancy status
