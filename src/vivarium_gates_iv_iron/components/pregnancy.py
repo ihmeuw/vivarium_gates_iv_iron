@@ -12,7 +12,7 @@ from vivarium_gates_iv_iron.constants import models, data_keys, data_values, met
 
 class Pregnancy:
     PREGNANCY_STATUSES = ('not_pregnant', 'pregnant', 'postpartum')
-    PREGNANCY_OUTCOMES = ("stillbirth", "live_birth", "other")
+    PREGNANCY_OUTCOMES = ("live_birth", "stillbirth", "other", "invalid")
 
     def __init__(self):
         pass
@@ -28,7 +28,7 @@ class Pregnancy:
 
         columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
-            # 'pregnancy_outcome',
+            'pregnancy_outcome',
             # 'child_sex',
             # 'birth_weight',
             # 'conception_date',
@@ -37,6 +37,10 @@ class Pregnancy:
 
         prevalences = self.load_pregnancy_prevalence(builder)
         self.prevalence = builder.lookup.build_table(prevalences,
+                                                     key_columns=['sex'],
+                                                     parameter_columns=['age', 'year'])
+        outcome_probabilities = self.load_pregnancy_outcome_probabilities(builder)
+        self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
 
@@ -50,11 +54,16 @@ class Pregnancy:
         # TODO sample pregnant | age, year, assign pregnancy status
         p = self.prevalence(pop_data.index)[list(self.PREGNANCY_STATUSES)]
         pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p)
-        self.population_view.update(pregnancy_status)
+        pregnancy_outcome = pd.Series('invalid', index=pop_data.index)
+        is_pregnant_idx = pop_data.index[pregnancy_status == 'pregnant']
+        if not is_pregnant_idx.empty:
+            p = self.outcome_probabilities(is_pregnant_idx)[list(self.PREGNANCY_OUTCOMES)]
+            pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=self.PREGNANCY_OUTCOMES, p=p)
+        pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
+                                   'pregnancy_outcome': pregnancy_outcome})
+        self.population_view.update(pop_update)
         # TODO sample pregnancy outcome | pregnancy status
-        # is_pregnant = self.population_view.subview(['pregnancy_status']).get(pop_data.index).squeeze(axis=1) == 'p'
-        # outcome is default if pregnancy status is not pregnant or postpartum
-        # outcome is binned into 3 possible outcomes if status is pregnant
+
         # TODO sample child sex | pregnancy outcome
 
         # TODO sample gestational_age | pregnancy_status, child_sex, pregnancy_outcome) assign pregnancy duration
@@ -97,3 +106,19 @@ class Pregnancy:
         prevalences.columns = list(self.PREGNANCY_STATUSES)
 
         return prevalences.reset_index()
+
+    def load_pregnancy_outcome_probabilities(self, builder: Builder) -> pd.DataFrame:
+
+        pregnancy_outcome_keys = [data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH,
+                                  data_keys.PREGNANCY_OUTCOMES.STILLBIRTH,
+                                  data_keys.PREGNANCY_OUTCOMES.OTHER]
+        outcome_probabilities = []
+        index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
+        for data_key, status in zip(pregnancy_outcome_keys, self.PREGNANCY_OUTCOMES[:-1]):
+            p = builder.data.load(data_key)
+            p = p.set_index(index_cols)['value'].rename(status).fillna(0)
+            outcome_probabilities.append(p)
+        outcome_probabilities = pd.concat(outcome_probabilities, axis=1)
+        outcome_probabilities[self.PREGNANCY_OUTCOMES[-1]] = 1 - outcome_probabilities.sum(axis=1)
+
+        return outcome_probabilities.reset_index()
