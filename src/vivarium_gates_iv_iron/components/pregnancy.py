@@ -48,7 +48,7 @@ class Pregnancy:
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         # TODO sample pregnant | age, year, assign pregnancy status
-        p = self.prevalence(pop_data.index)
+        p = self.prevalence(pop_data.index)[list(self.PREGNANCY_STATUSES)]
         pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p)
         self.population_view.update(pregnancy_status)
         # TODO sample pregnancy outcome | pregnancy status
