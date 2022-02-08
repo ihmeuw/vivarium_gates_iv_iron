@@ -7,7 +7,7 @@ from vivarium.framework.values import Pipeline
 from vivarium_public_health.disease import (DiseaseState, DiseaseModel, SusceptibleState,
                                             RateTransition as RateTransition_, RecoveredState)
 from vivarium_public_health.risks.base_risk import Risk
-from vivarium_gates_iv_iron.constants import models, data_keys, data_values
+from vivarium_gates_iv_iron.constants import models, data_keys, data_values, metadata
 
 
 class Pregnancy:
@@ -30,20 +30,40 @@ class Pregnancy:
             'pregnancy_duration',
         ]
 
-        outcomes = ["stillbirth", "live birth", "other"]
+        outcomes = ["stillbirth", "live_birth", "other"]
 
         # pipelines = [
         #     'pregnancy_outcome',
         #     'birth_weight_shift',
         # ]
 
-        prevalence = builder.data.load(data_keys.PREGNANCY.PREVALENCE)
+        index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
+        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREVALENCE)
+                               .dropna()
+                               .reset_index()
+                               .set_index(index_cols)
+                               .drop('index', axis=1))
+        postpartum_prevalence = pregnant_prevalence * 6 / 40
+        not_pregnant_prevalence = 1 - (postpartum_prevalence + pregnant_prevalence)
+        prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
+        prevalences.columns = ['not_pregnant', 'pregnant', 'postpartum']
+        self.prevalence = builder.lookup.build_table(prevalences.reset_index(),
+                                                     key_columns=['sex'],
+                                                     parameter_columns=['age', 'year'])
+        builder.population.initializes_simulants(self.on_initialize_simulants)
+        self.randomness = builder.randomness.get_stream(self.name)
 
-    def on_initialize_simulants(self):
+    def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         # TODO sample pregnant | age, year, assign pregnancy status
-
+        pregnancy_status = self.randomness.choice(pop_data.index, choices=['np','pp','p'], p=self.prevalence(pop_data.index))
+        pregnancy_status = pd.Series(pregnancy_status, name='pregnancy_status')
+        self.population_view.update(pregnancy_status)
         # TODO sample pregnancy outcome | pregnancy status
+        # is_pregnant = self.population_view.subview(['pregnancy_status']).get(pop_data.index).squeeze(axis=1) == 'p'
+        # outcome is default if pregnancy status is not pregnant or postpartum
+        # outcome is binned into 3 possible outcomes if status is pregnant
         # TODO sample child sex | pregnancy outcome
+
         # TODO sample gestational_age | pregnancy_status, child_sex, pregnancy_outcome) assign pregnancy duration
         # TODO conception_date | gestational_age) (uniformly between now and gestational age
         pass
@@ -90,110 +110,3 @@ class Pregnancy:
     def clean_newborn_data(self):
         #TODO: clean/prep data to be input for child model
         pass
-
-class LBWSGDistribution:
-    # Wrap around core pieces of LBWSG risk component
-
-    def setup(self, builder):
-        pass
-
-    def sample(self, list_of_sexes) -> List[Tuple(float, float)]:
-        # take an int n_samples, give back a list of (bw, ga) tuples of length n_samples
-        pass
-
-
-class SexOfChild(Risk):
-    # Risk effect to deterine child sex
-    def setup(self, builder: Builder) -> None:
-        self.randomness = self._get_randomness_stream(builder)
-        self.propensity = self._get_sex_propensity_pipeline(builder)
-        self.exposure = self._get_exposure_pipeline(builder)
-        self.population_view = self._get_population_view(builder)
-
-        self._register_simulant_initializer(builder)
-
-    def _get_sex_propensity_pipeline(self, builder: Builder) -> Pipeline:
-        return builder.value.register_value_producer(
-            self.propensity_pipeline_name,
-            source=self.randomness.get_draw,
-            requires_columns=[self.propensity_column_name]
-        )
-
-
-class PregnancyOutcome(Risk):
-    #TODO fix to get pregnancy outcome off of probabilities
-    def setup(self, builder: Builder) -> None:
-        self.randomness = self._get_randomness_stream(builder)
-        self.propensity = self._get_outcome_propensity_pipeline(builder)
-        self.exposure = self._get_exposure_pipeline(builder)
-        self.population_view = self._get_population_view(builder)
-
-        self._register_simulant_initializer(builder)
-
-    def _get_outcome_propensity_pipeline(self, builder: Builder) -> Pipeline:
-        return builder.value.register_value_producer(
-            self.propensity_pipeline_name,
-            source=self.randomness.get_draw,
-            requires_columns=[self.propensity_column_name]
-        )
-
-
-def determine_pregnancy_outcomes(index: pd.Index, event_time: 'Time') -> None:
-    # This is transition side effect
-    #TODO determine sex of child
-    #TODO determine whether it is still_birth, full term, etc
-    #TODO determine birth weight and gestational age
-    # Do we want to record time of conception?
-    pass
-
-def Pregnancy():
-    not_pregnant = SusceptibleState(models.PREGNANCY_MODEL_NAME)
-    pregnant = DiseaseState(
-        models.PREGNANT_STATE,
-        get_data_functions={
-            'disability_weight': lambda *_: 0,
-            'excess_mortality_rate': lambda *_: 0,
-            # TODO: update with gestational age dwell time
-            'dwell_time': lambda *_: '9 months'
-            # XXX TODO: define side effect function to determine pregnancy attrs.
-        },
-        side_effect_function=determine_pregnancy_outcomes
-    )
-    postpartum = DiseaseState(
-        models.POSTPARTUM_STATE,
-        get_data_functions={
-            'disability_weight': lambda *_: 0,
-            'excess_mortality_rate': lambda *_: 0,
-            'dwell_time': lambda *_: '6 weeks'
-        },
-    )
-
-    not_pregnant.allow_self_transitions()
-    not_pregnant.add_transition(
-        pregnant,
-        source_data_type='rate',
-        get_data_functions={
-            'incidence_rate': lambda _, builder: builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
-        }
-    )
-
-    pregnant.allow_self_transitions()
-    pregnant.add_transition(
-        postpartum,
-        #source_data_type='rate',
-        # TODO: consider incidences of different pregnancy outcomes
-        #get_data_functions={
-        #    'incidence_rate': lambda _, builder: builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
-        #}
-    )
-
-    postpartum.allow_self_transitions()
-    postpartum.add_transition(
-        not_pregnant,
-        # source_data_type='rate',
-        # get_data_functions={
-        #     'incidence_rate': lambda _, builder: builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
-        # }
-    )
-    return DiseaseModel(
-        models.PREGNANCY_MODEL_NAME, states=[not_pregnant, pregnant, postpartum], initial_state=not_pregnant)
