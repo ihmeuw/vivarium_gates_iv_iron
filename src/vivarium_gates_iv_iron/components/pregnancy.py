@@ -30,7 +30,7 @@ class Pregnancy:
             'pregnancy_outcome',
             'sex_of_child',
             'birth_weight',
-            'conception_date',
+            'state_change_date',
             'pregnancy_duration',
         ]
 
@@ -38,10 +38,11 @@ class Pregnancy:
         self.prevalence = builder.lookup.build_table(prevalences,
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
-        conception_rate = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
-        ectopic_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC)
-        #TODO fix other_pregnancy name
-        other_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE)
+        conception_rate_data = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE).fillna(0)
+        conception_rate = builder.lookup.build_table(conception_rate_data,
+                                                          key_columns=['sex'],
+                                                          parameter_columns=['age', 'year'])
+        self.conception_rate = builder.value.register_rate_producer('conception_rate', source=conception_rate)
 
         outcome_probabilities = self.load_pregnancy_outcome_probabilities(builder)
         self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
@@ -61,9 +62,10 @@ class Pregnancy:
         pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p, additional_key='pregnancy_status')
         pregnancy_outcome = pd.Series('invalid', index=pop_data.index)
         is_pregnant_idx = pop_data.index[pregnancy_status == 'pregnant']
-        if not is_pregnant_idx.empty:
-            p = self.outcome_probabilities(is_pregnant_idx)[list(self.PREGNANCY_OUTCOMES)]
-            pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=self.PREGNANCY_OUTCOMES, p=p, additional_key='pregnancy_outcome')
+        is_postpartum_idx = pop_data.index[pregnancy_status == 'postpartum']
+
+        p = self.outcome_probabilities(is_pregnant_idx)[list(self.PREGNANCY_OUTCOMES)]
+        pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=self.PREGNANCY_OUTCOMES, p=p, additional_key='pregnancy_outcome')
 
         sex_of_child = pd.Series('invalid', index=pop_data.index)
         sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'], p=[0.5, 0.5], additional_key='sex_of_child')
@@ -76,36 +78,70 @@ class Pregnancy:
         pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28 * self.randomness.get_draw(is_pregnant_idx, additional_key='pregnancy_duration'),
                                                                   unit='d')
 
+        state_change_date = pd.Series(pd.NaT, index=pop_data.index)
         days_until_pregnancy_ends = pregnancy_duration * self.randomness.get_draw(pop_data.index, additional_key='conception_date')
         conception_date = pop_data.creation_time - days_until_pregnancy_ends
-
+        days_until_postpartum_ends = pd.to_timedelta(42 * self.randomness.get_draw(pop_data.index, additional_key='days_until_postpartum_ends'))
+        postpartum_start_date = pop_data.creation_time - days_until_postpartum_ends
+        state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
+        state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
 
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
                                    'sex_of_child': sex_of_child,
                                    'birth_weight': birth_weight,
                                    'pregnancy_duration': pregnancy_duration,
-                                   'conception_date': conception_date})
+                                   'state_change_date': state_change_date})
         self.population_view.update(pop_update)
-
 
     def on_time_step(self, event: Event):
 
         pop = self.population_view.get(event.index)
 
         not_pregnant_idx = pop.loc[pop['pregnancy_status'] == "not_pregnant"].index
-        pregnant_idx = pop.loc[pop['pregnancy_status'] == "pregnant"].index
-        postpartum_idx = pop.loc[pop['pregnancy_status'] == "postpartum"].index
 
-        # if not pregnant,
-        # do you get pregnant, if so, sample gestational age, set pregnancy status and gestational age and conception date
+        conception_rate = self.conception_rate(not_pregnant_idx)
+        pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate, additional_key='new_pregnancy')
+        postpartum_this_step = pop.loc[(pop['pregnancy_status'] == 'pregnant') & (event.time - pop["state_change_date"] > pop["pregnancy_duration"])].index
+        not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == 'postpartum') & (event.time - pop["state_change_date"] > pd.Timedelta(days=42))].index
 
-        # if pregnant
-        # do you move to postpartum (is conception date + pregnancy_duration > t)
+        p = self.outcome_probabilities(pregnant_this_step)[list(self.PREGNANCY_OUTCOMES)]
+        pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=self.PREGNANCY_OUTCOMES, p=p,
+                                                                            additional_key='pregnancy_outcome')
 
-        # if postpartum
-        # do you move to not pregnant
-        ...
+        sex_of_child = self.randomness.choice(pregnant_this_step, choices=['Male', 'Female'],
+                                                                   p=[0.5, 0.5], additional_key='sex_of_child')
+
+        birth_weight = 1500.0 + 1500 * self.randomness.get_draw(pregnant_this_step, additional_key='birth_weight')
+
+        pregnancy_duration = pd.to_timedelta(9 * 28 * self.randomness.get_draw(pregnant_this_step, additional_key='pregnancy_duration'),
+            unit='d')
+
+        new_pregnant = pd.DataFrame({'pregnancy_status': "pregnant",
+                                     'pregnancy_outcome': pregnancy_outcome,
+                                     'sex_of_child': sex_of_child,
+                                     'birth_weight': birth_weight,
+                                     'pregnancy_duration': pregnancy_duration,
+                                     'state_change_date': event.time}, index=pregnant_this_step)
+
+        new_postpartum = pd.DataFrame({'pregnancy_status': "postpartum",
+                                   'pregnancy_outcome': "invalid",
+                                   'sex_of_child': "invalid",
+                                   'birth_weight': np.nan,
+                                   'pregnancy_duration': pd.NaT,
+                                   'state_change_date': event.time}, index=postpartum_this_step)
+
+        new_not_pregnant = pd.DataFrame({'pregnancy_status': "not_pregnant",
+                                       'pregnancy_outcome': "invalid",
+                                       'sex_of_child': "invalid",
+                                       'birth_weight': np.nan,
+                                       'pregnancy_duration': pd.NaT,
+                                       'state_change_date': event.time}, index=not_pregnant_this_step)
+
+        pop_update = pd.concat([new_pregnant, new_not_pregnant, new_postpartum]).sort_index()
+        #TODO file bug report for pandas with pd.concat and pd.append
+        pop_update['pregnancy_duration'] = pd.to_timedelta(pop_update['pregnancy_duration'])
+        self.population_view.update(pop_update)
 
     def on_collect_metrics(self):
         # Record births, append (sex, bw, ga, birth date, maternal characteristics) tuple to list
@@ -147,11 +183,3 @@ class Pregnancy:
         outcome_probabilities[self.PREGNANCY_OUTCOMES[-1]] = 1 - outcome_probabilities.sum(axis=1)
 
         return outcome_probabilities.reset_index()
-
-    def load_conception_and_outcome_rates(self, builder: Builder) -> Tuple[pd.DataFrame, pd.DataFrame]:
-
-        conception_rate = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE).fillna(0)
-        ectopic_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC).fillna(0)
-        other_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE).fillna(0)
-
-        p_ectopic = ectopic_pregnancy / conception_rate
