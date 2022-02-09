@@ -53,12 +53,12 @@ class Pregnancy:
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         # TODO sample pregnant | age, year, assign pregnancy status
         p = self.prevalence(pop_data.index)[list(self.PREGNANCY_STATUSES)]
-        pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p)
+        pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p, additional_key='pregnancy_status')
         pregnancy_outcome = pd.Series('invalid', index=pop_data.index)
         is_pregnant_idx = pop_data.index[pregnancy_status == 'pregnant']
         if not is_pregnant_idx.empty:
             p = self.outcome_probabilities(is_pregnant_idx)[list(self.PREGNANCY_OUTCOMES)]
-            pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=self.PREGNANCY_OUTCOMES, p=p)
+            pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=self.PREGNANCY_OUTCOMES, p=p, additional_key='pregnancy_outcome')
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome})
         self.population_view.update(pop_update)
