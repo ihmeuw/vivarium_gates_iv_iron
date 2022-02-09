@@ -29,7 +29,7 @@ class Pregnancy:
         columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
             'pregnancy_outcome',
-            # 'child_sex',
+            'sex_of_child',
             # 'birth_weight',
             # 'conception_date',
             # 'pregnancy_duration',
@@ -43,7 +43,7 @@ class Pregnancy:
         self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
-
+        #TODO remove age and sex colums when done debugging
         self.population_view = builder.population.get_view(columns_created + ['age', 'sex'])
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=columns_created,
@@ -60,10 +60,14 @@ class Pregnancy:
         if not is_pregnant_idx.empty:
             p = self.outcome_probabilities(is_pregnant_idx)[list(self.PREGNANCY_OUTCOMES)]
             pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=self.PREGNANCY_OUTCOMES, p=p, additional_key='pregnancy_outcome')
+
+        sex_of_child = pd.Series('invalid', index=pop_data.index)
+        sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'], p=[0.5, 0.5], additional_key='sex_of_child')
+
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
-                                   'pregnancy_outcome': pregnancy_outcome})
+                                   'pregnancy_outcome': pregnancy_outcome,
+                                   'sex_of_child': sex_of_child})
         self.population_view.update(pop_update)
-        # TODO sample pregnancy outcome | pregnancy status
 
         # TODO sample child sex | pregnancy outcome
 
