@@ -44,10 +44,11 @@ class Pregnancy:
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
 
-        self.population_view = builder.population.get_view(columns_created)
+        self.population_view = builder.population.get_view(columns_created + ['age', 'sex'])
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=columns_created,
-                                                 requires_streams=[self.name])
+                                                 requires_streams=[self.name],
+                                                 requires_columns=['age', 'sex'])
 
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
@@ -95,10 +96,8 @@ class Pregnancy:
 
         index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
         pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREVALENCE)
-                               .dropna()
-                               .reset_index()
-                               .set_index(index_cols)
-                               .drop('index', axis=1))
+                               .fillna(0)
+                               .set_index(index_cols))
         postpartum_prevalence = pregnant_prevalence * 6 / 40
         not_pregnant_prevalence = 1 - (postpartum_prevalence + pregnant_prevalence)
         # order of prevalences must match order of PREGNANCY_STATUSES
