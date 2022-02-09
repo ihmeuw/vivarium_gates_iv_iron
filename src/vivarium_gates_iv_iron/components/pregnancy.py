@@ -1,14 +1,12 @@
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
 
 from vivarium.framework.engine import Builder
-from vivarium.framework.population import PopulationView, SimulantData
-from vivarium.framework.time import Time
-from vivarium.framework.values import Pipeline
-from vivarium_public_health.disease import (DiseaseState, DiseaseModel, SusceptibleState,
-                                            RateTransition as RateTransition_, RecoveredState)
-from vivarium_public_health.risks.base_risk import Risk
-from vivarium_gates_iv_iron.constants import models, data_keys, data_values, metadata
+from vivarium.framework.event import Event
+from vivarium.framework.population import SimulantData
+from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 
 
 class Pregnancy:
@@ -40,6 +38,11 @@ class Pregnancy:
         self.prevalence = builder.lookup.build_table(prevalences,
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
+        conception_rate = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
+        ectopic_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC)
+        #TODO fix other_pregnancy name
+        other_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE)
+
         outcome_probabilities = self.load_pregnancy_outcome_probabilities(builder)
         self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
                                                      key_columns=['sex'],
@@ -50,10 +53,10 @@ class Pregnancy:
                                                  creates_columns=columns_created,
                                                  requires_streams=[self.name],
                                                  requires_columns=['age', 'sex'])
-
+        builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
-        # TODO sample pregnant | age, year, assign pregnancy status
+
         p = self.prevalence(pop_data.index)[list(self.PREGNANCY_STATUSES)]
         pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p, additional_key='pregnancy_status')
         pregnancy_outcome = pd.Series('invalid', index=pop_data.index)
@@ -66,13 +69,13 @@ class Pregnancy:
         sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'], p=[0.5, 0.5], additional_key='sex_of_child')
 
         birth_weight = pd.Series(np.nan, index=pop_data.index)
+        #TODO implement LBWSG on next line for sampling
         birth_weight.loc[is_pregnant_idx] = 1500.0 + 1500 * self.randomness.get_draw(is_pregnant_idx, additional_key='birth_weight')
 
         pregnancy_duration = pd.Series(pd.NaT, index=pop_data.index)
         pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28 * self.randomness.get_draw(is_pregnant_idx, additional_key='pregnancy_duration'),
                                                                   unit='d')
 
-        # TODO conception_date | gestational_age) (uniformly between now and gestational age
         days_until_pregnancy_ends = pregnancy_duration * self.randomness.get_draw(pop_data.index, additional_key='conception_date')
         conception_date = pop_data.creation_time - days_until_pregnancy_ends
 
@@ -86,7 +89,14 @@ class Pregnancy:
         self.population_view.update(pop_update)
 
 
-    def on_time_step(self):
+    def on_time_step(self, event: Event):
+
+        pop = self.population_view.get(event.index)
+
+        not_pregnant_idx = pop.loc[pop['pregnancy_status'] == "not_pregnant"].index
+        pregnant_idx = pop.loc[pop['pregnancy_status'] == "pregnant"].index
+        postpartum_idx = pop.loc[pop['pregnancy_status'] == "postpartum"].index
+
         # if not pregnant,
         # do you get pregnant, if so, sample gestational age, set pregnancy status and gestational age and conception date
 
@@ -137,3 +147,11 @@ class Pregnancy:
         outcome_probabilities[self.PREGNANCY_OUTCOMES[-1]] = 1 - outcome_probabilities.sum(axis=1)
 
         return outcome_probabilities.reset_index()
+
+    def load_conception_and_outcome_rates(self, builder: Builder) -> Tuple[pd.DataFrame, pd.DataFrame]:
+
+        conception_rate = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE).fillna(0)
+        ectopic_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC).fillna(0)
+        other_pregnancy = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE).fillna(0)
+
+        p_ectopic = ectopic_pregnancy / conception_rate
