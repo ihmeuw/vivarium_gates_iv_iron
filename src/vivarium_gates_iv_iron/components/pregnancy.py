@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from vivarium.framework.engine import Builder
@@ -30,9 +31,9 @@ class Pregnancy:
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
             'pregnancy_outcome',
             'sex_of_child',
-            # 'birth_weight',
+            'birth_weight',
             # 'conception_date',
-            # 'pregnancy_duration',
+            'pregnancy_duration',
         ]
 
         prevalences = self.load_pregnancy_prevalence(builder)
@@ -64,12 +65,18 @@ class Pregnancy:
         sex_of_child = pd.Series('invalid', index=pop_data.index)
         sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'], p=[0.5, 0.5], additional_key='sex_of_child')
 
+        birth_weight = pd.Series(np.nan, index=pop_data.index)
+        birth_weight.loc[is_pregnant_idx] = 1500.0 + 1500 * self.randomness.get_draw(is_pregnant_idx)
+
+        pregnancy_duration = pd.Series(pd.NaT, index=pop_data.index)
+        pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28 * self.randomness.get_draw(is_pregnant_idx), unit='d')
+
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
-                                   'sex_of_child': sex_of_child})
+                                   'sex_of_child': sex_of_child,
+                                   'birth_weight': birth_weight,
+                                   'pregnancy_duration': pregnancy_duration})
         self.population_view.update(pop_update)
-
-        # TODO sample child sex | pregnancy outcome
 
         # TODO sample gestational_age | pregnancy_status, child_sex, pregnancy_outcome) assign pregnancy duration
         # TODO conception_date | gestational_age) (uniformly between now and gestational age
