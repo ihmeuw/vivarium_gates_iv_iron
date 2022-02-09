@@ -75,7 +75,7 @@ class Pregnancy:
         birth_weight.loc[is_pregnant_idx] = 1500.0 + 1500 * self.randomness.get_draw(is_pregnant_idx, additional_key='birth_weight')
 
         pregnancy_duration = pd.Series(pd.NaT, index=pop_data.index)
-        pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28 * self.randomness.get_draw(is_pregnant_idx, additional_key='pregnancy_duration'),
+        pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28,
                                                                   unit='d')
 
         state_change_date = pd.Series(pd.NaT, index=pop_data.index)
@@ -114,7 +114,7 @@ class Pregnancy:
 
         birth_weight = 1500.0 + 1500 * self.randomness.get_draw(pregnant_this_step, additional_key='birth_weight')
 
-        pregnancy_duration = pd.to_timedelta(9 * 28 * self.randomness.get_draw(pregnant_this_step, additional_key='pregnancy_duration'),
+        pregnancy_duration = pd.to_timedelta(9 * 28,
             unit='d')
 
         new_pregnant = pd.DataFrame({'pregnancy_status': "pregnant",
