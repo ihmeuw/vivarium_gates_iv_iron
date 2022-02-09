@@ -32,7 +32,7 @@ class Pregnancy:
             'pregnancy_outcome',
             'sex_of_child',
             'birth_weight',
-            # 'conception_date',
+            'conception_date',
             'pregnancy_duration',
         ]
 
@@ -66,20 +66,25 @@ class Pregnancy:
         sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'], p=[0.5, 0.5], additional_key='sex_of_child')
 
         birth_weight = pd.Series(np.nan, index=pop_data.index)
-        birth_weight.loc[is_pregnant_idx] = 1500.0 + 1500 * self.randomness.get_draw(is_pregnant_idx)
+        birth_weight.loc[is_pregnant_idx] = 1500.0 + 1500 * self.randomness.get_draw(is_pregnant_idx, additional_key='birth_weight')
 
         pregnancy_duration = pd.Series(pd.NaT, index=pop_data.index)
-        pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28 * self.randomness.get_draw(is_pregnant_idx), unit='d')
+        pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28 * self.randomness.get_draw(is_pregnant_idx, additional_key='pregnancy_duration'),
+                                                                  unit='d')
+
+        # TODO conception_date | gestational_age) (uniformly between now and gestational age
+        days_until_pregnancy_ends = pregnancy_duration * self.randomness.get_draw(pop_data.index, additional_key='conception_date')
+        conception_date = pop_data.creation_time - days_until_pregnancy_ends
+
 
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
                                    'sex_of_child': sex_of_child,
                                    'birth_weight': birth_weight,
-                                   'pregnancy_duration': pregnancy_duration})
+                                   'pregnancy_duration': pregnancy_duration,
+                                   'conception_date': conception_date})
         self.population_view.update(pop_update)
 
-        # TODO sample gestational_age | pregnancy_status, child_sex, pregnancy_outcome) assign pregnancy duration
-        # TODO conception_date | gestational_age) (uniformly between now and gestational age
 
     def on_time_step(self):
         # if not pregnant,
