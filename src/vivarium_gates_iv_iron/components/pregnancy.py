@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 import pandas as pd
 
@@ -7,6 +5,7 @@ from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
+from vivarium_gates_iv_iron.constants.data_values import POSTPARTUM_DURATION_DAYS
 
 
 class Pregnancy:
@@ -45,7 +44,7 @@ class Pregnancy:
         self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
                                                                 key_columns=['sex'],
                                                                 parameter_columns=['age', 'year'])
-        # TODO remove age and sex colums when done debugging
+        # TODO remove age and sex columns when done debugging
         self.population_view = builder.population.get_view(columns_created + ['age', 'sex'])
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=columns_created,
@@ -84,7 +83,8 @@ class Pregnancy:
                                                                                   additional_key='conception_date')
         conception_date = pop_data.creation_time - days_until_pregnancy_ends
         days_until_postpartum_ends = pd.to_timedelta(
-            42 * self.randomness.get_draw(pop_data.index, additional_key='days_until_postpartum_ends'))
+            POSTPARTUM_DURATION_DAYS * self.randomness.get_draw(pop_data.index,
+                                                                additional_key='days_until_postpartum_ends'))
         postpartum_start_date = pop_data.creation_time - days_until_postpartum_ends
         state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
         state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
@@ -106,9 +106,9 @@ class Pregnancy:
         pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate,
                                                              additional_key='new_pregnancy')
         postpartum_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
-                    event.time - pop["state_change_date"] > pop["pregnancy_duration"])].index
+                event.time - pop["state_change_date"] > pop["pregnancy_duration"])].index
         not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == models.POSTPARTUM_STATE) & (
-                    event.time - pop["state_change_date"] > pd.Timedelta(days=42))].index
+                event.time - pop["state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))].index
 
         p = self.outcome_probabilities(pregnant_this_step)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=models.PREGNANCY_OUTCOMES, p=p,
