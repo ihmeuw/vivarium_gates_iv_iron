@@ -3,10 +3,16 @@ components:
         population:
             - BasePopulation()
             - Mortality()
+        #risks:
+        #    - Risk('risk_factor.low_birth_weight_and_short_gestation')
 
     vivarium_gates_iv_iron.components:
-        - DisabilityObserver()
-        - MortalityObserver()
+        - Pregnancy()
+#        - DisabilityObserver()
+#        - MortalityObserver()
+#
+#        #- LowBirthWeight()
+#        #- ShortGestation()
 
 configuration:
     input_data:

@@ -11,23 +11,25 @@ class TransitionString(str):
 #############################
 # Pregnancy Model Variables #
 #############################
-
-# TODO input details of model states and transitions
-
 PREGNANCY_MODEL_NAME = data_keys.PREGNANCY.name
-SUSCEPTIBLE_STATE = f"susceptible_to_{PREGNANCY_MODEL_NAME}"
+NOT_PREGNANT_STATE = "not_pregnant"
 PREGNANT_STATE = "pregnant"
 POSTPARTUM_STATE = "postpartum"
 PREGNANCY_MODEL_STATES = (
-    SUSCEPTIBLE_STATE,
+    NOT_PREGNANT_STATE,
     PREGNANT_STATE,
     POSTPARTUM_STATE,
 )
 PREGNANCY_MODEL_TRANSITIONS = (
-    TransitionString(f"{SUSCEPTIBLE_STATE}_TO_{PREGNANT_STATE}"),
+    TransitionString(f"{NOT_PREGNANT_STATE}_TO_{PREGNANT_STATE}"),
     TransitionString(f"{PREGNANT_STATE}_TO_{POSTPARTUM_STATE}"),
-    TransitionString(f"{POSTPARTUM_STATE}_TO_{SUSCEPTIBLE_STATE}"),
+    TransitionString(f"{POSTPARTUM_STATE}_TO_{NOT_PREGNANT_STATE}"),
 )
+LIVE_BIRTH_OUTCOME = "live_birth"
+STILLBIRTH_OUTCOME = "stillbirth"
+OTHER_OUTCOME = "other"
+INVALID_OUTCOME = "invalid"  # Also used as invalid sex of child
+PREGNANCY_OUTCOMES = (LIVE_BIRTH_OUTCOME, STILLBIRTH_OUTCOME, OTHER_OUTCOME, INVALID_OUTCOME)
 
 STATE_MACHINE_MAP = {
     PREGNANCY_MODEL_NAME: {
