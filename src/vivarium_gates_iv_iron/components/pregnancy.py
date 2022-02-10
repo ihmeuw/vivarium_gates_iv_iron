@@ -10,9 +10,6 @@ from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 
 
 class Pregnancy:
-    PREGNANCY_STATUSES = ('not_pregnant', 'pregnant', 'postpartum')
-    PREGNANCY_OUTCOMES = ("live_birth", "stillbirth", "other", "invalid")
-
     def __init__(self):
         pass
 
@@ -57,19 +54,19 @@ class Pregnancy:
         builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
-        p = self.prevalence(pop_data.index)[list(self.PREGNANCY_STATUSES)]
-        pregnancy_status = self.randomness.choice(pop_data.index, choices=self.PREGNANCY_STATUSES, p=p,
+        p = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
+        pregnancy_status = self.randomness.choice(pop_data.index, choices=models.PREGNANCY_MODEL_STATES, p=p,
                                                   additional_key='pregnancy_status')
-        pregnancy_outcome = pd.Series('invalid', index=pop_data.index)
-        is_pregnant_idx = pop_data.index[pregnancy_status == 'pregnant']
-        is_postpartum_idx = pop_data.index[pregnancy_status == 'postpartum']
+        pregnancy_outcome = pd.Series(models.INVALID_OUTCOME, index=pop_data.index)
+        is_pregnant_idx = pop_data.index[pregnancy_status == models.PREGNANT_STATE]
+        is_postpartum_idx = pop_data.index[pregnancy_status == models.POSTPARTUM_STATE]
 
-        p = self.outcome_probabilities(is_pregnant_idx)[list(self.PREGNANCY_OUTCOMES)]
+        p = self.outcome_probabilities(is_pregnant_idx)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx,
-                                                                        choices=self.PREGNANCY_OUTCOMES, p=p,
+                                                                        choices=models.PREGNANCY_OUTCOMES, p=p,
                                                                         additional_key='pregnancy_outcome')
 
-        sex_of_child = pd.Series('invalid', index=pop_data.index)
+        sex_of_child = pd.Series(models.INVALID_OUTCOME, index=pop_data.index)
         sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'],
                                                                    p=[0.5, 0.5], additional_key='sex_of_child')
 
@@ -103,18 +100,18 @@ class Pregnancy:
     def on_time_step(self, event: Event):
         pop = self.population_view.get(event.index)
 
-        not_pregnant_idx = pop.loc[pop['pregnancy_status'] == "not_pregnant"].index
+        not_pregnant_idx = pop.loc[pop['pregnancy_status'] == models.NOT_PREGNANT_STATE].index
 
         conception_rate = self.conception_rate(not_pregnant_idx)
         pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate,
                                                              additional_key='new_pregnancy')
-        postpartum_this_step = pop.loc[(pop['pregnancy_status'] == 'pregnant') & (
+        postpartum_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
                     event.time - pop["state_change_date"] > pop["pregnancy_duration"])].index
-        not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == 'postpartum') & (
+        not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == models.POSTPARTUM_STATE) & (
                     event.time - pop["state_change_date"] > pd.Timedelta(days=42))].index
 
-        p = self.outcome_probabilities(pregnant_this_step)[list(self.PREGNANCY_OUTCOMES)]
-        pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=self.PREGNANCY_OUTCOMES, p=p,
+        p = self.outcome_probabilities(pregnant_this_step)[list(models.PREGNANCY_OUTCOMES)]
+        pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=models.PREGNANCY_OUTCOMES, p=p,
                                                    additional_key='pregnancy_outcome')
 
         sex_of_child = self.randomness.choice(pregnant_this_step, choices=['Male', 'Female'],
@@ -125,23 +122,23 @@ class Pregnancy:
         pregnancy_duration = pd.to_timedelta(9 * 28,
                                              unit='d')
 
-        new_pregnant = pd.DataFrame({'pregnancy_status': "pregnant",
+        new_pregnant = pd.DataFrame({'pregnancy_status': models.PREGNANT_STATE,
                                      'pregnancy_outcome': pregnancy_outcome,
                                      'sex_of_child': sex_of_child,
                                      'birth_weight': birth_weight,
                                      'pregnancy_duration': pregnancy_duration,
                                      'state_change_date': event.time}, index=pregnant_this_step)
 
-        new_postpartum = pd.DataFrame({'pregnancy_status': "postpartum",
-                                       'pregnancy_outcome': "invalid",
-                                       'sex_of_child': "invalid",
+        new_postpartum = pd.DataFrame({'pregnancy_status': models.POSTPARTUM_STATE,
+                                       'pregnancy_outcome': models.INVALID_OUTCOME,
+                                       'sex_of_child': models.INVALID_OUTCOME,
                                        'birth_weight': np.nan,
                                        'pregnancy_duration': pd.NaT,
                                        'state_change_date': event.time}, index=postpartum_this_step)
 
-        new_not_pregnant = pd.DataFrame({'pregnancy_status': "not_pregnant",
-                                         'pregnancy_outcome': "invalid",
-                                         'sex_of_child': "invalid",
+        new_not_pregnant = pd.DataFrame({'pregnancy_status': models.NOT_PREGNANT_STATE,
+                                         'pregnancy_outcome': models.INVALID_OUTCOME,
+                                         'sex_of_child': models.INVALID_OUTCOME,
                                          'birth_weight': np.nan,
                                          'pregnancy_duration': pd.NaT,
                                          'state_change_date': event.time}, index=not_pregnant_this_step)
@@ -152,11 +149,11 @@ class Pregnancy:
         self.population_view.update(pop_update)
 
     def on_collect_metrics(self):
-        # Record births, append (sex, bw, ga, birth date, maternal characteristics) tuple to list
+        # TODO: Record births, append (sex, bw, ga, birth date, maternal characteristics) tuple to list
         ...
 
     def on_simulation_end(self):
-        # coerce list of children tuples to dataframe
+        # TODO: coerce list of children tuples to dataframe
         # Get output directory from configuration (can be special config key or get from general results key)
         # write to file
         ...
@@ -170,7 +167,7 @@ class Pregnancy:
         not_pregnant_prevalence = 1 - (postpartum_prevalence + pregnant_prevalence)
         # order of prevalences must match order of PREGNANCY_STATUSES
         prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
-        prevalences.columns = list(self.PREGNANCY_STATUSES)
+        prevalences.columns = list(models.PREGNANCY_MODEL_STATES)
 
         return prevalences.reset_index()
 
@@ -180,11 +177,11 @@ class Pregnancy:
                                   data_keys.PREGNANCY_OUTCOMES.OTHER]
         outcome_probabilities = []
         index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
-        for data_key, status in zip(pregnancy_outcome_keys, self.PREGNANCY_OUTCOMES[:-1]):
+        for data_key, status in zip(pregnancy_outcome_keys, models.PREGNANCY_OUTCOMES[:-1]):
             p = builder.data.load(data_key)
             p = p.set_index(index_cols)['value'].rename(status).fillna(0)
             outcome_probabilities.append(p)
         outcome_probabilities = pd.concat(outcome_probabilities, axis=1)
-        outcome_probabilities[self.PREGNANCY_OUTCOMES[-1]] = 1 - outcome_probabilities.sum(axis=1)
+        outcome_probabilities[models.PREGNANCY_OUTCOMES[-1]] = 1 - outcome_probabilities.sum(axis=1)
 
         return outcome_probabilities.reset_index()
