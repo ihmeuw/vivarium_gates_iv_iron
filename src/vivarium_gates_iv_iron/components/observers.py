@@ -218,3 +218,127 @@ class DisabilityObserver(DisabilityObserver_):
                          self.disability_weight_pipelines, self.causes)
             measure_data = self.stratifier.update_labels(get_years_lived_with_disability(*base_args), labels)
             self.years_lived_with_disability.update(measure_data)
+
+
+class PregnancyObserver:
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: 'Builder') -> None:
+
+        #TODO: pregnancy state transition counts
+        #TODO: pregnancy state person time
+        #TODO: pregnancy outcomes (count: live birht, stillbirth, other)
+
+        #TODO: add new stratification
+
+        config = builder.configuration.metrics
+        self.observation_start = pd.Timestamp(**config.observation_start)
+
+        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
+        builder.event.register_listener('simulation_end', self.on_simulation_end)
+
+        builder.value.register_value_modifier('metrics', self.metrics)
+
+    def on_collect_metrics(self, event: 'Event') -> None:
+        pop = self.get_denominator_pop(event)
+        states = list(models.MULTIPLE_MYELOMA_WITH_CONDITION_STATES)
+
+        for current_state, next_state in zip(states, states[1:] + [states[-1]]):
+            state_denominator = self.subset_state_denominator(pop, current_state, next_state, event)
+            if not state_denominator.empty:
+                print(f'current state: {current_state}, state denominator size: {len(state_denominator)}')
+            for risk_status in itertools.product(*data_values.RISK_LEVEL_MAP.values()):
+                denominator = self.subset_risk_denominator(state_denominator, risk_status)
+
+                alive_at_start = (denominator
+                                  .groupby('group')
+                                  .multiple_myeloma
+                                  .count()
+                                  .rename('alive'))
+                died_by_end = (denominator[denominator['exit_time'] == event.time]
+                               .groupby('group')
+                               .multiple_myeloma
+                               .count()
+                               .rename('died'))
+                progressed_by_end = (denominator[denominator[f'{next_state}_event_time'] == event.time]
+                                     .groupby('group')
+                                     .multiple_myeloma
+                                     .count()
+                                     .rename('progressed'))
+                survival_results = pd.concat([alive_at_start, died_by_end, progressed_by_end], axis=1)
+                survival_results.index = pd.IntervalIndex(survival_results.index)
+                if not denominator.empty:
+                    print(f'risk_status: {risk_status}, denominator size: {len(denominator)}, summary: {survival_results.sum().to_dict()}')
+                treatment_line = current_state.split('_')[-1]
+                for interval, interval_data in survival_results.iterrows():
+                    for measure, template in self.templates:
+                        key = template.format(
+                            treatment_line=treatment_line,
+                            period_start=interval.left,
+                            period_end=interval.right,
+                            **dict(zip(data_values.RISKS, risk_status))
+                        )
+                        self.counts[key] += interval_data.loc[measure]
+
+    def on_simulation_end(self, event: 'Event'):
+        pop = self.get_denominator_pop(event)
+        states = list(models.MULTIPLE_MYELOMA_WITH_CONDITION_STATES)
+
+        for current_state, next_state in zip(states, states[1:] + [states[-1]]):
+            for risk_status in itertools.product(*data_values.RISK_LEVEL_MAP.values()):
+                denominator = self.subset_risk_denominator(pop, risk_status)
+                denominator = self.subset_state_denominator(denominator, current_state, next_state, event)
+                right_censored_mask = ~(
+                    (denominator['exit_time'] != event.time)
+                    | (denominator[f'{next_state}_event_time'] == event.time)
+                )
+                right_censored = (denominator[right_censored_mask]
+                                  .groupby('group')
+                                  .multiple_myeloma
+                                  .count()
+                                  .rename('right_censored'))
+                treatment_line = current_state.split('_')[-1]
+                for interval, count in right_censored.iteritems():
+                    key = self.sim_end_template.format(
+                        treatment_line=treatment_line,
+                        period_end=interval.right,
+                        **dict(zip(data_values.RISKS, risk_status))
+                    )
+                    self.counts[key] += count
+
+    def metrics(self, index: pd.Index, metrics: Dict[str, float]) -> Dict[str, float]:
+        metrics.update(self.counts)
+        return metrics
+
+    def get_denominator_pop(self, event: 'Event'):
+        pop = self.population_view.get(event.index)
+        living = pop['alive'] == 'alive'
+        died_this_step = (pop['alive'] == 'dead') & (pop['exit_time'] == event.time)
+        in_denominator = living | died_this_step
+        return pop.loc[in_denominator]
+
+    def subset_risk_denominator(self, pop: pd.DataFrame, risk_status):
+        risk_mask = pd.Series(True, index=pop.index)
+        for risk, risk_level in zip(data_values.RISKS, risk_status):
+            risk_mask &= pop[risk] == risk_level
+        return pop.loc[risk_mask]
+
+    def subset_state_denominator(self, pop: pd.DataFrame, current_state: str, next_state: str, event: 'Event'):
+        left_censored = (pop[f'{current_state}_event_time'].notnull()
+                         & (pop[f'{current_state}_event_time'] < self.observation_start))
+        in_current_state_denominator = ~left_censored & (
+            # In the current state and didn't get there this time step
+            ((pop[models.MULTIPLE_MYELOMA_MODEL_NAME] == current_state)
+             & (pop[f'{current_state}_event_time'] < event.time))
+            # or in the next state, but not til the start of the next step.
+            | ((pop[models.MULTIPLE_MYELOMA_MODEL_NAME] == next_state)
+               & (pop[f'{next_state}_event_time'] == event.time))
+        )
+
+        denominator = pop.loc[in_current_state_denominator].copy()
+        denominator['group'] = pd.cut(denominator[f'{current_state}_time_since_entrance'], self.bins)
+        return denominator
