@@ -21,12 +21,12 @@ class Pregnancy:
 
         # children_born = []  # This will be input for child model
 
-        columns_created = [
+        self.columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
             'pregnancy_outcome',
             'sex_of_child',
             'birth_weight',
-            'state_change_date',
+            'pregnancy_state_change_date',
             'pregnancy_duration',
         ]
 
@@ -45,9 +45,9 @@ class Pregnancy:
                                                                 key_columns=['sex'],
                                                                 parameter_columns=['age', 'year'])
         # TODO remove age and sex columns when done debugging
-        self.population_view = builder.population.get_view(columns_created + ['age', 'sex'])
+        self.population_view = builder.population.get_view(self.columns_created + ['age', 'sex'])
         builder.population.initializes_simulants(self.on_initialize_simulants,
-                                                 creates_columns=columns_created,
+                                                 creates_columns=self.columns_created,
                                                  requires_streams=[self.name],
                                                  requires_columns=['age', 'sex'])
         builder.event.register_listener("time_step", self.on_time_step)
@@ -78,7 +78,7 @@ class Pregnancy:
         pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28,
                                                                   unit='d')
 
-        state_change_date = pd.Series(pd.NaT, index=pop_data.index)
+        pregnancy_state_change_date = pd.Series(pd.NaT, index=pop_data.index)
         days_until_pregnancy_ends = pregnancy_duration * self.randomness.get_draw(pop_data.index,
                                                                                   additional_key='conception_date')
         conception_date = pop_data.creation_time - days_until_pregnancy_ends
@@ -86,15 +86,15 @@ class Pregnancy:
             POSTPARTUM_DURATION_DAYS * self.randomness.get_draw(pop_data.index,
                                                                 additional_key='days_until_postpartum_ends'))
         postpartum_start_date = pop_data.creation_time - days_until_postpartum_ends
-        state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
-        state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
+        pregnancy_state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
+        pregnancy_state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
 
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
                                    'sex_of_child': sex_of_child,
                                    'birth_weight': birth_weight,
                                    'pregnancy_duration': pregnancy_duration,
-                                   'state_change_date': state_change_date})
+                                   'pregnancy_state_change_date': pregnancy_state_change_date})
         self.population_view.update(pop_update)
 
     def on_time_step(self, event: Event):
@@ -106,9 +106,9 @@ class Pregnancy:
         pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate,
                                                              additional_key='new_pregnancy')
         postpartum_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
-                event.time - pop["state_change_date"] > pop["pregnancy_duration"])].index
+                event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])].index
         not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == models.POSTPARTUM_STATE) & (
-                event.time - pop["state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))].index
+                event.time - pop["pregnancy_state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))].index
 
         p = self.outcome_probabilities(pregnant_this_step)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=models.PREGNANCY_OUTCOMES, p=p,
@@ -127,21 +127,18 @@ class Pregnancy:
                                      'sex_of_child': sex_of_child,
                                      'birth_weight': birth_weight,
                                      'pregnancy_duration': pregnancy_duration,
-                                     'state_change_date': event.time}, index=pregnant_this_step)
+                                     'pregnancy_state_change_date': event.time}, index=pregnant_this_step)
 
-        new_postpartum = pd.DataFrame({'pregnancy_status': models.POSTPARTUM_STATE,
-                                       'pregnancy_outcome': models.INVALID_OUTCOME,
-                                       'sex_of_child': models.INVALID_OUTCOME,
-                                       'birth_weight': np.nan,
-                                       'pregnancy_duration': pd.NaT,
-                                       'state_change_date': event.time}, index=postpartum_this_step)
+        new_postpartum = pop.loc[postpartum_this_step, self.columns_created]
+        new_postpartum['pregnancy_status'] = models.POSTPARTUM_STATE
+        new_postpartum['pregnancy_state_change_date'] = event.time
 
         new_not_pregnant = pd.DataFrame({'pregnancy_status': models.NOT_PREGNANT_STATE,
                                          'pregnancy_outcome': models.INVALID_OUTCOME,
                                          'sex_of_child': models.INVALID_OUTCOME,
                                          'birth_weight': np.nan,
                                          'pregnancy_duration': pd.NaT,
-                                         'state_change_date': event.time}, index=not_pregnant_this_step)
+                                         'pregnancy_state_change_date': event.time}, index=not_pregnant_this_step)
 
         pop_update = pd.concat([new_pregnant, new_not_pregnant, new_postpartum]).sort_index()
         # TODO file bug report for pandas with pd.concat and pd.append

@@ -10,6 +10,7 @@ components:
         - Pregnancy()
 #        - DisabilityObserver()
 #        - MortalityObserver()
+        - PregnancyObserver()
 #
 #        #- LowBirthWeight()
 #        #- ShortGestation()
@@ -52,5 +53,5 @@ configuration:
             by_year: True
         pregnancy:
             by_age: True
-            by_sex: True
+            by_sex: False
             by_year: True

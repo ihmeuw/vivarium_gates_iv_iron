@@ -5,8 +5,10 @@ components:
             - Mortality()
 
     vivarium_gates_iv_iron.components:
-        - DisabilityObserver()
-        - MortalityObserver()
+        - Pregnancy()
+#        - DisabilityObserver()
+#        - MortalityObserver()
+        - PregnancyObserver()
 
 configuration:
     input_data:
@@ -43,4 +45,8 @@ configuration:
         mortality:
             by_age: True
             by_sex: True
+            by_year: True
+        pregnancy:
+            by_age: True
+            by_sex: False
             by_year: True
