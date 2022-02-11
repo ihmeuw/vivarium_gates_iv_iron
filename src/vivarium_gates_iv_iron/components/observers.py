@@ -31,8 +31,9 @@ class ResultsStratifier:
 
     """
 
-    def __init__(self, observer_name: str = 'False'):
+    def __init__(self, observer_name: str = 'False', by_pregnancy_outcome: str = 'False'):
         self.name = f'{observer_name}_results_stratifier'
+        self.by_pregnancy_outcome = by_pregnancy_outcome != 'False'
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
@@ -57,10 +58,10 @@ class ResultsStratifier:
                 stratification_key: get_state_function(source_value)
                 for stratification_key, source_value in categories.items()
             }
-            if is_pipeline:
-                self.pipelines[source_name] = builder.value.get_value(source_name)
-            else:
-                columns_required.append(data_keys.WASTING.name)
+            # if is_pipeline:
+            #     self.pipelines[source_name] = builder.value.get_value(source_name)
+            # else:
+            #     columns_required.append(data_keys.WASTING.name)
 
         self.population_view = builder.population.get_view(columns_required)
         self.stratification_groups: pd.Series = None
@@ -243,18 +244,21 @@ class PregnancyObserver:
 
     def __init__(
             self,
-            stratify_pregnancy_outcome: str = 'False'
+            stratify_by_pregnancy_outcome: str = 'False'
     ):
         self.configuration_defaults = self._get_configuration_defaults()
         self.stratifier = ResultsStratifier(
             self.name,
-            stratify_pregnancy_outcome,
+            stratify_by_pregnancy_outcome,
         )
 
         self.tracked_column_name = 'tracked'
         self.entrance_time_column_name = 'entrance_time'
 
-        self.birth_weight_pipeline_name = 'low_birth_weight.exposure'
+        self.pregnancy_status_column_name = 'pregnancy_status'  # not_pregnant, pregnant, postpartum
+        self.pregnancy_outcome_column_name = 'pregnancy_outcome'
+
+        # self.birth_weight_pipeline_name = 'low_birth_weight.exposure'
         self.metrics_pipeline_name = 'metrics'
 
     def __repr__(self):
@@ -268,7 +272,7 @@ class PregnancyObserver:
     def _get_configuration_defaults(self) -> Dict[str, Dict]:
         return {
             'metrics': {
-                f'birth': PregnancyObserver.configuration_defaults['metrics']['birth']
+                f'pregnancy': PregnancyObserver.configuration_defaults['metrics']['pregnancy']
             }
         }
 
@@ -282,7 +286,7 @@ class PregnancyObserver:
 
     @property
     def name(self):
-        return 'birth_observer'
+        return 'pregnancy_observer'
 
     #################
     # Setup methods #
@@ -297,7 +301,21 @@ class PregnancyObserver:
         self.pipelines = self._get_pipelines(builder)
         self.population_view = self._get_population_view(builder)
 
-        self._register_metrics_modifier(builder)
+        self.previous_state_column = 'previous_pregnancy_state'
+        builder.population.initializes_simulants(self.on_initialize_simulants,
+                                                 creates_columns=[self.previous_state_column])
+        columns_required = ['alive', f'{self.disease}', self.previous_state_column]
+        if self.config.by_age:
+            columns_required += ['age']
+        if self.config.by_sex:
+            columns_required += ['sex']
+        self.population_view = builder.population.get_view(columns_required)
+        builder.value.register_value_modifier('metrics', self.metrics)
+        # FIXME: The state table is modified before the clock advances.
+        # In order to get an accurate representation of person time we need to look at
+        # the state table before anything happens.
+        builder.event.register_listener('time_step__prepare', self.on_time_step_prepare)
+        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
 
     # noinspection PyMethodMayBeStatic
     def _get_clock(self, builder: Builder) -> Callable[[], Time]:
@@ -305,7 +323,7 @@ class PregnancyObserver:
 
     # noinspection PyMethodMayBeStatic
     def _get_configuration(self, builder: Builder) -> ConfigTree:
-        return builder.configuration.metrics.birth
+        return builder.configuration.metrics.pregnancy
 
     # noinspection PyMethodMayBeStatic
     def _get_start_time(self, builder: Builder) -> pd.Timestamp:
@@ -321,32 +339,28 @@ class PregnancyObserver:
         }
 
     def _get_population_view(self, builder: Builder) -> PopulationView:
-        return builder.population.get_view(['sex', self.tracked_column_name, self.entrance_time_column_name])
-
-    def _register_metrics_modifier(self, builder: Builder) -> None:
-        builder.value.register_value_modifier(
-            self.metrics_pipeline_name,
-            self._metrics,
-            requires_columns=[self.entrance_time_column_name],
-            requires_values=[self.birth_weight_pipeline_name]
-        )
+        return builder.population.get_view(['sex',
+                                            self.tracked_column_name, self.pregnancy_status_column_name, self.pregnancy_outcome_column_name])
 
     ##################################
     # Pipeline sources and modifiers #
     ##################################
 
     # noinspection PyUnusedLocal
-    def _metrics(self, index: pd.Index, metrics: Dict) -> Dict:
+    def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
         pipelines = [
             pd.Series(pipeline(index), name=pipeline_name)
             for pipeline_name, pipeline in self.pipelines.items()
         ]
         pop = pd.concat([self.population_view.get(index)] + pipelines, axis=1)
 
+        # TODO: pregnancy state transition counts
+        # TODO: pregnancy state person time
+        # TODO: count of pregnancy outcomes (count: live birth, stillbirth, other)
         measure_getters = (
-            (self._get_births, ()),
-            (self._get_birth_weight_sum, ()),
-            (self._get_births, (results.LOW_BIRTH_WEIGHT_CUTOFF,)),
+            (self._get_pregnancy_state_transition_counts, ()),
+            (self._get_pregnancy_state_person_time, ()),
+            (self._get_count_of_pregnancy_outcomes, ()),
         )
 
         config_dict = self.configuration.to_dict()
@@ -363,3 +377,55 @@ class PregnancyObserver:
                 metrics.update(measure_data)
 
         return metrics
+
+    def _get_pregnancy_state_person_time(self, pop: pd.DataFrame, base_filter: QueryString, configuration: Dict,
+                    time_spans: List[Tuple[str, Tuple[pd.Timestamp, pd.Timestamp]]], age_bins: pd.DataFrame,
+                    cutoff_weight: float = None) -> Dict[str, float]:
+        # TODO: implement
+        if cutoff_weight:
+            base_filter += (
+                QueryString('{column} <= {cutoff}')
+                .format(column=f'`{self.birth_weight_pipeline_name}`', cutoff=cutoff_weight)
+            )
+            measure = 'low_weight_births'
+        else:
+            measure = 'total_births'
+
+        base_key = utilities.get_output_template(**configuration).substitute(measure=measure)
+
+        births = {}
+        for year, (year_start, year_end) in time_spans:
+            year_filter = base_filter.format(start_time=year_start, end_time=year_end)
+            year_key = base_key.substitute(year=year)
+            group_births = utilities.get_group_counts(pop, year_filter, year_key, configuration, age_bins)
+            births.update(group_births)
+        return births
+
+    def on_time_step_prepare(self, event: Event):
+        pop = self.population_view.get(event.index)
+        # Ignoring the edge case where the step spans a new year.
+        # Accrue all counts and time to the current year.
+        for labels, pop_in_group in self.stratifier.group(pop):
+            for state in self.states:
+                # noinspection PyTypeChecker
+                state_person_time_this_step = utilities.get_state_person_time(
+                    pop_in_group, self.config, self.disease, state, self.clock().year, event.step_size, self.age_bins
+                )
+                state_person_time_this_step = self.stratifier.update_labels(state_person_time_this_step, labels)
+                self.person_time.update(state_person_time_this_step)
+
+        # This enables tracking of transitions between states
+        prior_state_pop = self.population_view.get(event.index)
+        prior_state_pop[self.previous_state_column] = prior_state_pop[self.disease]
+        self.population_view.update(prior_state_pop)
+
+    def on_collect_metrics(self, event: Event):
+        pop = self.population_view.get(event.index)
+        for labels, pop_in_group in self.stratifier.group(pop):
+            for transition in self.transitions:
+                transition = TransitionString(transition)
+                # noinspection PyTypeChecker
+                transition_counts_this_step = utilities.get_transition_count(pop_in_group, self.config, self.disease,
+                                                                             transition, event.time, self.age_bins)
+                transition_counts_this_step = self.stratifier.update_labels(transition_counts_this_step, labels)
+                self.counts.update(transition_counts_this_step)

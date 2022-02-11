@@ -50,3 +50,7 @@ configuration:
             by_age: True
             by_sex: True
             by_year: True
+        pregnancy:
+            by_age: True
+            by_sex: True
+            by_year: True
