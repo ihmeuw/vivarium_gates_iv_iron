@@ -6,8 +6,8 @@ components:
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
-#        - DisabilityObserver()
-#        - MortalityObserver()
+        - DisabilityObserver()
+        - MortalityObserver()
         - PregnancyObserver()
 
 configuration:
