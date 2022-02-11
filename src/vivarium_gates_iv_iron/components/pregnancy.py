@@ -53,19 +53,22 @@ class Pregnancy:
         builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
-        p = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
-        pregnancy_status = self.randomness.choice(pop_data.index, choices=models.PREGNANCY_MODEL_STATES, p=p,
+        pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
+        pregnancy_status = self.randomness.choice(pop_data.index, choices=models.PREGNANCY_MODEL_STATES,
+                                                  p=pregnancy_state_probabilities,
                                                   additional_key='pregnancy_status')
         pregnancy_outcome = pd.Series(models.INVALID_OUTCOME, index=pop_data.index)
         is_pregnant_idx = pop_data.index[pregnancy_status == models.PREGNANT_STATE]
         is_postpartum_idx = pop_data.index[pregnancy_status == models.POSTPARTUM_STATE]
 
-        p = self.outcome_probabilities(is_pregnant_idx)[list(models.PREGNANCY_OUTCOMES)]
+        pregnancy_outcome_probabilities = self.outcome_probabilities(is_pregnant_idx)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx,
-                                                                        choices=models.PREGNANCY_OUTCOMES, p=p,
+                                                                        choices=models.PREGNANCY_OUTCOMES,
+                                                                        p=pregnancy_outcome_probabilities,
                                                                         additional_key='pregnancy_outcome')
 
         sex_of_child = pd.Series(models.INVALID_OUTCOME, index=pop_data.index)
+        # TODO: update sex_of_child distribution
         sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'],
                                                                    p=[0.5, 0.5], additional_key='sex_of_child')
 
@@ -117,6 +120,7 @@ class Pregnancy:
         sex_of_child = self.randomness.choice(pregnant_this_step, choices=['Male', 'Female'],
                                               p=[0.5, 0.5], additional_key='sex_of_child')
 
+        # TODO: update with birth_weight distribution
         birth_weight = 1500.0 + 1500 * self.randomness.get_draw(pregnant_this_step, additional_key='birth_weight')
 
         pregnancy_duration = pd.to_timedelta(9 * 28,
