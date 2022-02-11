@@ -2,16 +2,21 @@ import itertools
 from typing import Callable, Dict, Iterable, List, Tuple, Union
 
 import pandas as pd
+from vivarium import ConfigTree
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
-from vivarium_public_health.metrics import (MortalityObserver as MortalityObserver_,
+from vivarium.framework.population import PopulationView
+from vivarium.framework.time import Time, get_time_stamp
+from vivarium.framework.values import Pipeline
+from vivarium_public_health.metrics import (utilities,
+                                            MortalityObserver as MortalityObserver_,
                                             DisabilityObserver as DisabilityObserver_,
                                             DiseaseObserver as DiseaseObserver_,
                                             CategoricalRiskObserver as CategoricalRiskObserver_)
 from vivarium_public_health.metrics.utilities import (get_deaths, get_state_person_time, get_transition_count,
                                                       get_years_lived_with_disability, get_years_of_life_lost,
                                                       get_person_time,
-                                                      TransitionString)
+                                                      QueryString, TransitionString)
 
 from vivarium_gates_iv_iron.constants import models, results, data_keys
 
@@ -221,124 +226,140 @@ class DisabilityObserver(DisabilityObserver_):
 
 
 class PregnancyObserver:
+    # TODO: pregnancy state transition counts
+    # TODO: pregnancy state person time
+    # TODO: count of pregnancy outcomes (count: live birth, stillbirth, other)
 
-    @property
-    def name(self) -> str:
-        return self.__class__.__name__
+    # TODO: add new stratification
+    configuration_defaults = {
+        'metrics': {
+            'birth': {
+                'by_age': False,
+                'by_year': False,
+                'by_sex': False,
+            }
+        }
+    }
 
-    # noinspection PyAttributeOutsideInit
-    def setup(self, builder: 'Builder') -> None:
-
-        #TODO: pregnancy state transition counts
-        #TODO: pregnancy state person time
-        #TODO: pregnancy outcomes (count: live birht, stillbirth, other)
-
-        #TODO: add new stratification
-
-        config = builder.configuration.metrics
-        self.observation_start = pd.Timestamp(**config.observation_start)
-
-        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
-        builder.event.register_listener('simulation_end', self.on_simulation_end)
-
-        builder.value.register_value_modifier('metrics', self.metrics)
-
-    def on_collect_metrics(self, event: 'Event') -> None:
-        pop = self.get_denominator_pop(event)
-        states = list(models.MULTIPLE_MYELOMA_WITH_CONDITION_STATES)
-
-        for current_state, next_state in zip(states, states[1:] + [states[-1]]):
-            state_denominator = self.subset_state_denominator(pop, current_state, next_state, event)
-            if not state_denominator.empty:
-                print(f'current state: {current_state}, state denominator size: {len(state_denominator)}')
-            for risk_status in itertools.product(*data_values.RISK_LEVEL_MAP.values()):
-                denominator = self.subset_risk_denominator(state_denominator, risk_status)
-
-                alive_at_start = (denominator
-                                  .groupby('group')
-                                  .multiple_myeloma
-                                  .count()
-                                  .rename('alive'))
-                died_by_end = (denominator[denominator['exit_time'] == event.time]
-                               .groupby('group')
-                               .multiple_myeloma
-                               .count()
-                               .rename('died'))
-                progressed_by_end = (denominator[denominator[f'{next_state}_event_time'] == event.time]
-                                     .groupby('group')
-                                     .multiple_myeloma
-                                     .count()
-                                     .rename('progressed'))
-                survival_results = pd.concat([alive_at_start, died_by_end, progressed_by_end], axis=1)
-                survival_results.index = pd.IntervalIndex(survival_results.index)
-                if not denominator.empty:
-                    print(f'risk_status: {risk_status}, denominator size: {len(denominator)}, summary: {survival_results.sum().to_dict()}')
-                treatment_line = current_state.split('_')[-1]
-                for interval, interval_data in survival_results.iterrows():
-                    for measure, template in self.templates:
-                        key = template.format(
-                            treatment_line=treatment_line,
-                            period_start=interval.left,
-                            period_end=interval.right,
-                            **dict(zip(data_values.RISKS, risk_status))
-                        )
-                        self.counts[key] += interval_data.loc[measure]
-
-    def on_simulation_end(self, event: 'Event'):
-        pop = self.get_denominator_pop(event)
-        states = list(models.MULTIPLE_MYELOMA_WITH_CONDITION_STATES)
-
-        for current_state, next_state in zip(states, states[1:] + [states[-1]]):
-            for risk_status in itertools.product(*data_values.RISK_LEVEL_MAP.values()):
-                denominator = self.subset_risk_denominator(pop, risk_status)
-                denominator = self.subset_state_denominator(denominator, current_state, next_state, event)
-                right_censored_mask = ~(
-                    (denominator['exit_time'] != event.time)
-                    | (denominator[f'{next_state}_event_time'] == event.time)
-                )
-                right_censored = (denominator[right_censored_mask]
-                                  .groupby('group')
-                                  .multiple_myeloma
-                                  .count()
-                                  .rename('right_censored'))
-                treatment_line = current_state.split('_')[-1]
-                for interval, count in right_censored.iteritems():
-                    key = self.sim_end_template.format(
-                        treatment_line=treatment_line,
-                        period_end=interval.right,
-                        **dict(zip(data_values.RISKS, risk_status))
-                    )
-                    self.counts[key] += count
-
-    def metrics(self, index: pd.Index, metrics: Dict[str, float]) -> Dict[str, float]:
-        metrics.update(self.counts)
-        return metrics
-
-    def get_denominator_pop(self, event: 'Event'):
-        pop = self.population_view.get(event.index)
-        living = pop['alive'] == 'alive'
-        died_this_step = (pop['alive'] == 'dead') & (pop['exit_time'] == event.time)
-        in_denominator = living | died_this_step
-        return pop.loc[in_denominator]
-
-    def subset_risk_denominator(self, pop: pd.DataFrame, risk_status):
-        risk_mask = pd.Series(True, index=pop.index)
-        for risk, risk_level in zip(data_values.RISKS, risk_status):
-            risk_mask &= pop[risk] == risk_level
-        return pop.loc[risk_mask]
-
-    def subset_state_denominator(self, pop: pd.DataFrame, current_state: str, next_state: str, event: 'Event'):
-        left_censored = (pop[f'{current_state}_event_time'].notnull()
-                         & (pop[f'{current_state}_event_time'] < self.observation_start))
-        in_current_state_denominator = ~left_censored & (
-            # In the current state and didn't get there this time step
-            ((pop[models.MULTIPLE_MYELOMA_MODEL_NAME] == current_state)
-             & (pop[f'{current_state}_event_time'] < event.time))
-            # or in the next state, but not til the start of the next step.
-            | ((pop[models.MULTIPLE_MYELOMA_MODEL_NAME] == next_state)
-               & (pop[f'{next_state}_event_time'] == event.time))
+    def __init__(
+            self,
+            stratify_pregnancy_outcome: str = 'False'
+    ):
+        self.configuration_defaults = self._get_configuration_defaults()
+        self.stratifier = ResultsStratifier(
+            self.name,
+            stratify_pregnancy_outcome,
         )
 
-        denominator = pop.loc[in_current_state_denominator].copy()
-        denominator['group'] = pd.cut(denominator[f'{current_state}_time_since_entrance'], self.bins)
-        return denominator
+        self.tracked_column_name = 'tracked'
+        self.entrance_time_column_name = 'entrance_time'
+
+        self.birth_weight_pipeline_name = 'low_birth_weight.exposure'
+        self.metrics_pipeline_name = 'metrics'
+
+    def __repr__(self):
+        return 'PregnancyObserver()'
+
+    ##########################
+    # Initialization methods #
+    ##########################
+
+    # noinspection PyMethodMayBeStatic
+    def _get_configuration_defaults(self) -> Dict[str, Dict]:
+        return {
+            'metrics': {
+                f'birth': PregnancyObserver.configuration_defaults['metrics']['birth']
+            }
+        }
+
+    ##############
+    # Properties #
+    ##############
+
+    @property
+    def sub_components(self) -> List[ResultsStratifier]:
+        return [self.stratifier]
+
+    @property
+    def name(self):
+        return 'birth_observer'
+
+    #################
+    # Setup methods #
+    #################
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.clock = self._get_clock(builder)
+        self.configuration = self._get_configuration(builder)
+        self.start_time = self._get_start_time(builder)
+        self.age_bins = self._get_age_bins(builder)
+        self.pipelines = self._get_pipelines(builder)
+        self.population_view = self._get_population_view(builder)
+
+        self._register_metrics_modifier(builder)
+
+    # noinspection PyMethodMayBeStatic
+    def _get_clock(self, builder: Builder) -> Callable[[], Time]:
+        return builder.time.clock()
+
+    # noinspection PyMethodMayBeStatic
+    def _get_configuration(self, builder: Builder) -> ConfigTree:
+        return builder.configuration.metrics.birth
+
+    # noinspection PyMethodMayBeStatic
+    def _get_start_time(self, builder: Builder) -> pd.Timestamp:
+        return get_time_stamp(builder.configuration.time.start)
+
+    # noinspection PyMethodMayBeStatic
+    def _get_age_bins(self, builder: Builder) -> pd.DataFrame:
+        return utilities.get_age_bins(builder)
+
+    def _get_pipelines(self, builder: Builder) -> Dict[str, Pipeline]:
+        return {
+            # self.birth_weight_pipeline_name: builder.value.get_value(self.birth_weight_pipeline_name),
+        }
+
+    def _get_population_view(self, builder: Builder) -> PopulationView:
+        return builder.population.get_view(['sex', self.tracked_column_name, self.entrance_time_column_name])
+
+    def _register_metrics_modifier(self, builder: Builder) -> None:
+        builder.value.register_value_modifier(
+            self.metrics_pipeline_name,
+            self._metrics,
+            requires_columns=[self.entrance_time_column_name],
+            requires_values=[self.birth_weight_pipeline_name]
+        )
+
+    ##################################
+    # Pipeline sources and modifiers #
+    ##################################
+
+    # noinspection PyUnusedLocal
+    def _metrics(self, index: pd.Index, metrics: Dict) -> Dict:
+        pipelines = [
+            pd.Series(pipeline(index), name=pipeline_name)
+            for pipeline_name, pipeline in self.pipelines.items()
+        ]
+        pop = pd.concat([self.population_view.get(index)] + pipelines, axis=1)
+
+        measure_getters = (
+            (self._get_births, ()),
+            (self._get_birth_weight_sum, ()),
+            (self._get_births, (results.LOW_BIRTH_WEIGHT_CUTOFF,)),
+        )
+
+        config_dict = self.configuration.to_dict()
+        base_filter = QueryString(f'"{{start_time}}" <= {self.entrance_time_column_name} '
+                                  f'and {self.entrance_time_column_name} < "{{end_time}}"')
+        time_spans = utilities.get_time_iterable(config_dict, self.start_time, self.clock())
+
+        for labels, pop_in_group in self.stratifier.group(pop):
+            args = (pop_in_group, base_filter, self.configuration.to_dict(), time_spans, self.age_bins)
+
+            for measure_getter, extra_args in measure_getters:
+                measure_data = measure_getter(*args, *extra_args)
+                measure_data = self.stratifier.update_labels(measure_data, labels)
+                metrics.update(measure_data)
+
+        return metrics
