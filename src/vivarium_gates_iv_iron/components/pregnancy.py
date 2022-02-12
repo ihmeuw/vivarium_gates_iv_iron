@@ -21,6 +21,7 @@ class Pregnancy:
 
         # children_born = []  # This will be input for child model
 
+
         self.columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
             'pregnancy_outcome',
@@ -98,6 +99,7 @@ class Pregnancy:
                                    'birth_weight': birth_weight,
                                    'pregnancy_duration': pregnancy_duration,
                                    'pregnancy_state_change_date': pregnancy_state_change_date})
+
         self.population_view.update(pop_update)
 
     def on_time_step(self, event: Event):
@@ -109,6 +111,7 @@ class Pregnancy:
         pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate,
                                                              additional_key='new_pregnancy')
         postpartum_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
+
                 event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])].index
         not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == models.POSTPARTUM_STATE) & (
                 event.time - pop["pregnancy_state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))].index
@@ -143,6 +146,7 @@ class Pregnancy:
                                          'birth_weight': np.nan,
                                          'pregnancy_duration': pd.NaT,
                                          'pregnancy_state_change_date': event.time}, index=not_pregnant_this_step)
+
 
         pop_update = pd.concat([new_pregnant, new_not_pregnant, new_postpartum]).sort_index()
         # TODO file bug report for pandas with pd.concat and pd.append
