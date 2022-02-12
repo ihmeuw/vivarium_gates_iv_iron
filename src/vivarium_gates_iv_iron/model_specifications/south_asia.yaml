@@ -8,8 +8,9 @@ components:
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
-#        - DisabilityObserver()
-#        - MortalityObserver()
+        - DisabilityObserver()
+        - MortalityObserver()
+        - PregnancyObserver()
 #
 #        #- LowBirthWeight()
 #        #- ShortGestation()
@@ -49,4 +50,8 @@ configuration:
         mortality:
             by_age: True
             by_sex: True
+            by_year: True
+        pregnancy:
+            by_age: True
+            by_sex: False
             by_year: True
