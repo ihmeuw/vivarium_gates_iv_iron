@@ -59,10 +59,10 @@ class ResultsStratifier:
                 for stratification_key, source_value in categories.items()
             }
 
-            # if is_pipeline:
-            #     self.pipelines[source_name] = builder.value.get_value(source_name)
-            # else:
-            #     columns_required.append(data_keys.WASTING.name)
+            if is_pipeline:
+                self.pipelines[source_name] = builder.value.get_value(source_name)
+            else:
+                columns_required.append(source_name)
 
         self.population_view = builder.population.get_view(columns_required)
         self.stratification_groups: pd.Series = None
