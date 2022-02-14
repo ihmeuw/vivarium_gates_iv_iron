@@ -1,17 +1,23 @@
+from collections import Counter
 import itertools
 from typing import Callable, Dict, Iterable, List, Tuple, Union
 
 import pandas as pd
+from vivarium import ConfigTree
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
-from vivarium_public_health.metrics import (MortalityObserver as MortalityObserver_,
+from vivarium.framework.population import PopulationView
+from vivarium.framework.time import Time, get_time_stamp
+from vivarium.framework.values import Pipeline
+from vivarium_public_health.metrics import (utilities,
+                                            MortalityObserver as MortalityObserver_,
                                             DisabilityObserver as DisabilityObserver_,
                                             DiseaseObserver as DiseaseObserver_,
                                             CategoricalRiskObserver as CategoricalRiskObserver_)
-from vivarium_public_health.metrics.utilities import (get_deaths, get_state_person_time, get_transition_count,
+from vivarium_public_health.metrics.utilities import (get_group_counts, get_output_template, get_deaths, get_state_person_time, get_transition_count,
                                                       get_years_lived_with_disability, get_years_of_life_lost,
                                                       get_person_time,
-                                                      TransitionString)
+                                                      QueryString, TransitionString)
 
 from vivarium_gates_iv_iron.constants import models, results, data_keys
 
@@ -26,7 +32,7 @@ class ResultsStratifier:
 
     """
 
-    def __init__(self, observer_name: str = 'False'):
+    def __init__(self, observer_name: str = 'False', by_pregnancy_outcome: str = 'False'):
         self.name = f'{observer_name}_results_stratifier'
 
     # noinspection PyAttributeOutsideInit
@@ -52,10 +58,11 @@ class ResultsStratifier:
                 stratification_key: get_state_function(source_value)
                 for stratification_key, source_value in categories.items()
             }
+
             if is_pipeline:
                 self.pipelines[source_name] = builder.value.get_value(source_name)
             else:
-                columns_required.append(data_keys.WASTING.name)
+                columns_required.append(source_name)
 
         self.population_view = builder.population.get_view(columns_required)
         self.stratification_groups: pd.Series = None
@@ -218,3 +225,97 @@ class DisabilityObserver(DisabilityObserver_):
                          self.disability_weight_pipelines, self.causes)
             measure_data = self.stratifier.update_labels(get_years_lived_with_disability(*base_args), labels)
             self.years_lived_with_disability.update(measure_data)
+
+
+class PregnancyObserver:
+    configuration_defaults = {
+        'metrics': {
+            'pregnancy': {
+                'by_age': False,
+                'by_year': False,
+                'by_sex': False,
+            }
+        }
+    }
+
+    def __repr__(self):
+        return 'PregnancyObserver()'
+
+
+    ##############
+    # Properties #
+    ##############
+
+    @property
+    def sub_components(self) -> List:
+        return []
+
+    @property
+    def name(self):
+        return 'pregnancy_observer'
+
+    #################
+    # Setup methods #
+    #################
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.clock = builder.time.clock()
+        self.configuration = builder.configuration.metrics.pregnancy
+        self.start_time = get_time_stamp(builder.configuration.time.start)
+        self.age_bins = utilities.get_age_bins(builder)
+        self.person_time = Counter()
+        self.counts = Counter()
+
+        columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date']
+        if self.configuration.by_age:
+            columns_required += ['age']
+        if self.configuration.by_sex:
+            columns_required += ['sex']
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener('time_step__prepare', self.on_time_step_prepare)
+        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
+        builder.value.register_value_modifier('metrics', self.metrics)
+
+
+    def on_time_step_prepare(self, event: Event):
+        pop = self.population_view.get(event.index)
+        # Ignoring the edge case where the step spans a new year.
+        # Accrue all counts and time to the current year.
+        for state in models.PREGNANCY_MODEL_STATES:
+            # noinspection PyTypeChecker
+            state_person_time_this_step = utilities.get_state_person_time(
+                pop, self.configuration, 'pregnancy_status', state, self.clock().year, event.step_size, self.age_bins
+            )
+            self.person_time.update(state_person_time_this_step)
+
+    def on_collect_metrics(self, event: Event):
+        counts_this_step = {}
+        pop = self.population_view.get(event.index)
+        pop = pop[pop["pregnancy_state_change_date"] == event.time]
+        configuration = self.configuration.to_dict()
+
+        # count new conceptions
+        base_key = get_output_template(**configuration).substitute(measure='conception_count',
+                                                            year=event.time.year)
+        base_filter = QueryString(f'alive == "alive" and pregnancy_status == "pregnant"')
+        counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
+        for outcome in models.PREGNANCY_OUTCOMES:
+            base_key = get_output_template(**configuration).substitute(measure=f'{outcome}_count',
+                                                                          year=event.time.year)
+            base_filter = QueryString(
+                f'alive == "alive" and pregnancy_status == "postpartum" and pregnancy_outcome == "{outcome}"')
+            counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
+        self.counts.update(counts_this_step)
+
+    ##################################
+    # Pipeline sources and modifiers #
+    ##################################
+
+    # noinspection PyUnusedLocal
+    def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
+        metrics.update(self.counts)
+        metrics.update(self.person_time)
+        return metrics
+
