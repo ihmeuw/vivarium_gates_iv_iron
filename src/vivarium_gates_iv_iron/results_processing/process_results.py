@@ -1,4 +1,3 @@
-import itertools
 from pathlib import Path
 from typing import NamedTuple, List
 
@@ -32,6 +31,11 @@ def make_measure_data(data):
         ylls=get_by_cause_measure_data(data, "ylls"),
         ylds=get_by_cause_measure_data(data, "ylds"),
         deaths=get_by_cause_measure_data(data, "deaths"),
+        pregnancy_state_person_time=get_measure_data(data, "pregnancy_state_person_time"),
+        pregnancy_outcome_counts=get_measure_data(data, "pregnancy_outcome_counts"),
+        conception_counts=get_measure_data(data, "conception_counts")
+
+
         # TODO duplicate for each model
         #     disease_state_person_time=get_state_person_time_measure_data(
         #         data, "disease_state_person_time"
@@ -49,6 +53,9 @@ class MeasureData(NamedTuple):
     ylls: pd.DataFrame
     ylds: pd.DataFrame
     deaths: pd.DataFrame
+    pregnancy_state_person_time: pd.DataFrame
+    pregnancy_outcome_counts: pd.DataFrame
+    conception_counts: pd.DataFrame
 
     # TODO duplicate for each model
     # disease_state_person_time: pd.DataFrame
