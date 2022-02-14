@@ -31,7 +31,7 @@ def make_measure_data(data):
         ylls=get_by_cause_measure_data(data, "ylls"),
         ylds=get_by_cause_measure_data(data, "ylds"),
         deaths=get_by_cause_measure_data(data, "deaths"),
-        pregnancy_state_person_time=get_measure_data(data, "pregnancy_person_time"),
+        pregnancy_state_person_time=get_measure_data(data, "pregnancy_state_person_time"),
         pregnancy_outcome_counts=get_measure_data(data, "pregnancy_outcome_counts"),
         conception_counts=get_measure_data(data, "conception_counts")
 
