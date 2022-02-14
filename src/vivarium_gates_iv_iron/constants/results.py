@@ -54,7 +54,7 @@ PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
 )
 
 CONCEPTION_COUNT_COLUMN_TEMPLATE = (
-    "{PREGNANCY_STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "conception_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 
 COLUMN_TEMPLATES = {
