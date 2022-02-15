@@ -165,11 +165,15 @@ class Pregnancy:
 
     def load_pregnancy_prevalence(self, builder: Builder) -> pd.DataFrame:
         index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
-        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREVALENCE)
+        not_pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE)
                                .fillna(0)
                                .set_index(index_cols))
-        postpartum_prevalence = pregnant_prevalence * 6 / 40
-        not_pregnant_prevalence = 1 - (postpartum_prevalence + pregnant_prevalence)
+        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREGNANT_PREVALENCE)
+                               .fillna(0)
+                               .set_index(index_cols))
+        postpartum_prevalence = (builder.data.load(data_keys.PREGNANCY.POSTPARTUM_PREVALENCE)
+                               .fillna(0)
+                               .set_index(index_cols))
         # order of prevalences must match order of PREGNANCY_STATUSES
         prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
         prevalences.columns = list(models.PREGNANCY_MODEL_STATES)
