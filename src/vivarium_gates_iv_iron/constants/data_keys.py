@@ -87,7 +87,7 @@ PREGNANCY = __Pregnancy()
 class __MaternalDisorders(NamedTuple):
 
     CSMR: TargetString = TargetString(
-        "cause.maternal_disorders.csmr"
+        "cause.maternal_disorders.cause_specific_mortality_rate"
     )
     INCIDENCE_RATE: TargetString = TargetString(
         "cause.maternal_disorders.incidence_rate"
@@ -111,7 +111,7 @@ MATERNAL_DISORDERS = __MaternalDisorders()
 class __MaternalHemorrhage(NamedTuple):
 
     CSMR: TargetString = TargetString(
-        "cause.maternal_hemorrhage.csmr"
+        "cause.maternal_hemorrhage.cause_specific_mortality_rate"
     )
     INCIDENCE_RATE: TargetString = TargetString(
         "cause.maternal_hemorrhage.incidence_rate"
