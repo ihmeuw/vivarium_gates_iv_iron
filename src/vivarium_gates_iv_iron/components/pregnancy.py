@@ -55,6 +55,11 @@ class Pregnancy:
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
+        probs_all_zero = (pregnancy_state_probabilities.sum(axis=1) == 0).reset_index(drop=True)
+        ages = self.population_view.subview(['age']).get(pop_data.index)
+        is_under_ten = ages.age < 10
+        assert(is_under_ten.equals(probs_all_zero))
+        pregnancy_state_probabilities.loc[is_under_ten, 'not_pregnant'] = 1
         pregnancy_status = self.randomness.choice(pop_data.index, choices=models.PREGNANCY_MODEL_STATES,
                                                   p=pregnancy_state_probabilities,
                                                   additional_key='pregnancy_status')
