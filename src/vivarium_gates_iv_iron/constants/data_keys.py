@@ -92,9 +92,9 @@ class __MaternalDisorders(NamedTuple):
     INCIDENCE_RATE: TargetString = TargetString(
         "cause.maternal_disorders.incidence_rate"
     )
-    DISABILITY_WEIGHT: TargetString = TargetString(
-        "cause.maternal_disorders.disability_weight"
-    )
+    # DISABILITY_WEIGHT: TargetString = TargetString(
+    #     "cause.maternal_disorders.disability_weight"
+    # )
 
     @property
     def name(self):
