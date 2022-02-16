@@ -399,16 +399,5 @@ def load_pregnancy_outcome(key: str, location: str):
 
 
 def load_maternal_disorders_disability_weight(key: str, location: str) -> pd.DataFrame:
-    # DW_\text
-    # {c366} = \frac
-    # {\text
-    # {ylds}
-    # _
-    # {c366} - \text
-    # {ylds}
-    # _\text
-    # {s182, s183, s184}}{\text
-    # {incidence_rate}
-    # _
-    # {c366} - (ACMR - csmr_\text{c366} + csmr_\text{c366} / incidence_\text{c366})}
+    # DW_c366 = (ylds_c366 - ylds_s182,s183,s184) / (incidence_rate_c366 - (ACMR - csmr_c366 + csmr_c366/incidence_rate_c366))
     ...
