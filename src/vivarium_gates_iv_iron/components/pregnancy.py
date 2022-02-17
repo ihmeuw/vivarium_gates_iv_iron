@@ -4,6 +4,7 @@ import pandas as pd
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
+from vivarium_public_health.population import Mortality
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import POSTPARTUM_DURATION_DAYS
 
@@ -16,11 +17,12 @@ class Pregnancy:
     def name(self):
         return models.PREGNANCY_MODEL_NAME
 
+    # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
         self.randomness = builder.randomness.get_stream(self.name)
+        self.clock = builder.time.clock()
 
         # children_born = []  # This will be input for child model
-
 
         self.columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
@@ -29,6 +31,8 @@ class Pregnancy:
             'birth_weight',
             'pregnancy_state_change_date',
             'pregnancy_duration',
+            'cause_of_death',
+            'years_of_life_lost'
         ]
 
         prevalences = self.load_pregnancy_prevalence(builder)
@@ -45,13 +49,28 @@ class Pregnancy:
         self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
                                                                 key_columns=['sex'],
                                                                 parameter_columns=['age', 'year'])
+
+        life_expectancy_data = builder.data.load("population.theoretical_minimum_risk_life_expectancy")
+        self.life_expectancy = builder.lookup.build_table(life_expectancy_data, parameter_columns=['age'])
+
+        all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate")
+        self.all_cause_mortality_rate = builder.lookup.build_table(all_cause_mortality_data, key_columns=['sex'],
+                                                                   parameter_columns=['age', 'year'])
+
         # TODO remove age and sex columns when done debugging
-        self.population_view = builder.population.get_view(self.columns_created + ['age', 'sex'])
+        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex', 'location']
+        self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=self.columns_created,
                                                  requires_streams=[self.name],
                                                  requires_columns=['age', 'sex'])
         builder.event.register_listener("time_step", self.on_time_step)
+        # builder.event.register_listener('time_step', self.on_time_step, priority=0)
+
+        # self.cause_specific_mortality_rate = builder.value.register_value_producer(
+        #     'cause_specific_mortality_rate', source=builder.lookup.build_table(0)
+        # )
+
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
