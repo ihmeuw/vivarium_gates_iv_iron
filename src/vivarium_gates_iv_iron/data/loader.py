@@ -62,7 +62,9 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
         data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
-        data_keys.PREGNANCY.PREVALENCE: get_prevalence_pregnant,
+        data_keys.PREGNANCY.PREGNANT_PREVALENCE: get_prevalence_pregnant,
+        data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE: get_prevalence_not_pregnant,
+        data_keys.PREGNANCY.POSTPARTUM_PREVALENCE: get_prevalence_postpartum,
         data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE: load_standard_data,
         data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
@@ -338,7 +340,15 @@ def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
 
 def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
 
-    return _get_pregnancy_outcome_denominator(key, location) * 40 / 52
+    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
+    sbr = get_data(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
+
+    prevalence_pregnant = (((asfr + asfr*sbr) * 40/52) +
+                           ((incidence_c995 + incidence_c374) * 24/52))
+
+    return prevalence_pregnant
 
 
 def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:

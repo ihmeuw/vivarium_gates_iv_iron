@@ -55,6 +55,11 @@ class Pregnancy:
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
+        probs_all_zero = (pregnancy_state_probabilities.sum(axis=1) == 0).reset_index(drop=True)
+        ages = self.population_view.subview(['age']).get(pop_data.index)
+        is_under_ten = ages.age < 10
+        assert(is_under_ten.equals(probs_all_zero))
+        pregnancy_state_probabilities.loc[is_under_ten, 'not_pregnant'] = 1
         pregnancy_status = self.randomness.choice(pop_data.index, choices=models.PREGNANCY_MODEL_STATES,
                                                   p=pregnancy_state_probabilities,
                                                   additional_key='pregnancy_status')
@@ -165,11 +170,15 @@ class Pregnancy:
 
     def load_pregnancy_prevalence(self, builder: Builder) -> pd.DataFrame:
         index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
-        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREVALENCE)
+        not_pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE)
                                .fillna(0)
                                .set_index(index_cols))
-        postpartum_prevalence = pregnant_prevalence * 6 / 40
-        not_pregnant_prevalence = 1 - (postpartum_prevalence + pregnant_prevalence)
+        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREGNANT_PREVALENCE)
+                               .fillna(0)
+                               .set_index(index_cols))
+        postpartum_prevalence = (builder.data.load(data_keys.PREGNANCY.POSTPARTUM_PREVALENCE)
+                               .fillna(0)
+                               .set_index(index_cols))
         # order of prevalences must match order of PREGNANCY_STATUSES
         prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
         prevalences.columns = list(models.PREGNANCY_MODEL_STATES)

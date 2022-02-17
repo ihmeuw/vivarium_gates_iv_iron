@@ -51,8 +51,14 @@ PREGNANCY_OUTCOMES = __PregnancyOutcomes()
 class __Pregnancy(NamedTuple):
 
     # Keys that will be loaded into the artifact. must have a colon type declaration
-    PREVALENCE: TargetString = TargetString(
-        "cause.pregnancy.prevalence"
+    PREGNANT_PREVALENCE: TargetString = TargetString(
+        "cause.pregnancy.pregnant_prevalence"
+    )
+    NOT_PREGNANT_PREVALENCE: TargetString = TargetString(
+        "cause.pregnancy.not_pregnant_prevalence"
+    )
+    POSTPARTUM_PREVALENCE: TargetString = TargetString(
+        "cause.pregnancy.postpartum_prevalence"
     )
     INCIDENCE_RATE: TargetString = TargetString(
         "cause.pregnancy.incidence_rate"
