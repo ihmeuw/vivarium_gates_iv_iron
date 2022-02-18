@@ -54,8 +54,14 @@ class Pregnancy:
         self.life_expectancy = builder.lookup.build_table(life_expectancy_data, parameter_columns=['age'])
 
         all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate")
-        self.all_cause_mortality_rate = builder.lookup.build_table(all_cause_mortality_data, key_columns=['sex'],
-                                                                   parameter_columns=['age', 'year'])
+        maternal_disorder_csmr = builder.data.load("cause.maternal_disorders.cause_specific_mortality_rate")
+        self.background_mortality_rate = builder.lookup.build_table(all_cause_mortality_data - maternal_disorder_csmr,
+                                                                    key_columns=['sex'],
+                                                                    parameter_columns=['age', 'year'])
+
+        # 3 cols: death, incident (nonfatal) maternal disorder, normal
+        maternal_outcome_probabilities = builder.lookup.build_table(.1)
+
 
         # TODO remove age and sex columns when done debugging
         view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex', 'location']
@@ -65,19 +71,18 @@ class Pregnancy:
                                                  requires_streams=[self.name],
                                                  requires_columns=['age', 'sex'])
         builder.event.register_listener("time_step", self.on_time_step)
-        # builder.event.register_listener('time_step', self.on_time_step, priority=0)
+        # builder.event.register_listener('time_step', self.on_time_step_mortality, priority=0)
 
         # self.cause_specific_mortality_rate = builder.value.register_value_producer(
         #     'cause_specific_mortality_rate', source=builder.lookup.build_table(0)
         # )
-
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
         probs_all_zero = (pregnancy_state_probabilities.sum(axis=1) == 0).reset_index(drop=True)
         ages = self.population_view.subview(['age']).get(pop_data.index)
         is_under_ten = ages.age < 10
-        assert(is_under_ten.equals(probs_all_zero))
+        assert (is_under_ten.equals(probs_all_zero))
         pregnancy_state_probabilities.loc[is_under_ten, 'not_pregnant'] = 1
         pregnancy_status = self.randomness.choice(pop_data.index, choices=models.PREGNANCY_MODEL_STATES,
                                                   p=pregnancy_state_probabilities,
@@ -126,17 +131,30 @@ class Pregnancy:
 
         self.population_view.update(pop_update)
 
+    def on_time_step_mortality(self, event: Event):
+        pop = self.population_view.get(event.index, query="alive =='alive'")
+        prob_df = rate_to_probability(pd.DataFrame(self.mortality_rate(pop.index)))
+        prob_df['no_death'] = 1 - prob_df.sum(axis=1)
+        prob_df['cause_of_death'] = self.random.choice(prob_df.index, prob_df.columns, prob_df)
+        dead_pop = prob_df.query('cause_of_death != "no_death"').copy()
+
+        if not dead_pop.empty:
+            dead_pop['alive'] = pd.Series('dead', index=dead_pop.index)
+            dead_pop['exit_time'] = event.time
+            dead_pop['years_of_life_lost'] = self.life_expectancy(dead_pop.index)
+            self.population_view.update(dead_pop[['alive', 'exit_time', 'cause_of_death', 'years_of_life_lost']])
+
     def on_time_step(self, event: Event):
-        pop = self.population_view.get(event.index)
+        pop = self.population_view.get(event.index, query="alive =='alive'")
 
         not_pregnant_idx = pop.loc[pop['pregnancy_status'] == models.NOT_PREGNANT_STATE].index
 
         conception_rate = self.conception_rate(not_pregnant_idx)
         pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate,
                                                              additional_key='new_pregnancy')
-        postpartum_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
-
+        pregnancy_ends_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
                 event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])].index
+        no_maternal_disorder_risk = pop.index.difference(pregnancy_ends_this_step)
         not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == models.POSTPARTUM_STATE) & (
                 event.time - pop["pregnancy_state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))].index
 
@@ -160,7 +178,7 @@ class Pregnancy:
                                      'pregnancy_duration': pregnancy_duration,
                                      'pregnancy_state_change_date': event.time}, index=pregnant_this_step)
 
-        new_postpartum = pop.loc[postpartum_this_step, self.columns_created]
+        new_postpartum = pop.loc[pregnancy_ends_this_step, self.columns_created]
         new_postpartum['pregnancy_status'] = models.POSTPARTUM_STATE
         new_postpartum['pregnancy_state_change_date'] = event.time
 
@@ -170,7 +188,6 @@ class Pregnancy:
                                          'birth_weight': np.nan,
                                          'pregnancy_duration': pd.NaT,
                                          'pregnancy_state_change_date': event.time}, index=not_pregnant_this_step)
-
 
         pop_update = pd.concat([new_pregnant, new_not_pregnant, new_postpartum]).sort_index()
         # TODO file bug report for pandas with pd.concat and pd.append
@@ -190,14 +207,14 @@ class Pregnancy:
     def load_pregnancy_prevalence(self, builder: Builder) -> pd.DataFrame:
         index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
         not_pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE)
-                               .fillna(0)
-                               .set_index(index_cols))
+                                   .fillna(0)
+                                   .set_index(index_cols))
         pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREGNANT_PREVALENCE)
                                .fillna(0)
                                .set_index(index_cols))
         postpartum_prevalence = (builder.data.load(data_keys.PREGNANCY.POSTPARTUM_PREVALENCE)
-                               .fillna(0)
-                               .set_index(index_cols))
+                                 .fillna(0)
+                                 .set_index(index_cols))
         # order of prevalences must match order of PREGNANCY_STATUSES
         prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
         prevalences.columns = list(models.PREGNANCY_MODEL_STATES)
