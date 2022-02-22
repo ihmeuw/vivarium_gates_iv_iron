@@ -26,7 +26,7 @@ class Pregnancy:
 
         self.columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
-            'pregnancy_outcome',
+            'pregnancy_outcome',    # livebirth, still birth, other
             'sex_of_child',
             'birth_weight',
             'pregnancy_state_change_date',
@@ -59,12 +59,7 @@ class Pregnancy:
                                                                     key_columns=['sex'],
                                                                     parameter_columns=['age', 'year'])
 
-        # 3 cols: death, incident (nonfatal) maternal disorder, normal
-        maternal_outcome_probabilities = builder.lookup.build_table(.1)
-
-
-        # TODO remove age and sex columns when done debugging
-        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex', 'location']
+        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=self.columns_created,
@@ -81,6 +76,9 @@ class Pregnancy:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
         probs_all_zero = (pregnancy_state_probabilities.sum(axis=1) == 0).reset_index(drop=True)
         ages = self.population_view.subview(['age']).get(pop_data.index)
+        # Consider subsetting data in artifact
+        #TODO: make sure code works
+
         is_under_ten = ages.age < 10
         assert (is_under_ten.equals(probs_all_zero))
         pregnancy_state_probabilities.loc[is_under_ten, 'not_pregnant'] = 1
@@ -132,6 +130,7 @@ class Pregnancy:
         self.population_view.update(pop_update)
 
     def on_time_step_mortality(self, event: Event):
+
         pop = self.population_view.get(event.index, query="alive =='alive'")
         prob_df = rate_to_probability(pd.DataFrame(self.mortality_rate(pop.index)))
         prob_df['no_death'] = 1 - prob_df.sum(axis=1)
@@ -145,6 +144,9 @@ class Pregnancy:
             self.population_view.update(dead_pop[['alive', 'exit_time', 'cause_of_death', 'years_of_life_lost']])
 
     def on_time_step(self, event: Event):
+        # TODO: figure out if simulant dies this time step
+        # TODO: if they do not die, they are dying at rate of acmr - csmr
+        #TODO: if they don't do either, they are alive!
         pop = self.population_view.get(event.index, query="alive =='alive'")
 
         not_pregnant_idx = pop.loc[pop['pregnancy_status'] == models.NOT_PREGNANT_STATE].index
@@ -215,8 +217,13 @@ class Pregnancy:
         postpartum_prevalence = (builder.data.load(data_keys.PREGNANCY.POSTPARTUM_PREVALENCE)
                                  .fillna(0)
                                  .set_index(index_cols))
-        # order of prevalences must match order of PREGNANCY_STATUSES
-        prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, postpartum_prevalence], axis=1)
+        maternal_disorder_prevalence = pd.Series(0., index=postpartum_prevalence.index, name=models.MATERNAL_DISORDER_STATE)
+        no_maternal_disorder_prevalence = (1/6 * postpartum_prevalence).rename(models.NO_MATERNAL_DISORDER_STATE)
+        postpartum_prevalence = 5/6 * postpartum_prevalence
+
+        # order of prevalences must match order of PREGNANCY_MODEL_STATES
+        prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, maternal_disorder_prevalence,
+                                 no_maternal_disorder_prevalence, postpartum_prevalence], axis=1)
         prevalences.columns = list(models.PREGNANCY_MODEL_STATES)
 
         return prevalences.reset_index()
