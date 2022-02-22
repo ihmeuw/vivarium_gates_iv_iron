@@ -76,9 +76,8 @@ class Pregnancy:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
         probs_all_zero = (pregnancy_state_probabilities.sum(axis=1) == 0).reset_index(drop=True)
         ages = self.population_view.subview(['age']).get(pop_data.index)
-        # Consider subsetting data in artifact
-        #TODO: make sure code works
-
+        # TODO: This code is to ensure under 10 y.o. simulants have a prevalence of not_pregnant of 1. This should
+        # probably be done in the artifact itself to avoid special casing.
         is_under_ten = ages.age < 10
         assert (is_under_ten.equals(probs_all_zero))
         pregnancy_state_probabilities.loc[is_under_ten, 'not_pregnant'] = 1
