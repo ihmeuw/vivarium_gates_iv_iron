@@ -151,8 +151,10 @@ class Pregnancy:
 
     def on_time_step(self, event: Event):
         # TODO: figure out if simulant dies this time step
+        # This cause model should be implemented such that each simulant who experiences deaths due to maternal
+        # disorders also experiences an incident case of maternal disorders.
         # TODO: if they do not die, they are dying at rate of acmr - csmr
-        #TODO: if they don't do either, they are alive!
+        # TODO: if they don't do either, they are alive!
         pop = self.population_view.get(event.index, query="alive =='alive'")
         not_pregnant = pop['pregnancy_status'] == models.NOT_PREGNANT_STATE
 
