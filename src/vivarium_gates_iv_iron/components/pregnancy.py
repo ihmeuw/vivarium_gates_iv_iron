@@ -53,8 +53,8 @@ class Pregnancy:
         life_expectancy_data = builder.data.load("population.theoretical_minimum_risk_life_expectancy")
         self.life_expectancy = builder.lookup.build_table(life_expectancy_data, parameter_columns=['age'])
 
-        all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate")
-        maternal_disorder_csmr = builder.data.load("cause.maternal_disorders.cause_specific_mortality_rate")
+        all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
+        maternal_disorder_csmr = builder.data.load("cause.maternal_disorders.cause_specific_mortality_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
         self.background_mortality_rate = builder.lookup.build_table(all_cause_mortality_data - maternal_disorder_csmr,
                                                                     key_columns=['sex'],
                                                                     parameter_columns=['age', 'year'])
@@ -257,7 +257,7 @@ class Pregnancy:
                                  .fillna(0)
                                  .set_index(index_cols))
         maternal_disorder_prevalence = pd.Series(0., index=postpartum_prevalence.index, name=models.MATERNAL_DISORDER_STATE)
-        no_maternal_disorder_prevalence = (1/6 * postpartum_prevalence).rename(models.NO_MATERNAL_DISORDER_STATE)
+        no_maternal_disorder_prevalence = 1/6 * postpartum_prevalence
         postpartum_prevalence = 5/6 * postpartum_prevalence
 
         # order of prevalences must match order of PREGNANCY_MODEL_STATES
