@@ -128,12 +128,19 @@ class Pregnancy:
         pregnancy_state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
         pregnancy_state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
 
+        # initialize columns for 'cause_of_death', 'years_of_life_lost'
+        cause_of_death = pd.Series(None, index=pop_data.index)
+        years_of_life_lost = pd.Series(0., index=pop_data.index)
+
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
                                    'sex_of_child': sex_of_child,
                                    'birth_weight': birth_weight,
                                    'pregnancy_duration': pregnancy_duration,
-                                   'pregnancy_state_change_date': pregnancy_state_change_date})
+                                   'pregnancy_state_change_date': pregnancy_state_change_date,
+                                   'cause_of_death': cause_of_death,
+                                   'years_of_life_lost': years_of_life_lost
+                                   })
 
         self.population_view.update(pop_update)
 
