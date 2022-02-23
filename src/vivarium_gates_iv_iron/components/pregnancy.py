@@ -44,6 +44,7 @@ class Pregnancy:
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
         self.conception_rate = builder.value.register_rate_producer('conception_rate', source=conception_rate)
+        conception_rate_data = conception_rate_data.set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
 
         outcome_probabilities = self.load_pregnancy_outcome_probabilities(builder)
         self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
@@ -55,14 +56,15 @@ class Pregnancy:
 
         all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
         maternal_disorder_csmr = builder.data.load("cause.maternal_disorders.cause_specific_mortality_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
-        self.background_mortality_rate = builder.lookup.build_table(all_cause_mortality_data - maternal_disorder_csmr,
+        self.background_mortality_rate = builder.lookup.build_table((all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
                                                                     key_columns=['sex'],
                                                                     parameter_columns=['age', 'year'])
-        maternal_disorder_incidence = builder.data.load("cause.maternal_disorders.incidence_rate")
+        maternal_disorder_incidence = builder.data.load("cause.maternal_disorders.incidence_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
 
-        self.probability_maternal_deaths = builder.lookup.build_table(maternal_disorder_csmr / conception_rate_data, key_columns=['sex'],
+        self.probability_maternal_deaths = builder.lookup.build_table((maternal_disorder_csmr / conception_rate_data).reset_index(),
+                                                                      key_columns=['sex'],
                                                                       parameter_columns=['age', 'year'])
-        self.probability_non_fatal_maternal_disorder = builder.lookup.build_table((maternal_disorder_incidence - maternal_disorder_csmr) / conception_rate_data,
+        self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(((maternal_disorder_incidence - maternal_disorder_csmr) / conception_rate_data).reset_index(),
                                                                       key_columns=['sex'],
                                                                       parameter_columns=['age', 'year'])
 
