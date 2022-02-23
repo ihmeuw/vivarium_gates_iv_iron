@@ -197,8 +197,8 @@ class Pregnancy:
         died_this_step = died_due_to_maternal_disorders | died_due_to_background_causes
 
 
-        conception_rate = self.conception_rate(not_pregnant_idx)
-        pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate,
+        conception_rate = self.conception_rate(pop.index)[not_pregnant]
+        pregnant_this_step = self.randomness.filter_for_rate(pop[not_pregnant].index, conception_rate,
                                                              additional_key='new_pregnancy')
         pregnancy_ends_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
                 event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])].index
@@ -221,6 +221,7 @@ class Pregnancy:
         pregnancy_duration = pd.to_timedelta(9 * 28,
                                              unit='d')
 
+        # Handle simulants going from np -> p
         new_pregnant = pd.DataFrame({'pregnancy_status': models.PREGNANT_STATE,
                                      'pregnancy_outcome': pregnancy_outcome,
                                      'sex_of_child': sex_of_child,
@@ -228,10 +229,15 @@ class Pregnancy:
                                      'pregnancy_duration': pregnancy_duration,
                                      'pregnancy_state_change_date': event.time}, index=pregnant_this_step)
 
+        # TODO: Handle simulants going from p -> (md or nmd)
         new_postpartum = pop.loc[pregnancy_ends_this_step, self.columns_created]
         new_postpartum['pregnancy_status'] = models.POSTPARTUM_STATE
         new_postpartum['pregnancy_state_change_date'] = event.time
 
+        # TODO: Handle simulants going from (md or nmd) -> pp
+
+
+        # Handle simulants going from pp->np
         new_not_pregnant = pd.DataFrame({'pregnancy_status': models.NOT_PREGNANT_STATE,
                                          'pregnancy_outcome': models.INVALID_OUTCOME,
                                          'sex_of_child': models.INVALID_OUTCOME,
@@ -239,6 +245,7 @@ class Pregnancy:
                                          'pregnancy_duration': pd.NaT,
                                          'pregnancy_state_change_date': event.time}, index=not_pregnant_this_step)
 
+        # TODO: update all the new things (md and nmd)
         pop_update = pd.concat([new_pregnant, new_not_pregnant, new_postpartum]).sort_index()
         # TODO file bug report for pandas with pd.concat and pd.append
         pop_update['pregnancy_duration'] = pd.to_timedelta(pop_update['pregnancy_duration'])
