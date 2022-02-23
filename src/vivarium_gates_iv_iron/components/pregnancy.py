@@ -6,7 +6,7 @@ from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
 from vivarium_public_health.population import Mortality
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
-from vivarium_gates_iv_iron.constants.data_values import POSTPARTUM_DURATION_DAYS
+from vivarium_gates_iv_iron.constants.data_values import POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS
 
 
 class Pregnancy:
@@ -58,6 +58,13 @@ class Pregnancy:
         self.background_mortality_rate = builder.lookup.build_table(all_cause_mortality_data - maternal_disorder_csmr,
                                                                     key_columns=['sex'],
                                                                     parameter_columns=['age', 'year'])
+        maternal_disorder_incidence = builder.data.load("cause.maternal_disorders.incidence_rate")
+
+        self.probability_maternal_deaths = builder.lookup.build_table(maternal_disorder_csmr / conception_rate_data, key_columns=['sex'],
+                                                                      parameter_columns=['age', 'year'])
+        self.probability_non_fatal_maternal_disorder = builder.lookup.build_table((maternal_disorder_incidence - maternal_disorder_csmr) / conception_rate_data,
+                                                                      key_columns=['sex'],
+                                                                      parameter_columns=['age', 'year'])
 
         view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
         self.population_view = builder.population.get_view(view_columns)
@@ -147,8 +154,37 @@ class Pregnancy:
         # TODO: if they do not die, they are dying at rate of acmr - csmr
         #TODO: if they don't do either, they are alive!
         pop = self.population_view.get(event.index, query="alive =='alive'")
+        not_pregnant = pop['pregnancy_status'] == models.NOT_PREGNANT_STATE
 
-        not_pregnant_idx = pop.loc[pop['pregnancy_status'] == models.NOT_PREGNANT_STATE].index
+        # Make masks for subsets
+        pregnancy_ends_this_step = (
+                (pop['pregnancy_status'] == models.PREGNANT_STATE)
+                & (event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])
+        )
+        prepostpartum_ends_this_step = (
+                                           (
+                                               (pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
+                                               | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE)
+                                               & (event.time - pop["pregnancy_state_change_date"] >
+                                                  pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))  # One time step
+                                            )
+        )
+        postpartum_ends_this_step = (
+                (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
+                & (event.time - pop["pregnancy_state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))
+        )
+
+        # Determine who dies
+        maternal_disorder_death_draw = self.randomness.get_draw(pop.index, additional_key="maternal_disorder_death")
+        would_die_due_to_maternal_disorders = maternal_disorder_death_draw < self.probability_maternal_deaths(pop.index)
+        died_due_to_maternal_disorders = pregnancy_ends_this_step & would_die_due_to_maternal_disorders
+        died_due_to_background_causes_index = self.randomness.filter_for_rate(pop.index, rate=self.background_mortality_rate(pop.index),
+                                                                        additional_key="other_cause_death")
+        died_due_to_background_causes = pd.Series(False, index=pop.index)
+        died_due_to_background_causes.loc[died_due_to_background_causes_index] = True
+        died_due_to_background_causes.loc[died_due_to_maternal_disorders] = False
+        died_this_step = died_due_to_maternal_disorders | died_due_to_background_causes
+
 
         conception_rate = self.conception_rate(not_pregnant_idx)
         pregnant_this_step = self.randomness.filter_for_rate(not_pregnant_idx, conception_rate,
@@ -156,8 +192,10 @@ class Pregnancy:
         pregnancy_ends_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
                 event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])].index
         no_maternal_disorder_risk = pop.index.difference(pregnancy_ends_this_step)
-        not_pregnant_this_step = pop.loc[(pop['pregnancy_status'] == models.POSTPARTUM_STATE) & (
-                event.time - pop["pregnancy_state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))].index
+
+        # Non-fatal maternal disorders
+
+
 
         p = self.outcome_probabilities(pregnant_this_step)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=models.PREGNANCY_OUTCOMES, p=p,
