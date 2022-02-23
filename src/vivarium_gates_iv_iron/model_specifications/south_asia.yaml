@@ -2,7 +2,7 @@ components:
     vivarium_public_health:
         population:
             - BasePopulation()
-            - Mortality()
+        #    - Mortality()
         #risks:
         #    - Risk('risk_factor.low_birth_weight_and_short_gestation')
 
