@@ -195,10 +195,13 @@ class Pregnancy:
         pregnant_this_step = self.randomness.filter_for_rate(pop[not_pregnant].index, conception_rate,
                                                              additional_key='new_pregnancy')
 
-        # TODO: Non-fatal maternal disorders
+        # Non-fatal maternal disorders
         maternal_disorder_incidence_draw = self.randomness.get_draw(pop.index, additional_key="maternal_disorder_incidence")
         maternal_disorder_this_step = maternal_disorder_incidence_draw < self.probability_non_fatal_maternal_disorder(pop.index)
+        maternal_disorder_this_step = maternal_disorder_this_step & pregnancy_ends_this_step
+        no_maternal_disorder_this_step = pregnancy_ends_this_step & ~maternal_disorder_this_step
 
+        p = self.outcome_probabilities(pregnant_this_step)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=models.PREGNANCY_OUTCOMES, p=p,
                                                    additional_key='pregnancy_outcome')
 
