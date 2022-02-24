@@ -204,6 +204,11 @@ class Pregnancy:
             new_dead_pop['years_of_life_lost'] = self.life_expectancy(new_dead_pop.index)
 #            self.population_view.update(new_dead_pop[['alive', 'exit_time', 'cause_of_death', 'years_of_life_lost']])
 
+        # Limit population to the currently living after above mortality handling
+        pop = pop[~died_this_step]
+        prepostpartum_ends_this_step = prepostpartum_ends_this_step[~died_this_step]
+        postpartum_ends_this_step = postpartum_ends_this_step[~died_this_step]
+
         conception_rate = self.conception_rate(pop.index)[not_pregnant]
         pregnant_this_step = self.randomness.filter_for_rate(pop[not_pregnant].index, conception_rate,
                                                              additional_key='new_pregnancy')
@@ -245,7 +250,7 @@ class Pregnancy:
                                          'sex_of_child': models.INVALID_OUTCOME,
                                          'birth_weight': np.nan,
                                          'pregnancy_duration': pd.NaT,
-                                         'pregnancy_state_change_date': event.time}, index=not_pregnant_this_step)
+                                         'pregnancy_state_change_date': event.time}, index=postpartum_ends_this_step.index)
 
         # TODO: update all the new things (md and nmd)
         pop_update = pd.concat([new_pregnant, new_not_pregnant, new_postpartum]).sort_index()
