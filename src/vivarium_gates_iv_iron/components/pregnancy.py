@@ -145,7 +145,7 @@ class Pregnancy:
         self.population_view.update(pop_update)
 
     def on_time_step_mortality(self, event: Event):
-
+        # This is dead code but leaving for reference (from Mortality component)
         pop = self.population_view.get(event.index, query="alive =='alive'")
         prob_df = rate_to_probability(pd.DataFrame(self.mortality_rate(pop.index)))
         prob_df['no_death'] = 1 - prob_df.sum(axis=1)
@@ -195,18 +195,20 @@ class Pregnancy:
         died_due_to_background_causes.loc[died_due_to_background_causes_index] = True
         died_due_to_background_causes.loc[died_due_to_maternal_disorders] = False
         died_this_step = died_due_to_maternal_disorders | died_due_to_background_causes
+        new_dead_pop = pop[died_this_step]
 
+        # Change status of simulant from alive to dead
+        if not new_dead_pop.empty:
+            new_dead_pop['alive'] = pd.Series('dead', index=new_dead_pop.index)
+            new_dead_pop['exit_time'] = event.time
+            new_dead_pop['years_of_life_lost'] = self.life_expectancy(new_dead_pop.index)
+#            self.population_view.update(new_dead_pop[['alive', 'exit_time', 'cause_of_death', 'years_of_life_lost']])
 
         conception_rate = self.conception_rate(pop.index)[not_pregnant]
         pregnant_this_step = self.randomness.filter_for_rate(pop[not_pregnant].index, conception_rate,
                                                              additional_key='new_pregnancy')
-        pregnancy_ends_this_step = pop.loc[(pop['pregnancy_status'] == models.PREGNANT_STATE) & (
-                event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])].index
-        no_maternal_disorder_risk = pop.index.difference(pregnancy_ends_this_step)
 
-        # Non-fatal maternal disorders
-
-
+        # TODO: Non-fatal maternal disorders
 
         p = self.outcome_probabilities(pregnant_this_step)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=models.PREGNANCY_OUTCOMES, p=p,
