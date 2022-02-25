@@ -133,7 +133,7 @@ class Pregnancy:
         pregnancy_state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
 
         # initialize columns for 'cause_of_death', 'years_of_life_lost'
-        cause_of_death = pd.Series(None, index=pop_data.index, dtype="string").astype("string")
+        cause_of_death = pd.Series("not_dead", index=pop_data.index, dtype="string")
         years_of_life_lost = pd.Series(0., index=pop_data.index)
 
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
