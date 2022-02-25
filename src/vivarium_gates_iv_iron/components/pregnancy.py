@@ -21,6 +21,7 @@ class Pregnancy:
     def setup(self, builder: Builder):
         self.randomness = builder.randomness.get_stream(self.name)
         self.clock = builder.time.clock()
+        self.step_size = builder.time.step_size()
 
         # children_born = []  # This will be input for child model
 
@@ -68,6 +69,9 @@ class Pregnancy:
                                                                       key_columns=['sex'],
                                                                       parameter_columns=['age', 'year'])
 
+        # TODO: Get value from Ali
+        self.ylds_per_maternal_disorder = builder.lookup.build_table(0.1)
+
         view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(self.on_initialize_simulants,
@@ -75,15 +79,15 @@ class Pregnancy:
                                                  requires_streams=[self.name],
                                                  requires_columns=['age', 'sex'])
         builder.event.register_listener("time_step", self.on_time_step)
-        # builder.event.register_listener('time_step', self.on_time_step_mortality, priority=0)
 
-        # self.cause_specific_mortality_rate = builder.value.register_value_producer(
-        #     'cause_specific_mortality_rate', source=builder.lookup.build_table(0)
-        # )
+        builder.value.register_value_modifier("disability_weight", self.accrue_disability,
+                                              requires_columns=["alive", "pregnancy_status"])
+
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
         probs_all_zero = (pregnancy_state_probabilities.sum(axis=1) == 0).reset_index(drop=True)
+
         ages = self.population_view.subview(['age']).get(pop_data.index)
         # TODO: This code is to ensure under 10 y.o. simulants have a prevalence of not_pregnant of 1. This should
         # probably be done in the artifact itself to avoid special casing.
@@ -146,20 +150,39 @@ class Pregnancy:
 
     def on_time_step(self, event: Event):
         pop = self.population_view.get(event.index, query="alive =='alive'")
-        not_pregnant = pop['pregnancy_status'] == models.NOT_PREGNANT_STATE
+        conception_rate = self.conception_rate(pop.index)
+        pregnant_this_step = self.randomness.filter_for_rate(pop.index, conception_rate,
+                                                             additional_key='new_pregnancy')
+        p = self.outcome_probabilities(pop.index)[list(models.PREGNANCY_OUTCOMES)]
+        pregnancy_outcome = self.randomness.choice(pop.index, choices=models.PREGNANCY_OUTCOMES, p=p,
+                                                   additional_key='pregnancy_outcome')
+
+        sex_of_child = self.randomness.choice(pop.index, choices=['Male', 'Female'],
+                                              p=[0.5, 0.5], additional_key='sex_of_child')
+
+        # TODO: update with birth_weight distribution
+        birth_weight = 1500.0 + 1500 * self.randomness.get_draw(pop.index, additional_key='birth_weight')
+
+        pregnancy_duration = pd.to_timedelta(9 * 28,
+                                             unit='d')
 
         # Make masks for subsets
         pregnancy_ends_this_step = (
                 (pop['pregnancy_status'] == models.PREGNANT_STATE)
                 & (event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])
         )
+        maternal_disorder_incidence_draw = self.randomness.get_draw(pop.index,
+                                                                    additional_key="maternal_disorder_incidence")
+        maternal_disorder_this_step = maternal_disorder_incidence_draw < self.probability_non_fatal_maternal_disorder(
+            pop.index)
+
         prepostpartum_ends_this_step = (
-                                           (
-                                               (pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
-                                               | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE)
-                                               & (event.time - pop["pregnancy_state_change_date"] >
-                                                  pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))  # One time step
-                                            )
+           (
+               (pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
+               | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE)
+               & (event.time - pop["pregnancy_state_change_date"] >
+                  pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))  # One time step
+            )
         )
         postpartum_ends_this_step = (
                 (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
@@ -176,74 +199,44 @@ class Pregnancy:
         died_due_to_background_causes.loc[died_due_to_background_causes_index] = True
         died_due_to_background_causes.loc[died_due_to_maternal_disorders] = False
         died_this_step = died_due_to_maternal_disorders | died_due_to_background_causes
-        new_dead_pop = pop[died_this_step]
 
-        # Change status of simulant from alive to dead
-        if not new_dead_pop.empty:
-            new_dead_pop['alive'] = pd.Series('dead', index=new_dead_pop.index)
-            new_dead_pop['exit_time'] = event.time
-            new_dead_pop['years_of_life_lost'] = self.life_expectancy(new_dead_pop.index)
-#            self.population_view.update(new_dead_pop[['alive', 'exit_time', 'cause_of_death', 'years_of_life_lost']])
+        pop.loc[died_this_step, "alive"] = "dead"
+        pop.loc[died_this_step, "exit_time"] = event.time
+        pop.loc[died_this_step, "years_of_life_lost"] = self.life_expectancy(pop.loc[died_this_step].index)
+        pop.loc[died_due_to_maternal_disorders, "cause_of_death"] = "maternal_disorders"
+        pop.loc[died_due_to_background_causes, "cause_of_death"] = "other_causes"
 
-        # Limit population to the currently living after above mortality handling
-        pop = pop[~died_this_step]
-        pregnancy_ends_this_step = pregnancy_ends_this_step[~died_this_step]
-        prepostpartum_ends_this_step = prepostpartum_ends_this_step[~died_this_step]
-        postpartum_ends_this_step = postpartum_ends_this_step[~died_this_step]
+        # Update new pregnancies
+        # TODO: If you want to be mutually exclusive from death make this
+        # pregnant_this_step = pregnant_this_step & ~died_this_step
+        pop.loc[pregnant_this_step, "pregnancy_status"] = models.PREGNANT_STATE
+        pop.loc[pregnant_this_step, "pregnancy_outcome"] = pregnancy_outcome.loc[pregnant_this_step]
+        pop.loc[pregnant_this_step, "sex_of_child"] = sex_of_child.loc[pregnant_this_step]
+        pop.loc[pregnant_this_step, "birth_weight"] = birth_weight.loc[pregnant_this_step]
+        pop.loc[pregnant_this_step, "pregnancy_duration"] = pregnancy_duration
+        pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
-        conception_rate = self.conception_rate(pop.index)[not_pregnant]
-        pregnant_this_step = self.randomness.filter_for_rate(pop[not_pregnant].index, conception_rate,
-                                                             additional_key='new_pregnancy')
-
-        # Non-fatal maternal disorders
-        maternal_disorder_incidence_draw = self.randomness.get_draw(pop.index, additional_key="maternal_disorder_incidence")
-        maternal_disorder_this_step = maternal_disorder_incidence_draw < self.probability_non_fatal_maternal_disorder(pop.index)
+        # Pregnancy to maternal disorder state and no maternal disorder state
         maternal_disorder_this_step = maternal_disorder_this_step & pregnancy_ends_this_step
         no_maternal_disorder_this_step = pregnancy_ends_this_step & ~maternal_disorder_this_step
-
-        p = self.outcome_probabilities(pregnant_this_step)[list(models.PREGNANCY_OUTCOMES)]
-        pregnancy_outcome = self.randomness.choice(pregnant_this_step, choices=models.PREGNANCY_OUTCOMES, p=p,
-                                                   additional_key='pregnancy_outcome')
-
-        sex_of_child = self.randomness.choice(pregnant_this_step, choices=['Male', 'Female'],
-                                              p=[0.5, 0.5], additional_key='sex_of_child')
-
-        # TODO: update with birth_weight distribution
-        birth_weight = 1500.0 + 1500 * self.randomness.get_draw(pregnant_this_step, additional_key='birth_weight')
-
-        pregnancy_duration = pd.to_timedelta(9 * 28,
-                                             unit='d')
-
-        # Handle simulants going from np -> p
-        new_pregnant = pd.DataFrame({'pregnancy_status': models.PREGNANT_STATE,
-                                     'pregnancy_outcome': pregnancy_outcome,
-                                     'sex_of_child': sex_of_child,
-                                     'birth_weight': birth_weight,
-                                     'pregnancy_duration': pregnancy_duration,
-                                     'pregnancy_state_change_date': event.time}, index=pregnant_this_step)
-
-        # TODO: Handle simulants going from p -> (md or nmd)
-        new_maternal_disorder = None  # new_prepostpartum that have non-fatal maternal disorders
-        new_no_maternal_disorder = None  # new_prepostpartum with no materanl disorders that are alive
+        pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
+        pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
+        pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
+        pop.loc[no_maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
 
         # Handle simulants going from (md or nmd) -> pp
-        new_postpartum = pop.loc[prepostpartum_ends_this_step, self.columns_created]
-        new_postpartum['pregnancy_status'] = models.POSTPARTUM_STATE
-        new_postpartum['pregnancy_state_change_date'] = event.time
+        pop.loc[prepostpartum_ends_this_step, "pregnancy_status"] = models.POSTPARTUM_STATE
+        pop.loc[prepostpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
 
-        # Handle simulants going from pp->np
-        new_not_pregnant = pd.DataFrame({'pregnancy_status': models.NOT_PREGNANT_STATE,
-                                         'pregnancy_outcome': models.INVALID_OUTCOME,
-                                         'sex_of_child': models.INVALID_OUTCOME,
-                                         'birth_weight': np.nan,
-                                         'pregnancy_duration': pd.NaT,
-                                         'pregnancy_state_change_date': event.time}, index=postpartum_ends_this_step.index)
+        # Postpartum to Not pregnant
+        pop.loc[postpartum_ends_this_step, "pregnancy_status"] = models.NOT_PREGNANT_STATE
+        pop.loc[postpartum_ends_this_step, "pregnancy_outcome"] = models.INVALID_OUTCOME
+        pop.loc[postpartum_ends_this_step, "sex_of_child"] = models.INVALID_OUTCOME
+        pop.loc[postpartum_ends_this_step, "birth_weight"] = np.nan
+        pop.loc[postpartum_ends_this_step, "pregnancy_duration"] = pd.NaT
+        pop.loc[postpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
 
-        # TODO: update all the new things (md and nmd)
-        pop_update = pd.concat([new_pregnant, new_not_pregnant, new_postpartum]).sort_index()
-        # TODO file bug report for pandas with pd.concat and pd.append
-        pop_update['pregnancy_duration'] = pd.to_timedelta(pop_update['pregnancy_duration'])
-        self.population_view.update(pop_update)
+        self.population_view.update(pop)
 
     def on_collect_metrics(self):
         # TODO: Record births, append (sex, bw, ga, birth date, maternal characteristics) tuple to list
@@ -291,3 +284,11 @@ class Pregnancy:
         outcome_probabilities[models.PREGNANCY_OUTCOMES[-1]] = 1 - outcome_probabilities.sum(axis=1)
 
         return outcome_probabilities.reset_index()
+
+    def accrue_disability(self, index: pd.Index):
+        disability_weight = pd.Series(0, index=index)
+        pop = self.population_view.get(index)
+        with_maternal_disorders = (pop["alive"] == "alive") & (pop["pregnancy_status"] == models.MATERNAL_DISORDER_STATE)
+        maternal_disorder_ylds = self.ylds_per_maternal_disorder(pop.index)
+        disability_weight.loc[with_maternal_disorders] = maternal_disorder_ylds.loc[with_maternal_disorders] * 365/self.step_size().days
+        return disability_weight
