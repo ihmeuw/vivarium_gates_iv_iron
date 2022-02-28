@@ -84,6 +84,51 @@ class __Pregnancy(NamedTuple):
 PREGNANCY = __Pregnancy()
 
 
+class __MaternalDisorders(NamedTuple):
+
+    CSMR: TargetString = TargetString(
+        "cause.maternal_disorders.cause_specific_mortality_rate"
+    )
+    INCIDENCE_RATE: TargetString = TargetString(
+        "cause.maternal_disorders.incidence_rate"
+    )
+    # DISABILITY_WEIGHT: TargetString = TargetString(
+    #     "cause.maternal_disorders.disability_weight"
+    # )
+
+    @property
+    def name(self):
+        return "maternal_disorders"
+
+    @property
+    def log_name(self):
+        return "maternal_disorders"
+
+
+MATERNAL_DISORDERS = __MaternalDisorders()
+
+
+class __MaternalHemorrhage(NamedTuple):
+
+    CSMR: TargetString = TargetString(
+        "cause.maternal_hemorrhage.cause_specific_mortality_rate"
+    )
+    INCIDENCE_RATE: TargetString = TargetString(
+        "cause.maternal_hemorrhage.incidence_rate"
+    )
+
+    @property
+    def name(self):
+        return "maternal_hemorrhage"
+
+    @property
+    def log_name(self):
+        return "maternal_hemorrhage"
+
+
+MATERNAL_HEMORRHAGE = __MaternalHemorrhage()
+
+
 class __LowBirthWeightShortGestation(NamedTuple):
     # Keys that will be loaded into the artifact. must have a colon type declaration
     EXPOSURE: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.exposure'
@@ -106,5 +151,7 @@ MAKE_ARTIFACT_KEY_GROUPS = [
     POPULATION,
     PREGNANCY,
     PREGNANCY_OUTCOMES,
+    MATERNAL_DISORDERS,
+    MATERNAL_HEMORRHAGE,
     LBWSG
 ]

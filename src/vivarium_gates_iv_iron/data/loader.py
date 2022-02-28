@@ -75,6 +75,11 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY_OUTCOMES.STILLBIRTH: load_pregnancy_outcome,
         data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH: load_pregnancy_outcome,
         data_keys.PREGNANCY_OUTCOMES.OTHER: load_pregnancy_outcome,
+        data_keys.MATERNAL_DISORDERS.CSMR: load_standard_data,
+        data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE: load_standard_data,
+        #data_keys.MATERNAL_DISORDERS.DISABILITY_WEIGHT: load_maternal_disorders_disability_weight,
+        data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
+        data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
         # TODO - add appropriate mappings
         # data_keys.DIARRHEA_PREVALENCE: load_standard_data,
         # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
@@ -391,3 +396,8 @@ def load_pregnancy_outcome(key: str, location: str):
         return (incidence_c374 + incidence_c995) / pregnancy_denominator
     else:
         raise ValueError(f'Unrecognized key {key}')
+
+
+def load_maternal_disorders_disability_weight(key: str, location: str) -> pd.DataFrame:
+    # DW_c366 = (ylds_c366 - ylds_s182,s183,s184) / (incidence_rate_c366 - (ACMR - csmr_c366 + csmr_c366/incidence_rate_c366))
+    ...
