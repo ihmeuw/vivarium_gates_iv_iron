@@ -77,6 +77,7 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
 
+
         # TODO: Get value from Ali
         self.ylds_per_maternal_disorder = builder.lookup.build_table(0.1)
 
@@ -184,6 +185,7 @@ class Pregnancy:
             pop.index)
 
         prepostpartum_ends_this_step = (
+
             (
                     (pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
                     | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE)
@@ -228,6 +230,7 @@ class Pregnancy:
         # Pregnancy to maternal disorder state and no maternal disorder state
         maternal_disorder_this_step = maternal_disorder_this_step & pregnancy_ends_this_step
         no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
+
         pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
         pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
         pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
