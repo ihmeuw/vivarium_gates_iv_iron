@@ -6,7 +6,8 @@ from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
 from vivarium_public_health.population import Mortality
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
-from vivarium_gates_iv_iron.constants.data_values import POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS
+from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
+                                                          PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO)
 
 
 class Pregnancy:
@@ -27,7 +28,7 @@ class Pregnancy:
 
         self.columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
-            'pregnancy_outcome',    # livebirth, still birth, other
+            'pregnancy_outcome',  # livebirth, still birth, other
             'sex_of_child',
             'birth_weight',
             'pregnancy_state_change_date',
@@ -45,7 +46,8 @@ class Pregnancy:
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])
         self.conception_rate = builder.value.register_rate_producer('conception_rate', source=conception_rate)
-        conception_rate_data = conception_rate_data.set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
+        conception_rate_data = conception_rate_data.set_index(
+            [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
 
         outcome_probabilities = self.load_pregnancy_outcome_probabilities(builder)
         self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
@@ -55,19 +57,26 @@ class Pregnancy:
         life_expectancy_data = builder.data.load("population.theoretical_minimum_risk_life_expectancy")
         self.life_expectancy = builder.lookup.build_table(life_expectancy_data, parameter_columns=['age'])
 
-        all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
-        maternal_disorder_csmr = builder.data.load("cause.maternal_disorders.cause_specific_mortality_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
-        self.background_mortality_rate = builder.lookup.build_table((all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
-                                                                    key_columns=['sex'],
-                                                                    parameter_columns=['age', 'year'])
-        maternal_disorder_incidence = builder.data.load("cause.maternal_disorders.incidence_rate").set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
+        all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate").set_index(
+            [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
+        maternal_disorder_csmr = builder.data.load("cause.maternal_disorders.cause_specific_mortality_rate").set_index(
+            [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
+        self.background_mortality_rate = builder.lookup.build_table(
+            (all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'])
+        maternal_disorder_incidence = builder.data.load("cause.maternal_disorders.incidence_rate").set_index(
+            [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
 
-        self.probability_maternal_deaths = builder.lookup.build_table((maternal_disorder_csmr / conception_rate_data).reset_index(),
-                                                                      key_columns=['sex'],
-                                                                      parameter_columns=['age', 'year'])
-        self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(((maternal_disorder_incidence - maternal_disorder_csmr) / conception_rate_data).reset_index(),
-                                                                      key_columns=['sex'],
-                                                                      parameter_columns=['age', 'year'])
+        self.probability_maternal_deaths = builder.lookup.build_table(
+            (maternal_disorder_csmr / conception_rate_data).reset_index(),
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'])
+        self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(
+            ((maternal_disorder_incidence - maternal_disorder_csmr) / conception_rate_data).reset_index(),
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'])
+
 
         # TODO: Get value from Ali
         self.ylds_per_maternal_disorder = builder.lookup.build_table(0.1)
@@ -82,7 +91,6 @@ class Pregnancy:
 
         builder.value.register_value_modifier("disability_weight", self.accrue_disability,
                                               requires_columns=["alive", "pregnancy_status"])
-
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
@@ -177,11 +185,12 @@ class Pregnancy:
             pop.index)
 
         prepostpartum_ends_this_step = (
-           (
-               (pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
-               | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE)
-               & (event.time - pop["pregnancy_state_change_date"] >
-                  pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))  # One time step
+
+            (
+                    (pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
+                    | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE)
+                    & (event.time - pop["pregnancy_state_change_date"] >
+                       pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))  # One time step
             )
         )
         postpartum_ends_this_step = (
@@ -193,8 +202,10 @@ class Pregnancy:
         maternal_disorder_death_draw = self.randomness.get_draw(pop.index, additional_key="maternal_disorder_death")
         would_die_due_to_maternal_disorders = maternal_disorder_death_draw < self.probability_maternal_deaths(pop.index)
         died_due_to_maternal_disorders = pregnancy_ends_this_step & would_die_due_to_maternal_disorders
-        died_due_to_background_causes_index = self.randomness.filter_for_rate(pop.index, rate=self.background_mortality_rate(pop.index),
-                                                                        additional_key="other_cause_death")
+        died_due_to_background_causes_index = self.randomness.filter_for_rate(pop.index,
+                                                                              rate=self.background_mortality_rate(
+                                                                                  pop.index),
+                                                                              additional_key="other_cause_death")
         died_due_to_background_causes = pd.Series(False, index=pop.index)
         died_due_to_background_causes.loc[died_due_to_background_causes_index] = True
         died_due_to_background_causes.loc[died_due_to_maternal_disorders] = False
@@ -218,7 +229,8 @@ class Pregnancy:
 
         # Pregnancy to maternal disorder state and no maternal disorder state
         maternal_disorder_this_step = maternal_disorder_this_step & pregnancy_ends_this_step
-        no_maternal_disorder_this_step = pregnancy_ends_this_step & ~maternal_disorder_this_step
+        no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
+
         pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
         pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
         pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
@@ -259,9 +271,10 @@ class Pregnancy:
         postpartum_prevalence = (builder.data.load(data_keys.PREGNANCY.POSTPARTUM_PREVALENCE)
                                  .fillna(0)
                                  .set_index(index_cols))
-        maternal_disorder_prevalence = pd.Series(0., index=postpartum_prevalence.index, name=models.MATERNAL_DISORDER_STATE)
-        no_maternal_disorder_prevalence = 1/6 * postpartum_prevalence
-        postpartum_prevalence = 5/6 * postpartum_prevalence
+        maternal_disorder_prevalence = pd.Series(0., index=postpartum_prevalence.index,
+                                                 name=models.MATERNAL_DISORDER_STATE)
+        no_maternal_disorder_prevalence = PREPOSTPARTUM_DURATION_RATIO * postpartum_prevalence
+        postpartum_prevalence = POSTPARTUM_DURATION_RATIO * postpartum_prevalence
 
         # order of prevalences must match order of PREGNANCY_MODEL_STATES
         prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, maternal_disorder_prevalence,
@@ -288,7 +301,9 @@ class Pregnancy:
     def accrue_disability(self, index: pd.Index):
         disability_weight = pd.Series(0, index=index)
         pop = self.population_view.get(index)
-        with_maternal_disorders = (pop["alive"] == "alive") & (pop["pregnancy_status"] == models.MATERNAL_DISORDER_STATE)
+        with_maternal_disorders = (pop["alive"] == "alive") & (
+                pop["pregnancy_status"] == models.MATERNAL_DISORDER_STATE)
         maternal_disorder_ylds = self.ylds_per_maternal_disorder(pop.index)
-        disability_weight.loc[with_maternal_disorders] = maternal_disorder_ylds.loc[with_maternal_disorders] * 365/self.step_size().days
+        disability_weight.loc[with_maternal_disorders] = maternal_disorder_ylds.loc[
+                                                             with_maternal_disorders] * 365 / self.step_size().days
         return disability_weight
