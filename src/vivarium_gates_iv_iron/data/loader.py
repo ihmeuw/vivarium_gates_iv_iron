@@ -406,9 +406,9 @@ def subset_to_wra(df):
     return (df)
 
 
-def reshape_to_vivarium_format(df):
+def reshape_to_vivarium_format(df, location):
     df = df.set_index(['age_group_id', 'sex_id', 'year_id']).drop('location_id', axis=1)
-    df = utilities.scrub_gbd_conventions(df, "South Asia")
+    df = utilities.scrub_gbd_conventions(df, location)
     df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
     df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
     df = vi_utils.sort_hierarchical_data(df)
@@ -435,7 +435,7 @@ def get_maternal_ylds(entity_list, location):
         measure_id=vi_globals.MEASURES['YLDs']
     )
 
-    groupby_cols = ['age_group_id', 'sex_id', 'year_id', 'location_id']
+    groupby_cols = ['age_group_id', 'sex_id', 'year_id']
     draw_cols = [f"draw_{i}" for i in range(1000)]
 
     # aggregate by summing if given multiple entities
@@ -449,7 +449,7 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     maternal_disorders = [causes.maternal_disorders]
 
     maternal_ylds = get_maternal_ylds(maternal_disorders, location)
-    maternal_ylds = reshape_to_vivarium_format(maternal_ylds)
+    maternal_ylds = reshape_to_vivarium_format(maternal_ylds, location)
     maternal_ylds = subset_to_wra(maternal_ylds)
 
     anemia_sequelae = [sequelae.mild_anemia_due_to_maternal_hemorrhage,
@@ -457,7 +457,7 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
               sequelae.severe_anemia_due_to_maternal_hemorrhage]
 
     anemia_ylds = get_maternal_ylds(anemia_sequelae, location)
-    anemia_ylds = reshape_to_vivarium_format(anemia_ylds)
+    anemia_ylds = reshape_to_vivarium_format(anemia_ylds, location)
     anemia_ylds = subset_to_wra(anemia_ylds)
 
     maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
