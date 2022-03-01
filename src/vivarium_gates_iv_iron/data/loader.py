@@ -14,7 +14,7 @@ for an example.
 """
 import pandas as pd
 
-from gbd_mapping import causes, covariates, risk_factors
+from gbd_mapping import causes, covariates, risk_factors, sequelae
 from db_queries import (
     get_covariate_estimates,
     get_location_metadata,
@@ -417,21 +417,17 @@ def reshape_to_vivarium_format(df):
     return df
 
 
-def get_maternal_ylds(entity, location):
-    gbd_info = {
-        'maternal_disorders': {'gbd_id_type': 'cause_id',
-                               'gbd_id': 366},
-        'anemia': {'gbd_id_type': 'sequela_id',
-                   'gbd_id': [182, 183, 184]}
-    }
+def get_maternal_ylds(entity_list, location):
+    gbd_id_types = [entity.kind + '_id' for entity in entity_list]
+    gbd_ids = [int(entity.gbd_id) for entity in entity_list]
 
     location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
 
     df = get_draws(
-        gbd_info[entity]['gbd_id_type'],
-        gbd_info[entity]['gbd_id'],
+        gbd_id_types,
+        gbd_ids,
         source=gbd_constants.SOURCES.COMO,
-        year_id=2019,  # pull from constants
+        year_id=2019,
         decomp_step=gbd_constants.DECOMP_STEP.STEP_5,
         gbd_round_id=gbd_constants.ROUND_IDS.GBD_2019,
         location_id=location_id,
@@ -439,20 +435,28 @@ def get_maternal_ylds(entity, location):
         measure_id=vi_globals.MEASURES['YLDs']
     )
 
+    groupby_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"]
     draw_cols = [f"draw_{i}" for i in range(1000)]
 
-    if entity == 'anemia':
-        df = df.groupby(["age_group_id", "location_id", "sex_id", "year_id"])[draw_cols].sum().reset_index()
+    # aggregate by summing if given multiple entities
+    if len(entity_list) > 1:
+        df = df.groupby(groupby_cols)[draw_cols].sum().reset_index()
 
-    return (df[["age_group_id", "location_id", "sex_id", "year_id"] + draw_cols])
+    return (df[groupby_cols + draw_cols])
 
 
 def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
-    maternal_ylds = get_maternal_ylds('maternal_disorders', location)
+    maternal_disorders = [causes.maternal_disorders]
+
+    maternal_ylds = get_maternal_ylds(maternal_disorders, location)
     maternal_ylds = reshape_to_vivarium_format(maternal_ylds)
     maternal_ylds = subset_to_wra(maternal_ylds)
 
-    anemia_ylds = get_maternal_ylds('anemia', location)
+    anemia_sequelae = [sequelae.mild_anemia_due_to_maternal_hemorrhage,
+              sequelae.moderate_anemia_due_to_maternal_hemorrhage,
+              sequelae.severe_anemia_due_to_maternal_hemorrhage]
+
+    anemia_ylds = get_maternal_ylds(anemia_sequelae, location)
     anemia_ylds = reshape_to_vivarium_format(anemia_ylds)
     anemia_ylds = subset_to_wra(anemia_ylds)
 
