@@ -95,6 +95,9 @@ class __MaternalDisorders(NamedTuple):
     # DISABILITY_WEIGHT: TargetString = TargetString(
     #     "cause.maternal_disorders.disability_weight"
     # )
+    YLDS: TargetString = TargetString(
+        "cause.maternal_disorders.ylds"
+    )
 
     @property
     def name(self):

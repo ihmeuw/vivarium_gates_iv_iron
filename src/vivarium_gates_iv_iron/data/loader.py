@@ -20,6 +20,7 @@ from db_queries import (
     get_location_metadata,
     get_population,
 )
+from vivarium_gbd_access.utilities import get_draws
 from vivarium.framework.artifact import EntityKey
 from vivarium_gbd_access import constants as gbd_constants, gbd
 from vivarium_inputs import (
@@ -77,11 +78,12 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY_OUTCOMES.OTHER: load_pregnancy_outcome,
         data_keys.MATERNAL_DISORDERS.CSMR: load_standard_data,
         data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE: load_standard_data,
-        #data_keys.MATERNAL_DISORDERS.DISABILITY_WEIGHT: load_maternal_disorders_disability_weight,
+        data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
         data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
         # TODO - add appropriate mappings
-        # data_keys.DIARRHEA_PREVALENCE: load_standard_data,
+        # data_keys.DIARRHEA_PREVALENCE: load_standard
+        # _data,
         # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
         # data_keys.DIARRHEA_REMISSION_RATE: load_standard_data,
         # data_keys.DIARRHEA_CAUSE_SPECIFIC_MORTALITY_RATE: load_standard_data,
@@ -398,6 +400,72 @@ def load_pregnancy_outcome(key: str, location: str):
         raise ValueError(f'Unrecognized key {key}')
 
 
-def load_maternal_disorders_disability_weight(key: str, location: str) -> pd.DataFrame:
-    # DW_c366 = (ylds_c366 - ylds_s182,s183,s184) / (incidence_rate_c366 - (ACMR - csmr_c366 + csmr_c366/incidence_rate_c366))
-    ...
+def subset_to_wra(df):
+    df = df.query("sex=='Female' & year_start==2019 & age_start >= 10 & age_end <= 60")
+
+    return (df)
+
+
+def reshape_to_vivarium_format(df):
+    df = df.set_index(['age_group_id', 'sex_id', 'year_id']).drop('location_id', axis=1)
+    df = utilities.scrub_gbd_conventions(df, "South Asia")
+    df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
+    df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
+    df = vi_utils.sort_hierarchical_data(df)
+    df.index = df.index.droplevel("location")
+
+    return df
+
+
+def get_maternal_ylds(entity, location):
+    gbd_info = {
+        'maternal_disorders': {'gbd_id_type': 'cause_id',
+                               'gbd_id': 366},
+        'anemia': {'gbd_id_type': 'sequela_id',
+                   'gbd_id': [182, 183, 184]}
+    }
+
+    location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
+
+    df = get_draws(
+        gbd_info[entity]['gbd_id_type'],
+        gbd_info[entity]['gbd_id'],
+        source=gbd_constants.SOURCES.COMO,
+        year_id=2019,  # pull from constants
+        decomp_step=gbd_constants.DECOMP_STEP.STEP_5,
+        gbd_round_id=gbd_constants.ROUND_IDS.GBD_2019,
+        location_id=location_id,
+        sex_id=gbd_constants.SEX.FEMALE,
+        measure_id=vi_globals.MEASURES['YLDs']
+    )
+
+    draw_cols = [f"draw_{i}" for i in range(1000)]
+
+    if entity == 'anemia':
+        df = df.groupby(["age_group_id", "location_id", "sex_id", "year_id"])[draw_cols].sum().reset_index()
+
+    return (df[["age_group_id", "location_id", "sex_id", "year_id"] + draw_cols])
+
+
+def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
+    maternal_ylds = get_maternal_ylds('maternal_disorders', location)
+    maternal_ylds = reshape_to_vivarium_format(maternal_ylds)
+    maternal_ylds = subset_to_wra(maternal_ylds)
+
+    anemia_ylds = get_maternal_ylds('anemia', location)
+    anemia_ylds = reshape_to_vivarium_format(anemia_ylds)
+    anemia_ylds = subset_to_wra(anemia_ylds)
+
+    maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
+    maternal_incidence = subset_to_wra(maternal_incidence)
+    # Update incidence for 55-59 year age group to match 50-54 year age group
+    maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
+
+    # TODO: check with Ali for final demoninator
+    # maternal_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
+    # maternal_csmr = subset_to_wra(maternal_csmr)
+    #
+    # acmr = get_data(data_keys.POPULATION.ACMR, location)
+    # acmr = subset_to_wra(acmr)
+
+    return (maternal_ylds - anemia_ylds) / maternal_incidence
