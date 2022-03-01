@@ -77,7 +77,6 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
 
-
         maternal_disorder_ylds_per_case = builder.data.load(data_keys.MATERNAL_DISORDERS.YLDS).set_index(
             [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
         self.ylds_per_maternal_disorder = builder.lookup.build_table(

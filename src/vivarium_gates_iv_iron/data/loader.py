@@ -412,6 +412,7 @@ def reshape_to_vivarium_format(df, location):
     df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
     df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
     df = vi_utils.sort_hierarchical_data(df)
+    df.index = df.index.droplevel("location")
 
     return df
 
