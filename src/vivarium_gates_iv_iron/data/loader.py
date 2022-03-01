@@ -407,12 +407,11 @@ def subset_to_wra(df):
 
 
 def reshape_to_vivarium_format(df, location):
-    df = df.set_index(['age_group_id', 'sex_id', 'year_id']).drop('location_id', axis=1)
+    df = df.set_index(['age_group_id', 'sex_id', 'year_id'])
     df = utilities.scrub_gbd_conventions(df, location)
     df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
     df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
     df = vi_utils.sort_hierarchical_data(df)
-    df.index = df.index.droplevel("location")
 
     return df
 
