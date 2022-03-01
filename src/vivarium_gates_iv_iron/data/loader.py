@@ -435,7 +435,7 @@ def get_maternal_ylds(entity_list, location):
         measure_id=vi_globals.MEASURES['YLDs']
     )
 
-    groupby_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"]
+    groupby_cols = ['age_group_id', 'sex_id', 'year_id', 'location_id']
     draw_cols = [f"draw_{i}" for i in range(1000)]
 
     # aggregate by summing if given multiple entities
