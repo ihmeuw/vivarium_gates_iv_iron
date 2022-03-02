@@ -461,9 +461,23 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     anemia_ylds = subset_to_wra(anemia_ylds)
 
     maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
+    full_index = maternal_incidence.index
     maternal_incidence = subset_to_wra(maternal_incidence)
     # Update incidence for 55-59 year age group to match 50-54 year age group
     maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
+
+    # Create full indexes for ylds to debug error when building ylds lookup table
+    draw_cols = [f"draw_{i}" for i in range(1000)]
+
+    is_subset = full_index.isin(maternal_ylds.index.values)
+    df = pd.DataFrame(0, index=full_index, columns=draw_cols)
+    df.loc[is_subset] = maternal_ylds
+    maternal_ylds = df
+
+    is_subset = full_index.isin(anemia_ylds.index.values)
+    df = pd.DataFrame(0, index=full_index, columns=draw_cols)
+    df.loc[is_subset] = anemia_ylds
+    anemia_ylds = df
 
     # TODO: check with Ali for final demoninator
     # maternal_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
