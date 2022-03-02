@@ -393,12 +393,6 @@ def load_pregnancy_outcome(key: str, location: str):
         raise ValueError(f'Unrecognized key {key}')
 
 
-def subset_to_wra(df):
-    df = df.query("sex=='Female' & year_start==2019 & age_start >= 10 & age_end <= 60")
-
-    return (df)
-
-
 def reshape_to_vivarium_format(df, location):
     df = df.set_index(['age_group_id', 'sex_id', 'year_id'])
     df = utilities.scrub_gbd_conventions(df, location)
@@ -434,7 +428,7 @@ def get_maternal_ylds(entity_list, location):
     if len(entity_list) > 1:
         df = df.groupby(groupby_cols)[draw_cols].sum().reset_index()
 
-    return (df[groupby_cols + draw_cols])
+    return df[groupby_cols + draw_cols]
 
 
 def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
@@ -456,10 +450,7 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
     # TODO: check with Ali for final demoninator
     # maternal_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
-    # maternal_csmr = subset_to_wra(maternal_csmr)
-    #
     # acmr = get_data(data_keys.POPULATION.ACMR, location)
-    # acmr = subset_to_wra(acmr)
 
     # TODO: replace nans with 0 here instead of in pregnancy component?
     return (maternal_ylds - anemia_ylds) / maternal_incidence
