@@ -166,7 +166,6 @@ def _load_em_from_meid(location, meid, measure):
 
 
 def load_pregnancy_incidence_rate(key: str, location: str):
-
     not_pregnant = get_prevalence_not_pregnant(key, location)
     pregnancy_incidence_rate = _get_pregnancy_outcome_denominator(key, location) / not_pregnant
 
@@ -174,7 +173,6 @@ def load_pregnancy_incidence_rate(key: str, location: str):
 
 
 def load_asfr(key: str, location: str):
-
     asfr = load_standard_data(key, location)
 
     # pivot
@@ -191,7 +189,6 @@ def load_asfr(key: str, location: str):
 
 
 def load_sbr(key: str, location: str):
-
     index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
 
     child_locs = get_child_locs(location)
@@ -207,7 +204,6 @@ def load_sbr(key: str, location: str):
 
 
 def get_child_sbr_with_weighting_unit(location: str):
-
     def get_sbr_value():
         sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
         sbr = sbr.reset_index()
@@ -273,7 +269,6 @@ def get_wra(location: str, decomp: str = "step4"):
 
 
 def weighted_average(df, data_col, weight_col, by_col):
-
     df['_data_times_weight'] = df[data_col] * df[weight_col]
     g = df.groupby(by_col)
     result = g['_data_times_weight'].sum() / g[weight_col].sum()
@@ -346,26 +341,23 @@ def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
 
 
 def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
-
     asfr = get_data(data_keys.PREGNANCY.ASFR, location)
     sbr = get_data(data_keys.PREGNANCY.SBR, location)
     incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
     incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
 
-    prevalence_pregnant = (((asfr + asfr*sbr) * 40/52) +
-                           ((incidence_c995 + incidence_c374) * 24/52))
+    prevalence_pregnant = (((asfr + asfr * sbr) * 40 / 52) +
+                           ((incidence_c995 + incidence_c374) * 24 / 52))
 
     return prevalence_pregnant
 
 
 def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
-
     return _get_pregnancy_outcome_denominator(key, location) * 6 / 52
 
 
 def _get_pregnancy_outcome_denominator(key: str, location: str, asfr=None, sbr=None,
                                        incidence_c995=None, incidence_c374=None):
-
     # ASFR + ASFR * SBR + incidence_c995 + incidence_c374)
     if asfr is None:
         asfr = get_data(data_keys.PREGNANCY.ASFR, location)
@@ -388,7 +380,8 @@ def load_pregnancy_outcome(key: str, location: str):
     incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
     incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
     pregnancy_denominator = _get_pregnancy_outcome_denominator(key, location, asfr=asfr, sbr=sbr,
-                                                         incidence_c995=incidence_c995, incidence_c374=incidence_c374)
+                                                               incidence_c995=incidence_c995,
+                                                               incidence_c374=incidence_c374)
 
     if key == data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH:
         return asfr / pregnancy_denominator
@@ -453,31 +446,17 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     maternal_ylds = subset_to_wra(maternal_ylds)
 
     anemia_sequelae = [sequelae.mild_anemia_due_to_maternal_hemorrhage,
-              sequelae.moderate_anemia_due_to_maternal_hemorrhage,
-              sequelae.severe_anemia_due_to_maternal_hemorrhage]
+                       sequelae.moderate_anemia_due_to_maternal_hemorrhage,
+                       sequelae.severe_anemia_due_to_maternal_hemorrhage]
 
     anemia_ylds = get_maternal_ylds(anemia_sequelae, location)
     anemia_ylds = reshape_to_vivarium_format(anemia_ylds, location)
     anemia_ylds = subset_to_wra(anemia_ylds)
 
     maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
-    full_index = maternal_incidence.index
     maternal_incidence = subset_to_wra(maternal_incidence)
     # Update incidence for 55-59 year age group to match 50-54 year age group
     maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
-
-    # Create full indexes for ylds to debug error when building ylds lookup table
-    draw_cols = [f"draw_{i}" for i in range(1000)]
-
-    is_subset = full_index.isin(maternal_ylds.index.values)
-    df = pd.DataFrame(0, index=full_index, columns=draw_cols)
-    df.loc[is_subset] = maternal_ylds
-    maternal_ylds = df
-
-    is_subset = full_index.isin(anemia_ylds.index.values)
-    df = pd.DataFrame(0, index=full_index, columns=draw_cols)
-    df.loc[is_subset] = anemia_ylds
-    anemia_ylds = df
 
     # TODO: check with Ali for final demoninator
     # maternal_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
