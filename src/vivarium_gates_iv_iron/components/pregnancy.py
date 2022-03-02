@@ -77,7 +77,7 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
 
-        maternal_disorder_ylds_per_case = builder.data.load(data_keys.MATERNAL_DISORDERS.YLDS).fillna(0).reset_index()
+        maternal_disorder_ylds_per_case = builder.data.load(data_keys.MATERNAL_DISORDERS.YLDS).reset_index()
 
         self.ylds_per_maternal_disorder = builder.lookup.build_table(
             maternal_disorder_ylds_per_case,

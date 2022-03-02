@@ -424,7 +424,6 @@ def get_maternal_ylds(entity_list, location):
         decomp_step=gbd_constants.DECOMP_STEP.STEP_5,
         gbd_round_id=gbd_constants.ROUND_IDS.GBD_2019,
         location_id=location_id,
-        sex_id=gbd_constants.SEX.FEMALE,
         measure_id=vi_globals.MEASURES['YLDs']
     )
 
@@ -443,7 +442,6 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
     maternal_ylds = get_maternal_ylds(maternal_disorders, location)
     maternal_ylds = reshape_to_vivarium_format(maternal_ylds, location)
-    maternal_ylds = subset_to_wra(maternal_ylds)
 
     anemia_sequelae = [sequelae.mild_anemia_due_to_maternal_hemorrhage,
                        sequelae.moderate_anemia_due_to_maternal_hemorrhage,
@@ -451,10 +449,8 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
     anemia_ylds = get_maternal_ylds(anemia_sequelae, location)
     anemia_ylds = reshape_to_vivarium_format(anemia_ylds, location)
-    anemia_ylds = subset_to_wra(anemia_ylds)
 
     maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
-    maternal_incidence = subset_to_wra(maternal_incidence)
     # Update incidence for 55-59 year age group to match 50-54 year age group
     maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
 
