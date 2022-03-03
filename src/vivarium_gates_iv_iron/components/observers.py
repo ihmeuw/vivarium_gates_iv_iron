@@ -359,8 +359,9 @@ class MaternalDisordersObserver:
         self.start_time = get_time_stamp(builder.configuration.time.start)
         self.age_bins = utilities.get_age_bins(builder)
         self.deaths = Counter()
+        self.counts = Counter()
 
-        columns_required = ['alive', 'exit_time', 'cause_of_death']
+        columns_required = ['alive', 'exit_time', 'cause_of_death', 'pregnancy_status', 'pregnancy_state_change_date']
         if self.configuration.by_age:
             columns_required += ['age']
         if self.configuration.by_sex:
@@ -372,17 +373,27 @@ class MaternalDisordersObserver:
 
 
     def on_collect_metrics(self, event: Event):
-        deaths_this_step = {}
         pop = self.population_view.get(event.index)
-        pop = pop[pop["exit_time"] == event.time]
         configuration = self.configuration.to_dict()
 
         # count deaths due to maternal disorders
-        base_key = get_output_template(**configuration).substitute(measure='death_due_to_maternal_disorders',
+        deaths_this_step = {}
+        died_this_step_pop = pop = pop[pop["exit_time"] == event.time]
+        death_key = get_output_template(**configuration).substitute(measure='death_due_to_maternal_disorders',
                                                             year=event.time.year)
-        base_filter = QueryString(f'alive == "dead" and cause_of_death == "maternal_disorders"')
-        deaths_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
+        death_filter = QueryString(f'alive == "dead" and cause_of_death == "maternal_disorders"')
+        deaths_this_step.update(get_group_counts(died_this_step_pop, death_filter, death_key, self.configuration, self.age_bins))
         self.deaths.update(deaths_this_step)
+
+        # count incident cases of to maternal disorders
+        cases_this_step = {}
+        pregnancy_change_this_step_pop = pop[pop["pregnancy_state_change_date"] == event.time]
+        case_key = get_output_template(**configuration).substitute(measure='incident_case_of_maternal_disorders',
+                                                            year=event.time.year)
+        case_filter = QueryString(f'(alive=="alive" and pregnancy_status == "maternal_disorder") or '
+                                  f'(alive == "dead" and cause_of_death == "maternal_disorders")')
+        cases_this_step.update(get_group_counts(pregnancy_change_this_step_pop, case_filter, case_key, self.configuration, self.age_bins))
+        self.counts.update(cases_this_step)
 
     ##################################
     # Pipeline sources and modifiers #
@@ -391,4 +402,5 @@ class MaternalDisordersObserver:
     # noinspection PyUnusedLocal
     def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
         metrics.update(self.deaths)
+        metrics.update(self.counts)
         return metrics
