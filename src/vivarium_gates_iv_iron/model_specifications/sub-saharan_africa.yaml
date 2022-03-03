@@ -9,6 +9,7 @@ components:
         - DisabilityObserver()
         - MortalityObserver()
         - PregnancyObserver()
+        - MaternalDisordersObserver()
 
 configuration:
     input_data:
@@ -50,3 +51,7 @@ configuration:
             by_age: True
             by_sex: False
             by_year: True
+        maternal_disorders:
+            by_age: False
+            by_sex: False
+            by_year: False
