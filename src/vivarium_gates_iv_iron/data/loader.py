@@ -81,15 +81,6 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
         data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
-        # TODO - add appropriate mappings
-        # data_keys.DIARRHEA_PREVALENCE: load_standard
-        # _data,
-        # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
-        # data_keys.DIARRHEA_REMISSION_RATE: load_standard_data,
-        # data_keys.DIARRHEA_CAUSE_SPECIFIC_MORTALITY_RATE: load_standard_data,
-        # data_keys.DIARRHEA_EXCESS_MORTALITY_RATE: load_standard_data,
-        # data_keys.DIARRHEA_DISABILITY_WEIGHT: load_standard_data,
-        # data_keys.DIARRHEA_RESTRICTIONS: load_metadata,
     }
     return mapping[lookup_key](lookup_key, location)
 
@@ -416,7 +407,8 @@ def get_maternal_ylds(entity_list, location):
 
     location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
 
-    df = get_draws(
+
+    ylds_draws = get_draws(
         gbd_id_types,
         gbd_ids,
         source=gbd_constants.SOURCES.COMO,
@@ -432,9 +424,9 @@ def get_maternal_ylds(entity_list, location):
 
     # aggregate by summing if given multiple entities
     if len(entity_list) > 1:
-        df = df.groupby(groupby_cols)[draw_cols].sum().reset_index()
+        ylds_draws = ylds_draws.groupby(groupby_cols)[draw_cols].sum().reset_index()
 
-    return (df[groupby_cols + draw_cols])
+    return ylds_draws[groupby_cols + draw_cols]
 
 
 def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
@@ -456,10 +448,7 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
     # TODO: check with Ali for final demoninator
     # maternal_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
-    # maternal_csmr = subset_to_wra(maternal_csmr)
-    #
     # acmr = get_data(data_keys.POPULATION.ACMR, location)
-    # acmr = subset_to_wra(acmr)
 
     # TODO: replace nans with 0 here instead of in pregnancy component?
     return (maternal_ylds - anemia_ylds) / maternal_incidence
