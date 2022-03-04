@@ -378,7 +378,7 @@ class MaternalDisordersObserver:
 
         # count deaths due to maternal disorders
         deaths_this_step = {}
-        died_this_step_pop = pop = pop[pop["exit_time"] == event.time]
+        died_this_step_pop = pop[pop["exit_time"] == event.time]
         death_key = get_output_template(**configuration).substitute(measure='death_due_to_maternal_disorders',
                                                             year=event.time.year)
         death_filter = QueryString(f'alive == "dead" and cause_of_death == "maternal_disorders"')
@@ -388,7 +388,7 @@ class MaternalDisordersObserver:
         # count incident cases of to maternal disorders
         cases_this_step = {}
         pregnancy_change_this_step_pop = pop[pop["pregnancy_state_change_date"] == event.time]
-        case_key = get_output_template(**configuration).substitute(measure='incident_case_of_maternal_disorders',
+        case_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_disorders',
                                                             year=event.time.year)
         case_filter = QueryString(f'(alive=="alive" and pregnancy_status == "maternal_disorder") or '
                                   f'(alive == "dead" and cause_of_death == "maternal_disorders")')
