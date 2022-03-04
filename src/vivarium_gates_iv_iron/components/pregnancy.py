@@ -232,7 +232,7 @@ class Pregnancy:
         pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
         # Pregnancy to maternal disorder state and no maternal disorder state
-        maternal_disorder_this_step = maternal_disorder_this_step & pregnancy_ends_this_step
+        maternal_disorder_this_step = (maternal_disorder_this_step | died_due_to_maternal_disorders) & pregnancy_ends_this_step
         no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
 
         pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
