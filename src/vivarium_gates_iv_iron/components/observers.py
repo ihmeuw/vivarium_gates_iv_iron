@@ -392,7 +392,6 @@ class MaternalDisordersObserver:
                                                             year=event.time.year)
         case_filter = QueryString(f"pregnancy_status=='maternal_disorder'")
         cases_this_step.update(get_group_counts(pregnancy_change_this_step_pop, case_filter, case_key, self.configuration, self.age_bins))
-        breakpoint()
         self.counts.update(cases_this_step)
 
     ##################################
