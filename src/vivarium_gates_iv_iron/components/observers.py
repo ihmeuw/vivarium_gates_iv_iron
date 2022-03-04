@@ -390,9 +390,9 @@ class MaternalDisordersObserver:
         pregnancy_change_this_step_pop = pop[pop["pregnancy_state_change_date"] == event.time]
         case_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_disorders',
                                                             year=event.time.year)
-        case_filter = QueryString(f'(alive=="alive" and pregnancy_status == "maternal_disorder") or '
-                                  f'(alive == "dead" and cause_of_death == "maternal_disorders")')
+        case_filter = QueryString(f"pregnancy_status=='maternal_disorder'")
         cases_this_step.update(get_group_counts(pregnancy_change_this_step_pop, case_filter, case_key, self.configuration, self.age_bins))
+        breakpoint()
         self.counts.update(cases_this_step)
 
     ##################################
