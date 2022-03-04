@@ -169,6 +169,10 @@ class MortalityObserver(MortalityObserver_):
         super().__init__()
         self.stratifier = ResultsStratifier(self.name)
 
+    def setup(self, builder: Builder) :
+        super().setup(builder)
+        self.causes = ['maternal_disorders', 'other_causes']
+
     @property
     def sub_components(self) -> List[ResultsStratifier]:
         return [self.stratifier]
@@ -360,8 +364,9 @@ class MaternalDisordersObserver:
         self.age_bins = utilities.get_age_bins(builder)
         self.deaths = Counter()
         self.counts = Counter()
+        self.ylds = Counter()
 
-        columns_required = ['alive', 'exit_time', 'cause_of_death', 'pregnancy_status', 'pregnancy_state_change_date']
+        columns_required = ['alive', 'exit_time', 'cause_of_death', 'pregnancy_status', 'pregnancy_state_change_date', 'years_lived_with_disability', 'years_of_life_lost']
         if self.configuration.by_age:
             columns_required += ['age']
         if self.configuration.by_sex:
@@ -394,6 +399,14 @@ class MaternalDisordersObserver:
         cases_this_step.update(get_group_counts(pregnancy_change_this_step_pop, case_filter, case_key, self.configuration, self.age_bins))
         self.counts.update(cases_this_step)
 
+        # count YLDs due to maternal disorders
+        ylds_this_step = {}
+        ylds_key = get_output_template(**configuration).substitute(measure='ylds_due_to_maternal_disorders',
+                                                            year=event.time.year)
+        ylds_filter = QueryString(f'alive == "alive" and pregnancy_status == "maternal_disorder"')
+        ylds_this_step.update(get_group_counts(pop, ylds_filter, ylds_key, self.configuration, self.age_bins))
+        self.ylds.update(ylds_this_step)
+
     ##################################
     # Pipeline sources and modifiers #
     ##################################
@@ -402,4 +415,5 @@ class MaternalDisordersObserver:
     def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
         metrics.update(self.deaths)
         metrics.update(self.counts)
+        metrics.update(self.ylds)
         return metrics
