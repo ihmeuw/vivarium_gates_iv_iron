@@ -365,8 +365,8 @@ class MaternalDisordersObserver:
         self.age_bins = utilities.get_age_bins(builder)
         self.deaths = Counter()
         self.counts = Counter()
-        self.years_lived_with_disability = Counter()
-        self.disability_weight_pipelines = {'maternal_disorders': builder.value.get_value('cause.maternal_diders.disability_weight')}
+        self.ylds = Counter()
+        self.disability_weight_pipelines = {'maternal_disorders': builder.value.get_value('disability_weight')}
         self.causes = results.CAUSES_OF_DISABILITY
 
         columns_required = ['alive', 'exit_time', 'cause_of_death', 'pregnancy_status', 'pregnancy_state_change_date', 'years_lived_with_disability', 'years_of_life_lost']
@@ -404,8 +404,6 @@ class MaternalDisordersObserver:
 
         # count YLDs due to maternal disorders
         ylds_this_step = {}
-        ylds_key = get_output_template(**configuration).substitute(measure='ylds_due_to_maternal_disorders',
-                                                            year=event.time.year)
         ylds_this_step.update(get_years_lived_with_disability(pop, self.configuration,
                                                          self.clock().year, self.step_size(),
                                                          self.age_bins, self.disability_weight_pipelines, self.causes))
