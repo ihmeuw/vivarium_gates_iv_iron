@@ -383,7 +383,6 @@ def load_pregnancy_outcome(key: str, location: str):
     else:
         raise ValueError(f'Unrecognized key {key}')
 
-
 def subset_to_wra(df):
     df = df.query("sex=='Female' & year_start==2019 & age_start >= 10 & age_end <= 60")
 
