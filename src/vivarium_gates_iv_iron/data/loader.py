@@ -14,12 +14,13 @@ for an example.
 """
 import pandas as pd
 
-from gbd_mapping import causes, covariates, risk_factors
+from gbd_mapping import causes, covariates, risk_factors, sequelae
 from db_queries import (
     get_covariate_estimates,
     get_location_metadata,
     get_population,
 )
+from vivarium_gbd_access.utilities import get_draws
 from vivarium.framework.artifact import EntityKey
 from vivarium_gbd_access import constants as gbd_constants, gbd
 from vivarium_inputs import (
@@ -77,17 +78,9 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY_OUTCOMES.OTHER: load_pregnancy_outcome,
         data_keys.MATERNAL_DISORDERS.CSMR: load_standard_data,
         data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE: load_standard_data,
-        #data_keys.MATERNAL_DISORDERS.DISABILITY_WEIGHT: load_maternal_disorders_disability_weight,
+        data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
         data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
-        # TODO - add appropriate mappings
-        # data_keys.DIARRHEA_PREVALENCE: load_standard_data,
-        # data_keys.DIARRHEA_INCIDENCE_RATE: load_standard_data,
-        # data_keys.DIARRHEA_REMISSION_RATE: load_standard_data,
-        # data_keys.DIARRHEA_CAUSE_SPECIFIC_MORTALITY_RATE: load_standard_data,
-        # data_keys.DIARRHEA_EXCESS_MORTALITY_RATE: load_standard_data,
-        # data_keys.DIARRHEA_DISABILITY_WEIGHT: load_standard_data,
-        # data_keys.DIARRHEA_RESTRICTIONS: load_metadata,
     }
     return mapping[lookup_key](lookup_key, location)
 
@@ -164,7 +157,6 @@ def _load_em_from_meid(location, meid, measure):
 
 
 def load_pregnancy_incidence_rate(key: str, location: str):
-
     not_pregnant = get_prevalence_not_pregnant(key, location)
     pregnancy_incidence_rate = _get_pregnancy_outcome_denominator(key, location) / not_pregnant
 
@@ -172,7 +164,6 @@ def load_pregnancy_incidence_rate(key: str, location: str):
 
 
 def load_asfr(key: str, location: str):
-
     asfr = load_standard_data(key, location)
 
     # pivot
@@ -189,7 +180,6 @@ def load_asfr(key: str, location: str):
 
 
 def load_sbr(key: str, location: str):
-
     index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
 
     child_locs = get_child_locs(location)
@@ -205,7 +195,6 @@ def load_sbr(key: str, location: str):
 
 
 def get_child_sbr_with_weighting_unit(location: str):
-
     def get_sbr_value():
         sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
         sbr = sbr.reset_index()
@@ -271,7 +260,6 @@ def get_wra(location: str, decomp: str = "step4"):
 
 
 def weighted_average(df, data_col, weight_col, by_col):
-
     df['_data_times_weight'] = df[data_col] * df[weight_col]
     g = df.groupby(by_col)
     result = g['_data_times_weight'].sum() / g[weight_col].sum()
@@ -344,26 +332,23 @@ def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
 
 
 def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
-
     asfr = get_data(data_keys.PREGNANCY.ASFR, location)
     sbr = get_data(data_keys.PREGNANCY.SBR, location)
     incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
     incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
 
-    prevalence_pregnant = (((asfr + asfr*sbr) * 40/52) +
-                           ((incidence_c995 + incidence_c374) * 24/52))
+    prevalence_pregnant = (((asfr + asfr * sbr) * 40 / 52) +
+                           ((incidence_c995 + incidence_c374) * 24 / 52))
 
     return prevalence_pregnant
 
 
 def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
-
     return _get_pregnancy_outcome_denominator(key, location) * 6 / 52
 
 
 def _get_pregnancy_outcome_denominator(key: str, location: str, asfr=None, sbr=None,
                                        incidence_c995=None, incidence_c374=None):
-
     # ASFR + ASFR * SBR + incidence_c995 + incidence_c374)
     if asfr is None:
         asfr = get_data(data_keys.PREGNANCY.ASFR, location)
@@ -386,7 +371,8 @@ def load_pregnancy_outcome(key: str, location: str):
     incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
     incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
     pregnancy_denominator = _get_pregnancy_outcome_denominator(key, location, asfr=asfr, sbr=sbr,
-                                                         incidence_c995=incidence_c995, incidence_c374=incidence_c374)
+                                                               incidence_c995=incidence_c995,
+                                                               incidence_c374=incidence_c374)
 
     if key == data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH:
         return asfr / pregnancy_denominator
@@ -397,7 +383,71 @@ def load_pregnancy_outcome(key: str, location: str):
     else:
         raise ValueError(f'Unrecognized key {key}')
 
+def subset_to_wra(df):
+    df = df.query("sex=='Female' & year_start==2019 & age_start >= 10 & age_end <= 60")
 
-def load_maternal_disorders_disability_weight(key: str, location: str) -> pd.DataFrame:
-    # DW_c366 = (ylds_c366 - ylds_s182,s183,s184) / (incidence_rate_c366 - (ACMR - csmr_c366 + csmr_c366/incidence_rate_c366))
-    ...
+    return (df)
+
+
+def reshape_to_vivarium_format(df, location):
+    df = df.set_index(['age_group_id', 'sex_id', 'year_id'])
+    df = utilities.scrub_gbd_conventions(df, location)
+    df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
+    df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
+    df = vi_utils.sort_hierarchical_data(df)
+    df.index = df.index.droplevel("location")
+
+    return df
+
+
+def get_maternal_ylds(entity_list, location):
+    gbd_id_types = [entity.kind + '_id' for entity in entity_list]
+    gbd_ids = [int(entity.gbd_id) for entity in entity_list]
+
+    location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
+
+
+    ylds_draws = get_draws(
+        gbd_id_types,
+        gbd_ids,
+        source=gbd_constants.SOURCES.COMO,
+        year_id=2019,
+        decomp_step=gbd_constants.DECOMP_STEP.STEP_5,
+        gbd_round_id=gbd_constants.ROUND_IDS.GBD_2019,
+        location_id=location_id,
+        measure_id=vi_globals.MEASURES['YLDs']
+    )
+
+    groupby_cols = ['age_group_id', 'sex_id', 'year_id']
+    draw_cols = [f"draw_{i}" for i in range(1000)]
+
+    # aggregate by summing if given multiple entities
+    if len(entity_list) > 1:
+        ylds_draws = ylds_draws.groupby(groupby_cols)[draw_cols].sum().reset_index()
+
+    return ylds_draws[groupby_cols + draw_cols]
+
+
+def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
+    maternal_disorders = [causes.maternal_disorders]
+
+    maternal_ylds = get_maternal_ylds(maternal_disorders, location)
+    maternal_ylds = reshape_to_vivarium_format(maternal_ylds, location)
+
+    anemia_sequelae = [sequelae.mild_anemia_due_to_maternal_hemorrhage,
+                       sequelae.moderate_anemia_due_to_maternal_hemorrhage,
+                       sequelae.severe_anemia_due_to_maternal_hemorrhage]
+
+    anemia_ylds = get_maternal_ylds(anemia_sequelae, location)
+    anemia_ylds = reshape_to_vivarium_format(anemia_ylds, location)
+
+    maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
+    # Update incidence for 55-59 year age group to match 50-54 year age group
+    maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
+
+    # TODO: check with Ali for final demoninator
+    # maternal_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
+    # acmr = get_data(data_keys.POPULATION.ACMR, location)
+
+    # TODO: replace nans with 0 here instead of in pregnancy component?
+    return (maternal_ylds - anemia_ylds) / maternal_incidence

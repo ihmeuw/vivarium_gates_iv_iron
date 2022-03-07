@@ -11,6 +11,7 @@ components:
         - DisabilityObserver()
         - MortalityObserver()
         - PregnancyObserver()
+        - MaternalDisordersObserver()
 
 #
 #        #- LowBirthWeight()
@@ -46,13 +47,17 @@ configuration:
     metrics:
         disability:
             by_age: True
-            by_sex: True
+            by_sex: False
             by_year: True
         mortality:
             by_age: True
-            by_sex: True
+            by_sex: False
             by_year: True
         pregnancy:
+            by_age: True
+            by_sex: False
+            by_year: True
+        maternal_disorders:
             by_age: True
             by_sex: False
             by_year: True

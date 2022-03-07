@@ -54,18 +54,18 @@ class Pregnancy:
                                                                 key_columns=['sex'],
                                                                 parameter_columns=['age', 'year'])
 
-        life_expectancy_data = builder.data.load("population.theoretical_minimum_risk_life_expectancy")
+        life_expectancy_data = builder.data.load(data_keys.POPULATION.TMRLE)
         self.life_expectancy = builder.lookup.build_table(life_expectancy_data, parameter_columns=['age'])
 
-        all_cause_mortality_data = builder.data.load("cause.all_causes.cause_specific_mortality_rate").set_index(
+        all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR).set_index(
             [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
-        maternal_disorder_csmr = builder.data.load("cause.maternal_disorders.cause_specific_mortality_rate").set_index(
+        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.CSMR).set_index(
             [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
         self.background_mortality_rate = builder.lookup.build_table(
             (all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
-        maternal_disorder_incidence = builder.data.load("cause.maternal_disorders.incidence_rate").set_index(
+        maternal_disorder_incidence = builder.data.load(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE).set_index(
             [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
 
         self.probability_maternal_deaths = builder.lookup.build_table(
@@ -77,9 +77,13 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
 
+        maternal_disorder_ylds_per_case = builder.data.load(data_keys.MATERNAL_DISORDERS.YLDS).fillna(
+            0).reset_index().drop('index', axis=1)
 
-        # TODO: Get value from Ali
-        self.ylds_per_maternal_disorder = builder.lookup.build_table(0.1)
+        self.ylds_per_maternal_disorder = builder.lookup.build_table(
+            maternal_disorder_ylds_per_case,
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'])
 
         view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
         self.population_view = builder.population.get_view(view_columns)
@@ -228,7 +232,7 @@ class Pregnancy:
         pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
         # Pregnancy to maternal disorder state and no maternal disorder state
-        maternal_disorder_this_step = maternal_disorder_this_step & pregnancy_ends_this_step
+        maternal_disorder_this_step = (maternal_disorder_this_step | died_due_to_maternal_disorders) & pregnancy_ends_this_step
         no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
 
         pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
