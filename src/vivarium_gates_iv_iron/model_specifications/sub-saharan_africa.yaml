@@ -2,7 +2,6 @@ components:
     vivarium_public_health:
         population:
             - BasePopulation()
-            - Mortality()
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
