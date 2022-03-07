@@ -30,19 +30,19 @@ PERSON_TIME_COLUMN_TEMPLATE = (
     "person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 DEATH_COLUMN_TEMPLATE = (
-    "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_among_{SEX}_in_age_group_{AGE_GROUP}"
+    "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 YLLS_COLUMN_TEMPLATE = (
-    "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_among_{SEX}_in_age_group_{AGE_GROUP}"
+    "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 YLDS_COLUMN_TEMPLATE = (
-    "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_among_{SEX}_in_age_group_{AGE_GROUP}"
+    "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 STATE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{STATE}_person_time_in_{YEAR}_among_{SEX}_in_age_group_{AGE_GROUP}"
+    "{STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 TRANSITION_COUNT_COLUMN_TEMPLATE = (
-    "{TRANSITION}_event_count_in_{YEAR}_among_{SEX}_in_age_group_{AGE_GROUP}"
+    "{TRANSITION}_event_count_in_{YEAR}_among_in_age_group_{AGE_GROUP}"
 )
 
 PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = (
