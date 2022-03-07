@@ -42,7 +42,7 @@ STATE_PERSON_TIME_COLUMN_TEMPLATE = (
     "{STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 TRANSITION_COUNT_COLUMN_TEMPLATE = (
-    "{TRANSITION}_event_count_in_{YEAR}_among_in_age_group_{AGE_GROUP}"
+    "{TRANSITION}_event_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 
 PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = (
