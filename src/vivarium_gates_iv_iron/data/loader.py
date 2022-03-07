@@ -384,6 +384,12 @@ def load_pregnancy_outcome(key: str, location: str):
         raise ValueError(f'Unrecognized key {key}')
 
 
+def subset_to_wra(df):
+    df = df.query("sex=='Female' & year_start==2019 & age_start >= 10 & age_end <= 60")
+
+    return (df)
+
+
 def reshape_to_vivarium_format(df, location):
     df = df.set_index(['age_group_id', 'sex_id', 'year_id'])
     df = utilities.scrub_gbd_conventions(df, location)
@@ -400,6 +406,7 @@ def get_maternal_ylds(entity_list, location):
     gbd_ids = [int(entity.gbd_id) for entity in entity_list]
 
     location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
+
 
     ylds_draws = get_draws(
         gbd_id_types,

@@ -169,6 +169,10 @@ class MortalityObserver(MortalityObserver_):
         super().__init__()
         self.stratifier = ResultsStratifier(self.name)
 
+    def setup(self, builder: Builder) :
+        super().setup(builder)
+        self.causes = ['maternal_disorders', 'other_causes']
+
     @property
     def sub_components(self) -> List[ResultsStratifier]:
         return [self.stratifier]
@@ -231,7 +235,7 @@ class PregnancyObserver:
     configuration_defaults = {
         'metrics': {
             'pregnancy': {
-                'by_age': False,
+                'by_age': True,
                 'by_year': False,
                 'by_sex': False,
             }
@@ -307,6 +311,7 @@ class PregnancyObserver:
             base_filter = QueryString(
                 f'alive == "alive" and pregnancy_status == "postpartum" and pregnancy_outcome == "{outcome}"')
             counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
+
         self.counts.update(counts_this_step)
 
     ##################################
@@ -319,3 +324,98 @@ class PregnancyObserver:
         metrics.update(self.person_time)
         return metrics
 
+
+class MaternalDisordersObserver:
+    configuration_defaults = {
+        'metrics': {
+            'maternal_disorders': {
+                'by_age': False,
+                'by_year': False,
+                'by_sex': False,
+            }
+        }
+    }
+
+    def __repr__(self):
+        return 'MaternalDisordersObserver()'
+
+
+    ##############
+    # Properties #
+    ##############
+
+    @property
+    def sub_components(self) -> List:
+        return []
+
+    @property
+    def name(self):
+        return 'maternal_disorders_observer'
+
+    #################
+    # Setup methods #
+    #################
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.clock = builder.time.clock()
+        self.configuration = builder.configuration.metrics.maternal_disorders
+        self.start_time = get_time_stamp(builder.configuration.time.start)
+        self.step_size = builder.time.step_size()
+        self.age_bins = utilities.get_age_bins(builder)
+        self.deaths = Counter()
+        self.counts = Counter()
+        self.ylds = Counter()
+        self.disability_weight_pipelines = {'maternal_disorders': builder.value.get_value('disability_weight')}
+        self.causes = results.CAUSES_OF_DISABILITY
+
+        columns_required = ['alive', 'exit_time', 'cause_of_death', 'pregnancy_status', 'pregnancy_state_change_date', 'years_lived_with_disability', 'years_of_life_lost']
+        if self.configuration.by_age:
+            columns_required += ['age']
+        if self.configuration.by_sex:
+            columns_required += ['sex']
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
+        builder.value.register_value_modifier('metrics', self.metrics)
+
+
+    def on_collect_metrics(self, event: Event):
+        pop = self.population_view.get(event.index)
+        configuration = self.configuration.to_dict()
+
+        # count deaths due to maternal disorders
+        deaths_this_step = {}
+        died_this_step_pop = pop[pop["exit_time"] == event.time]
+        death_key = get_output_template(**configuration).substitute(measure='death_due_to_maternal_disorders',
+                                                            year=event.time.year)
+        death_filter = QueryString(f'alive == "dead" and cause_of_death == "maternal_disorders"')
+        deaths_this_step.update(get_group_counts(died_this_step_pop, death_filter, death_key, self.configuration, self.age_bins))
+        self.deaths.update(deaths_this_step)
+
+        # count incident cases of to maternal disorders
+        cases_this_step = {}
+        pregnancy_change_this_step_pop = pop[pop["pregnancy_state_change_date"] == event.time]
+        case_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_disorders',
+                                                            year=event.time.year)
+        case_filter = QueryString(f"pregnancy_status=='maternal_disorder'")
+        cases_this_step.update(get_group_counts(pregnancy_change_this_step_pop, case_filter, case_key, self.configuration, self.age_bins))
+        self.counts.update(cases_this_step)
+
+        # count YLDs due to maternal disorders
+        ylds_this_step = {}
+        ylds_this_step.update(get_years_lived_with_disability(pop, self.configuration,
+                                                         self.clock().year, self.step_size(),
+                                                         self.age_bins, self.disability_weight_pipelines, self.causes))
+        self.ylds.update(ylds_this_step)
+
+    ##################################
+    # Pipeline sources and modifiers #
+    ##################################
+
+    # noinspection PyUnusedLocal
+    def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
+        metrics.update(self.deaths)
+        metrics.update(self.counts)
+        metrics.update(self.ylds)
+        return metrics
