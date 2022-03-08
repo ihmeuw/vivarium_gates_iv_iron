@@ -385,10 +385,11 @@ def load_pregnancy_outcome(key: str, location: str):
     else:
         raise ValueError(f'Unrecognized key {key}')
 
+
 def subset_to_wra(df):
     df = df.query("sex=='Female' & year_start==2019 & age_start >= 10 & age_end <= 60")
 
-    return (df)
+    return df
 
 
 def reshape_to_vivarium_format(df, location):
@@ -453,5 +454,18 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     # TODO: replace nans with 0 here instead of in pregnancy component?
     return (maternal_ylds - anemia_ylds) / maternal_incidence
 
-def load_hemoglobin_data(key: str, location: str) -> pd.DataFrame:
-    pass
+
+def get_hemoglobin_data(key: str, location: str):
+    location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
+    if key == data_keys.HEMOGLOBIN.MEAN:
+        me_id = 10487
+    elif key == data_keys.HEMOGLOBIN.STANDARD_DEVIATION:
+        me_id = 10488
+    else:
+        raise KeyError("Invalid Hemoglobin key")
+
+    hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
+    hemoglobin_data = reshape_to_vivarium_format(hemoglobin_data, location)
+    hemoglobin_data = subset_to_wra(hemoglobin_data)
+
+    return hemoglobin_data
