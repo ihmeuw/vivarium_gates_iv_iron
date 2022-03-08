@@ -133,6 +133,18 @@ class _Hemoglobin(NamedTuple):
     MEAN: TargetString = "cause.hemoglobin.mean"
     STANDARD_DEVIATION: TargetString = "cause.hemoglobin.standard_deviation"
 
+    @property
+    def name(self):
+        return 'hemoglobin'
+
+    @property
+    def log_name(self):
+        return 'hemoglobin'
+
+
+HEMOGLOBIN = _Hemoglobin()
+
+
 class __LowBirthWeightShortGestation(NamedTuple):
     # Keys that will be loaded into the artifact. must have a colon type declaration
     EXPOSURE: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.exposure'
