@@ -44,7 +44,7 @@ configuration:
             by_year: True
         mortality:
             by_age: True
-            by_sex: True
+            by_sex: False
             by_year: True
         pregnancy:
             by_age: True
