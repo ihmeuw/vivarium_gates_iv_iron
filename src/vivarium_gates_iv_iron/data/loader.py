@@ -81,8 +81,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
         data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
-        data_keys.HEMOGLOBIN.MEAN: load_standard_data,
-        data_keys.HEMOGLOBIN.STANDARD_DEVIATION: load_standard_data,
+        data_keys.HEMOGLOBIN.MEAN: load_hemoglobin_data,
+        data_keys.HEMOGLOBIN.STANDARD_DEVIATION: load_hemoglobin_data,
     }
     return mapping[lookup_key](lookup_key, location)
 
@@ -408,7 +408,6 @@ def get_maternal_ylds(entity_list, location):
 
     location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
 
-
     ylds_draws = get_draws(
         gbd_id_types,
         gbd_ids,
@@ -453,3 +452,6 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
     # TODO: replace nans with 0 here instead of in pregnancy component?
     return (maternal_ylds - anemia_ylds) / maternal_incidence
+
+def load_hemoglobin_data(key: str, location: str) -> pd.DataFrame:
+    pass
