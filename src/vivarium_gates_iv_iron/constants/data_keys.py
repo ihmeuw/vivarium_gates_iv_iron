@@ -129,6 +129,10 @@ class __MaternalHemorrhage(NamedTuple):
 MATERNAL_HEMORRHAGE = __MaternalHemorrhage()
 
 
+class _Hemoglobin(NamedTuple):
+    MEAN: TargetString = "cause.hemoglobin.mean"
+    STANDARD_DEVIATION: TargetString = "cause.hemoglobin.standard_deviation"
+
 class __LowBirthWeightShortGestation(NamedTuple):
     # Keys that will be loaded into the artifact. must have a colon type declaration
     EXPOSURE: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.exposure'
