@@ -82,7 +82,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
         data_keys.HEMOGLOBIN.MEAN: get_hemoglobin_data,
-        data_keys.HEMOGLOBIN.STANDARD_DEVIATION: get_hemoglobin_datas,
+        data_keys.HEMOGLOBIN.STANDARD_DEVIATION: get_hemoglobin_data,
     }
     return mapping[lookup_key](lookup_key, location)
 
