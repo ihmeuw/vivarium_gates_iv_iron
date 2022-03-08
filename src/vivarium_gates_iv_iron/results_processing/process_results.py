@@ -36,7 +36,6 @@ def make_measure_data(data):
         conception_counts=get_measure_data(data, "conception_counts"),
         maternal_disorder_incident_counts=get_measure_data(data, "maternal_disorder_incident_counts")
 
-
         # TODO duplicate for each model
         #     disease_state_person_time=get_state_person_time_measure_data(
         #         data, "disease_state_person_time"
@@ -75,7 +74,11 @@ def read_data(path: Path, single_run: bool) -> (pd.DataFrame, List[str]):
     data = (
         data.drop(columns=data.columns.intersection(results.THROWAWAY_COLUMNS))
             .reset_index(drop=True)
-            .rename(columns={results.OUTPUT_SCENARIO_COLUMN: SCENARIO_COLUMN})
+            .rename(columns={results.OUTPUT_SCENARIO_COLUMN: SCENARIO_COLUMN,
+                             results.OUTPUT_INPUT_DRAW_COLUMN: results.INPUT_DRAW_COLUMN,
+                             results.OUTPUT_RANDOM_SEED_COLUMN: results.RANDOM_SEED_COLUMN,
+                             }
+                    )
     )
     if single_run:
         data[results.INPUT_DRAW_COLUMN] = 0

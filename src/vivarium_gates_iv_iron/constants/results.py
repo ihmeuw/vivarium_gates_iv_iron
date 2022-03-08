@@ -17,6 +17,10 @@ INPUT_DRAW_COLUMN = "input_draw"
 RANDOM_SEED_COLUMN = "random_seed"
 OUTPUT_SCENARIO_COLUMN = "placeholder_branch_name.scenario"
 
+# Add due to make_results bug
+OUTPUT_INPUT_DRAW_COLUMN = 'input_data.input_draw_number'
+OUTPUT_RANDOM_SEED_COLUMN = 'randomness.random_seed'
+
 STANDARD_COLUMNS = {
     "total_population": TOTAL_POPULATION_COLUMN,
     "total_ylls": TOTAL_YLLS_COLUMN,
