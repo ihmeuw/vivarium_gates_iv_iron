@@ -130,8 +130,8 @@ MATERNAL_HEMORRHAGE = __MaternalHemorrhage()
 
 
 class _Hemoglobin(NamedTuple):
-    MEAN: TargetString = TargetString("cause.hemoglobin.mean")
-    STANDARD_DEVIATION: TargetString = TargetString("cause.hemoglobin.standard_deviation")
+    MEAN: TargetString = TargetString("risk_factor.hemoglobin.mean")
+    STANDARD_DEVIATION: TargetString = TargetString("risk_factor.hemoglobin.standard_deviation")
 
     @property
     def name(self):
