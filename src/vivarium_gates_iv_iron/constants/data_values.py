@@ -26,7 +26,7 @@ class _AnemiaDisabilityWeights(NamedTuple):
     SEVERE: float = 0.149
 
 
-ANEMIA_DISABILITY_Weights = _AnemiaDisabilityWeights()
+ANEMIA_DISABILITY_WEIGHTS = _AnemiaDisabilityWeights()
 
 hemoglobin_threshold_data = {
     'sex': 'Female',
