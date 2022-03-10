@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import NamedTuple
 
 TOTAL_POSTPARTUM_DAYS = 42
@@ -10,7 +11,7 @@ POSTPARTUM_DURATION_RATIO = POSTPARTUM_DURATION_DAYS / TOTAL_POSTPARTUM_DAYS
 
 class _HemoglobinDistributionParameters(NamedTuple):
     XMAX: int = 220
-    EULERS_CONSTANT: float = 0.57721566490153286060651209008240243104215933593992
+    EULERS_CONSTANT: float = np.euler_gamma
     GAMMA_DISTRIBUTION_WEIGHT: float = 0.4
     MIRROR_GUMBEL_DISTRIBUTION_WEIGHT: float = 0.6
     PREGNANCY_MEAN_ADJUSTMENT_FACTOR: tuple = (0.919325, 0.86, 0.98)  # 95% confidence interval
