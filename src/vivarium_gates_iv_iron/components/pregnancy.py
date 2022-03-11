@@ -316,8 +316,9 @@ class Pregnancy:
                                                              with_maternal_disorders] * 365 / self.step_size().days
         return disability_weight
 
-    def get_hemoglobin_value(self, pop_data: pd.DataFrame):
-        pass
+    def get_hemoglobin_value(self, builder: Builder):
+        index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
+        hemoglobin_mean_data = builder.data.load(data_keys.HEMOGLOBIN.MEAN).set_index(index_cols)
 
     def get_anemia_status(self, pop_data: pd.DataFrame):
         pass
