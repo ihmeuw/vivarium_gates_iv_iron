@@ -34,7 +34,8 @@ class Pregnancy:
             'pregnancy_state_change_date',
             'pregnancy_duration',
             'cause_of_death',
-            'years_of_life_lost'
+            'years_of_life_lost',
+            'maternal_hemorrhage',
         ]
 
         prevalences = self.load_pregnancy_prevalence(builder)
@@ -96,6 +97,19 @@ class Pregnancy:
         builder.value.register_value_modifier("disability_weight", self.accrue_disability,
                                               requires_columns=["alive", "pregnancy_status"])
 
+        materal_hemorrhage_incidence_rate = builder.data.load(data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE).set_index(
+            [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
+        self.probabiity_maternal_hemorrhage = builder.lookup.build_table(
+            maternal_disorder_incidence.reset_index(),
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'])
+
+
+
+        # May need to change
+        hemoglobin_mean = builder.data.load(data_keys.HEMOGLOBIN.MEAN).reset_index()
+        hemoglobin_sd = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).reset_index()
+
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
         probs_all_zero = (pregnancy_state_probabilities.sum(axis=1) == 0).reset_index(drop=True)
@@ -144,13 +158,12 @@ class Pregnancy:
         pregnancy_state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
         pregnancy_state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
 
-        # TODO:  Implement model 3 here
-        get_hemoglobin_value = self.get_hemoglobin_value(self, pop_data)
-        get_anemia_status = self.get_anemia_status(self, pop_data)
-
         # initialize columns for 'cause_of_death', 'years_of_life_lost'
         cause_of_death = pd.Series("not_dead", index=pop_data.index, dtype="string")
         years_of_life_lost = pd.Series(0., index=pop_data.index)
+
+        # Initialize columns for maternal hemorrhage, hemoglobin, anemia
+        maternal_hemorrhage = pd.Series(False, index=pop_data.index)
 
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
@@ -159,7 +172,8 @@ class Pregnancy:
                                    'pregnancy_duration': pregnancy_duration,
                                    'pregnancy_state_change_date': pregnancy_state_change_date,
                                    'cause_of_death': cause_of_death,
-                                   'years_of_life_lost': years_of_life_lost
+                                   'years_of_life_lost': years_of_life_lost,
+                                   'maternal_hemorrhage': maternal_hemorrhage,
                                    })
 
         self.population_view.update(pop_update)
@@ -191,6 +205,10 @@ class Pregnancy:
                                                                     additional_key="maternal_disorder_incidence")
         maternal_disorder_this_step = maternal_disorder_incidence_draw < self.probability_non_fatal_maternal_disorder(
             pop.index)
+
+        maternal_hemorrhage_incidence_draw = self.randomness.get_draw(pop.index,
+                                                                      additional_key='maternal_hemorrhage_incidence')
+        maternal_hemorrhage_this_step = maternal_hemorrhage_incidence_draw <- self.probabiity_maternal_hemorrhage(pop.index)
 
         prepostpartum_ends_this_step = (
 
@@ -236,11 +254,15 @@ class Pregnancy:
         pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
         # Pregnancy to maternal disorder state and no maternal disorder state
+        maternal_hemorrhage_this_step = maternal_hemorrhage_this_step & maternal_disorder_this_step & pregnancy_ends_this_step
         maternal_disorder_this_step = (maternal_disorder_this_step | died_due_to_maternal_disorders) & pregnancy_ends_this_step
         no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
 
         pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
+        pop.loc[maternal_hemorrhage_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
         pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
+        pop.loc[maternal_hemorrhage_this_step, "pregnancy_state_change_date"] = event.time
+        pop.loc[maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = True
         pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
         pop.loc[no_maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
 
@@ -317,9 +339,7 @@ class Pregnancy:
         return disability_weight
 
     def get_hemoglobin_value(self, builder: Builder):
-        index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
-        hemoglobin_data = builder.data.load(data_keys.HEMOGLOBIN.MEAN).set_index(index_cols)
-        hemoglobin_sd = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).set_index(index_cols)
+        pass
 
     def get_anemia_status(self, pop_data: pd.DataFrame):
         pass
