@@ -208,7 +208,8 @@ class Pregnancy:
 
         maternal_hemorrhage_incidence_draw = self.randomness.get_draw(pop.index,
                                                                       additional_key='maternal_hemorrhage_incidence')
-        maternal_hemorrhage_this_step = maternal_hemorrhage_incidence_draw <- self.probabiity_maternal_hemorrhage(pop.index)
+        maternal_hemorrhage_this_step = maternal_hemorrhage_incidence_draw < self.probabiity_maternal_hemorrhage(
+            pop.index)
 
         prepostpartum_ends_this_step = (
 
