@@ -270,6 +270,7 @@ class Pregnancy:
         # Handle simulants going from (md or nmd) -> pp
         pop.loc[prepostpartum_ends_this_step, "pregnancy_status"] = models.POSTPARTUM_STATE
         pop.loc[prepostpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
+        pop.loc[prepostpartum_ends_this_step, "maternal_hemorrhage"] = False
 
         # Postpartum to Not pregnant
         pop.loc[postpartum_ends_this_step, "pregnancy_status"] = models.NOT_PREGNANT_STATE
