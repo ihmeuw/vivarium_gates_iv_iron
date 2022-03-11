@@ -144,6 +144,10 @@ class Pregnancy:
         pregnancy_state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
         pregnancy_state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
 
+        # TODO:  Implement model 3 here
+        get_hemoglobin_value = self.get_hemoglobin_value(self, pop_data)
+        get_anemia_status = self.get_anemia_status(self, pop_data)
+
         # initialize columns for 'cause_of_death', 'years_of_life_lost'
         cause_of_death = pd.Series("not_dead", index=pop_data.index, dtype="string")
         years_of_life_lost = pd.Series(0., index=pop_data.index)
@@ -311,3 +315,9 @@ class Pregnancy:
         disability_weight.loc[with_maternal_disorders] = maternal_disorder_ylds.loc[
                                                              with_maternal_disorders] * 365 / self.step_size().days
         return disability_weight
+
+    def get_hemoglobin_value(self, pop_data: pd.DataFrame):
+        pass
+
+    def get_anemia_status(self, pop_data: pd.DataFrame):
+        pass
