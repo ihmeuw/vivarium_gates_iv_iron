@@ -318,7 +318,8 @@ class Pregnancy:
 
     def get_hemoglobin_value(self, builder: Builder):
         index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
-        hemoglobin_mean_data = builder.data.load(data_keys.HEMOGLOBIN.MEAN).set_index(index_cols)
+        hemoglobin_data = builder.data.load(data_keys.HEMOGLOBIN.MEAN).set_index(index_cols)
+        hemoglobin_sd = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).set_index(index_cols)
 
     def get_anemia_status(self, pop_data: pd.DataFrame):
         pass
