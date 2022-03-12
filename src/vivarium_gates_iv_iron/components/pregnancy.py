@@ -255,7 +255,7 @@ class Pregnancy:
         pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
         # Pregnancy to maternal disorder state and no maternal disorder state
-        maternal_hemorrhage_this_step = maternal_hemorrhage_this_step & maternal_disorder_this_step & pregnancy_ends_this_step
+        maternal_hemorrhage_this_step = maternal_hemorrhage_this_step & pregnancy_ends_this_step
         maternal_disorder_this_step = (maternal_disorder_this_step | died_due_to_maternal_disorders) & pregnancy_ends_this_step
         no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
 
@@ -270,7 +270,6 @@ class Pregnancy:
         # Handle simulants going from (md or nmd) -> pp
         pop.loc[prepostpartum_ends_this_step, "pregnancy_status"] = models.POSTPARTUM_STATE
         pop.loc[prepostpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
-        pop.loc[prepostpartum_ends_this_step, "maternal_hemorrhage"] = False
 
         # Postpartum to Not pregnant
         pop.loc[postpartum_ends_this_step, "pregnancy_status"] = models.NOT_PREGNANT_STATE
@@ -279,6 +278,7 @@ class Pregnancy:
         pop.loc[postpartum_ends_this_step, "birth_weight"] = np.nan
         pop.loc[postpartum_ends_this_step, "pregnancy_duration"] = pd.NaT
         pop.loc[postpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
+        pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = False
 
         self.population_view.update(pop)
 
