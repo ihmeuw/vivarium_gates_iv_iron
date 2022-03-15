@@ -36,7 +36,7 @@ configuration:
             month: 1
             day: 1
         end:
-            year: 2022
+            year: 2024
             month: 12
             day: 31
         step_size: 7 # Days
