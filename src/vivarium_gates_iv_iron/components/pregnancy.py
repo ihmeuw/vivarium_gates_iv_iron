@@ -163,7 +163,7 @@ class Pregnancy:
         years_of_life_lost = pd.Series(0., index=pop_data.index)
 
         # Initialize columns for maternal hemorrhage, hemoglobin, anemia
-        maternal_hemorrhage = pd.Series(False, index=pop_data.index)
+        maternal_hemorrhage = pd.Series(models.NOT_MATERNAL_HEMORRHAGE_STATE, index=pop_data.index)
 
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
@@ -263,7 +263,7 @@ class Pregnancy:
         pop.loc[maternal_hemorrhage_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
         pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
         pop.loc[maternal_hemorrhage_this_step, "pregnancy_state_change_date"] = event.time
-        pop.loc[maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = True
+        pop.loc[maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.MATERNAL_HEMORRHAGE_STATE
         pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
         pop.loc[no_maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
 
@@ -278,7 +278,7 @@ class Pregnancy:
         pop.loc[postpartum_ends_this_step, "birth_weight"] = np.nan
         pop.loc[postpartum_ends_this_step, "pregnancy_duration"] = pd.NaT
         pop.loc[postpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
-        pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = False
+        pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = models.NOT_MATERNAL_HEMORRHAGE_STATE
 
         self.population_view.update(pop)
 

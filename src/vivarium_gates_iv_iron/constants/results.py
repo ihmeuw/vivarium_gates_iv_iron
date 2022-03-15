@@ -64,6 +64,12 @@ CONCEPTION_COUNT_COLUMN_TEMPLATE = (
 MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE = (
     "incident_cases_of_maternal_disorders_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
+MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
+    "incident_cases_of_maternal_hemorrhage_in_{YEAR}_in_age_group_{AGE_GROUP}"
+)
+MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
+    "maternal_hemorrhage_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+)
 
 COLUMN_TEMPLATES = {
     "population": TOTAL_POPULATION_COLUMN_TEMPLATE,
@@ -76,7 +82,8 @@ COLUMN_TEMPLATES = {
     "pregnancy_outcome_counts": PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE,
     "pregnancy_state_person_time": PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE,
     "conception_counts": CONCEPTION_COUNT_COLUMN_TEMPLATE,
-    "maternal_disorder_incident_counts": MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE
+    "maternal_disorder_incident_counts": MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE,
+    "maternal_hemorrhage_incident_counts": MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE
 }
 
 NON_COUNT_TEMPLATES = []
