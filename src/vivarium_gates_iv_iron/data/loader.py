@@ -387,7 +387,7 @@ def load_pregnancy_outcome(key: str, location: str):
 
 
 def subset_to_wra(df):
-    df = df.query("sex=='Female' & year_start==2019 & age_start >= 10 & age_end <= 60")
+    df = df.query("sex=='Female' & year_start==2019 & age_start >= 5 & age_end <= 60")
 
     return df
 
