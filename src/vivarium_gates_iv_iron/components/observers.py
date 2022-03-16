@@ -419,3 +419,87 @@ class MaternalDisordersObserver:
         metrics.update(self.counts)
         metrics.update(self.ylds)
         return metrics
+
+
+class MaternalHemorrhageObserver:
+    configuration_defaults = {
+        'metrics': {
+            'maternal_hemorrhage_observer': {
+                'by_age': False,
+                'by_year': False,
+                'by_sex': False,
+            }
+        }
+    }
+
+    def __repr__(self):
+        return 'MaternalHemorrhageObserver()'
+
+    ##############
+    # Properties #
+    ##############
+
+    @property
+    def sub_components(self) -> List:
+        return []
+
+    @property
+    def name(self):
+        return 'maternal_hemorrhage_observer'
+
+    #################
+    # Setup methods #
+    #################
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.clock = builder.time.clock()
+        self.configuration = builder.configuration.metrics.maternal_hemorrhage
+        self.start_time = get_time_stamp(builder.configuration.time.start)
+        self.step_size = builder.time.step_size()
+        self.age_bins = utilities.get_age_bins(builder)
+        self.person_time = Counter()
+        self.counts = Counter()
+
+        columns_required = ['alive', 'pregnancy_status', 'pregnancy_state_change_date', 'maternal_hemorrhage']
+        if self.configuration.by_age:
+            columns_required += ['age']
+        if self.configuration.by_sex:
+            columns_required += ['sex']
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener('time_step__prepare', self.on_time_step_prepare)
+        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
+        builder.value.register_value_modifier('metrics', self.metrics)
+
+    def on_time_step_prepare(self, event: Event):
+        pop = self.population_view.get(event.index)
+
+        # Accrue all counts and time to the current year
+        state_person_time_this_step = utilities.get_state_person_time(
+            pop, self.configuration, 'maternal_hemorrhage', models.MATERNAL_HEMORRHAGE_STATE, self.clock().year, event.step_size, self.age_bins
+        )
+        self.person_time.update(state_person_time_this_step)
+
+    def on_collect_metrics(self, event: Event):
+        counts_this_step = {}
+        pop = self.population_view.get(event.index)
+        pregnancy_change_this_step_pop = pop[pop["pregnancy_state_change_date"] == event.time]
+        configuration = self.configuration.to_dict()
+
+        # count maternal hemorrhage incident cases
+        base_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_hemorrhage',
+                                                                   year=event.time.year)
+        base_filter = QueryString(f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "maternal_hemorrhage"')
+        counts_this_step.update(get_group_counts(pregnancy_change_this_step_pop,
+                                                 base_filter, base_key,
+                                                 self.configuration,
+                                                 self.age_bins))
+
+        self.counts.update(counts_this_step)
+
+    # noinspection PyUnusedLocal
+    def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
+        metrics.update(self.counts)
+        metrics.update(self.person_time)
+        return metrics

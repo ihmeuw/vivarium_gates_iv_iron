@@ -45,6 +45,12 @@ STATE_MACHINE_MAP = {
     },
 }
 
+MATERNAL_HEMORRHAGE_STATE = "maternal_hemorrhage"
+NOT_MATERNAL_HEMORRHAGE_STATE = "not_maternal_hemorrhage"
+MATERNAL_HEMORRHAGE_STATES = (
+    MATERNAL_HEMORRHAGE_STATE,
+    NOT_MATERNAL_HEMORRHAGE_STATE
+)
 
 STATES = tuple(
     state for model in STATE_MACHINE_MAP.values() for state in model["states"]
