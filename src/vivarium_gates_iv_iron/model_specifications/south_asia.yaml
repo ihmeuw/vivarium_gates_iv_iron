@@ -12,6 +12,7 @@ components:
         - MortalityObserver()
         - PregnancyObserver()
         - MaternalDisordersObserver()
+        - MaternalHemorrhageObserver()
 
 #
 #        #- LowBirthWeight()
@@ -58,6 +59,10 @@ configuration:
             by_sex: False
             by_year: True
         maternal_disorders:
+            by_age: True
+            by_sex: False
+            by_year: True
+        maternal_hemorrhage:
             by_age: True
             by_sex: False
             by_year: True
