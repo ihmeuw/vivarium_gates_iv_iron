@@ -199,7 +199,7 @@ class Pregnancy:
         # Make masks for subsets
         pregnancy_ends_this_step = (
                 (pop['pregnancy_status'] == models.PREGNANT_STATE)
-                & (event.time - pop["pregnancy_state_change_date"] > pop["pregnancy_duration"])
+                & (event.time - pop["pregnancy_state_change_date"] >= pop["pregnancy_duration"])
         )
         maternal_disorder_incidence_draw = self.randomness.get_draw(pop.index,
                                                                     additional_key="maternal_disorder_incidence")
@@ -214,15 +214,15 @@ class Pregnancy:
         prepostpartum_ends_this_step = (
 
             (
-                    (pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
-                    | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE)
-                    & (event.time - pop["pregnancy_state_change_date"] >
+                    ((pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
+                    | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE))
+                    & (event.time - pop["pregnancy_state_change_date"] >=
                        pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))  # One time step
             )
         )
         postpartum_ends_this_step = (
                 (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
-                & (event.time - pop["pregnancy_state_change_date"] > pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))
+                & (event.time - pop["pregnancy_state_change_date"] >= pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))
         )
 
         # Determine who dies
