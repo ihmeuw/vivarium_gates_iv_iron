@@ -62,10 +62,12 @@ class Pregnancy:
             [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
         maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.CSMR).set_index(
             [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
-        self.background_mortality_rate = builder.lookup.build_table(
+        background_mortality_rate_table = builder.lookup.build_table(
             (all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
+        self.background_mortality_rate = builder.value.register_rate_producer('background_mortality_rate',
+                                                                              source=background_mortality_rate_table)
         maternal_disorder_incidence = builder.data.load(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE).set_index(
             [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
 
