@@ -1,10 +1,9 @@
-from itertools import product
 from numbers import Real
 from typing import List, Set, Union, Tuple
 import warnings
 
-import numpy as np
 import pandas as pd
+from scipy import stats
 
 from gbd_mapping import causes, covariates, risk_factors, Cause, ModelableEntity, RiskFactor
 from vivarium.framework.artifact import EntityKey
@@ -14,9 +13,7 @@ from vivarium_inputs import globals as vi_globals, utilities as vi_utils, utilit
 from vivarium_inputs.mapping_extension import alternative_risk_factors, AlternativeRiskFactor
 from vivarium_inputs.validation.raw import check_metadata
 
-from vivarium_gates_iv_iron.constants import data_keys, data_values
-from vivarium_gates_iv_iron.constants.metadata import ARTIFACT_INDEX_COLUMNS, AGE_GROUP, GBD_2020_ROUND_ID
-from vivarium_gates_iv_iron.utilities import get_random_variable_draws
+from vivarium_gates_iv_iron.constants.metadata import AGE_GROUP, GBD_2020_ROUND_ID
 
 
 def get_entity(key: EntityKey) -> ModelableEntity:
@@ -237,3 +234,13 @@ def get_gbd_age_bins(age_group_ids: List[int] = None) -> pd.DataFrame:
     # set age start for birth prevalence age bin to -1 to avoid validation issues
     age_bins.loc[age_bins['age_end'] == 0.0, 'age_start'] = -1.0
     return age_bins
+
+
+def get_truncnorm_from_quantiles(mean: float, lower: float, upper: float,
+                                 quantiles: Tuple[float, float] = (0.025, 0.975),
+                                 lower_clip: float = 0.0, upper_clip: float = 1.0) -> stats.truncnorm:
+    stdnorm_quantiles = stats.norm.ppf(quantiles)
+    sd = (upper - lower) / (stdnorm_quantiles[1] - stdnorm_quantiles[0])
+    a = (lower_clip - mean) / sd if sd else 0.0
+    b = (upper_clip - mean) / sd if sd else 0.0
+    return stats.truncnorm(loc=mean, scale=sd, a=a, b=b)
