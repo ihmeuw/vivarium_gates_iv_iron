@@ -245,7 +245,6 @@ class PregnancyObserver:
     def __repr__(self):
         return 'PregnancyObserver()'
 
-
     ##############
     # Properties #
     ##############
@@ -271,7 +270,11 @@ class PregnancyObserver:
         self.person_time = Counter()
         self.counts = Counter()
 
-        columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date']
+        self.previous_state_column = "previous_state"
+        builder.population.initializes_simulants(self.on_initialize_simulants,
+                                                 creates_columns=[self.previous_state_column])
+
+        columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date', self.previous_state_column]
         if self.configuration.by_age:
             columns_required += ['age']
         if self.configuration.by_sex:
@@ -282,6 +285,8 @@ class PregnancyObserver:
         builder.event.register_listener('collect_metrics', self.on_collect_metrics)
         builder.value.register_value_modifier('metrics', self.metrics)
 
+    def on_initialize_simulants(self, pop_data):
+        self.population_view.update(pd.Series('', index=pop_data.index, name=self.previous_state_column))
 
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index)
@@ -294,17 +299,25 @@ class PregnancyObserver:
             )
             self.person_time.update(state_person_time_this_step)
 
+        # This enables tracking of transitions between states
+        prior_state_pop = self.population_view.get(event.index)
+        prior_state_pop[self.previous_state_column] = prior_state_pop["pregnancy_status"]
+        self.population_view.update(prior_state_pop)
+
     def on_collect_metrics(self, event: Event):
         counts_this_step = {}
         pop = self.population_view.get(event.index)
         pop = pop[pop["pregnancy_state_change_date"] == event.time]
         configuration = self.configuration.to_dict()
 
-        # count new conceptions
-        base_key = get_output_template(**configuration).substitute(measure='conception_count',
-                                                            year=event.time.year)
-        base_filter = QueryString(f'alive == "alive" and pregnancy_status == "pregnant"')
-        counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
+        # get transition counts
+        for transition in models.PREGNANCY_MODEL_TRANSITIONS:
+            base_key = get_output_template(**configuration).substitute(measure=f'{transition}_count',
+                                                                year=event.time.year)
+            base_filter = QueryString(f'alive == "alive" and {self.previous_state_column} == "{transition.from_state}" and pregnancy_status == "{transition.to_state}"')
+            counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
+
+        # get pregnancy outcome counts
         for outcome in models.PREGNANCY_OUTCOMES:
             base_key = get_output_template(**configuration).substitute(measure=f'{outcome}_count',
                                                                           year=event.time.year)
@@ -386,6 +399,7 @@ class MaternalDisordersObserver:
 
         # count deaths due to maternal disorders
         deaths_this_step = {}
+        # TODO: add count for each transition here with loop
         died_this_step_pop = pop[pop["exit_time"] == event.time]
         death_key = get_output_template(**configuration).substitute(measure='death_due_to_maternal_disorders',
                                                             year=event.time.year)
