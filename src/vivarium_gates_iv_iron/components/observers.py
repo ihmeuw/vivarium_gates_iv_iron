@@ -399,7 +399,6 @@ class MaternalDisordersObserver:
 
         # count deaths due to maternal disorders
         deaths_this_step = {}
-        # TODO: add count for each transition here with loop
         died_this_step_pop = pop[pop["exit_time"] == event.time]
         death_key = get_output_template(**configuration).substitute(measure='death_due_to_maternal_disorders',
                                                             year=event.time.year)
