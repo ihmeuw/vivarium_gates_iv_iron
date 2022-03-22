@@ -33,7 +33,7 @@ def make_measure_data(data):
         deaths=get_by_cause_measure_data(data, "deaths"),
         pregnancy_state_person_time=get_measure_data(data, "pregnancy_state_person_time"),
         pregnancy_outcome_counts=get_measure_data(data, "pregnancy_outcome_counts"),
-        conception_counts=get_measure_data(data, "conception_counts"),
+        pregnancy_transition_counts=get_measure_data(data, "pregnancy_transition_counts"),
         maternal_disorder_incident_counts=get_measure_data(data, "maternal_disorder_incident_counts"),
         maternal_hemorrhage_incident_counts=get_measure_data(data, "maternal_hemorrhage_incident_counts"),
 
@@ -56,7 +56,7 @@ class MeasureData(NamedTuple):
     deaths: pd.DataFrame
     pregnancy_state_person_time: pd.DataFrame
     pregnancy_outcome_counts: pd.DataFrame
-    conception_counts: pd.DataFrame
+    pregnancy_transition_counts: pd.DataFrame
     maternal_disorder_incident_counts: pd.DataFrame
     maternal_hemorrhage_incident_counts: pd.DataFrame
 
