@@ -1,9 +1,7 @@
-from itertools import product
 from numbers import Real
 from typing import List, Set, Union, Tuple
 import warnings
 
-import numpy as np
 import pandas as pd
 
 from gbd_mapping import causes, covariates, risk_factors, Cause, ModelableEntity, RiskFactor
@@ -14,9 +12,7 @@ from vivarium_inputs import globals as vi_globals, utilities as vi_utils, utilit
 from vivarium_inputs.mapping_extension import alternative_risk_factors, AlternativeRiskFactor
 from vivarium_inputs.validation.raw import check_metadata
 
-from vivarium_gates_iv_iron.constants import data_keys, data_values
-from vivarium_gates_iv_iron.constants.metadata import ARTIFACT_INDEX_COLUMNS, AGE_GROUP, GBD_2020_ROUND_ID
-from vivarium_gates_iv_iron.utilities import get_random_variable_draws
+from vivarium_gates_iv_iron.constants.metadata import AGE_GROUP, GBD_2020_ROUND_ID
 
 
 def get_entity(key: EntityKey) -> ModelableEntity:
