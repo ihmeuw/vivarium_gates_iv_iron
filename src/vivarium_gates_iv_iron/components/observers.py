@@ -14,7 +14,8 @@ from vivarium_public_health.metrics import (utilities,
                                             DisabilityObserver as DisabilityObserver_,
                                             DiseaseObserver as DiseaseObserver_,
                                             CategoricalRiskObserver as CategoricalRiskObserver_)
-from vivarium_public_health.metrics.utilities import (get_group_counts, get_output_template, get_deaths, get_state_person_time, get_transition_count,
+from vivarium_public_health.metrics.utilities import (get_group_counts, get_output_template, get_deaths,
+                                                      get_state_person_time, get_transition_count,
                                                       get_years_lived_with_disability, get_years_of_life_lost,
                                                       get_person_time,
                                                       QueryString, TransitionString)
@@ -169,7 +170,7 @@ class MortalityObserver(MortalityObserver_):
         super().__init__()
         self.stratifier = ResultsStratifier(self.name)
 
-    def setup(self, builder: Builder) :
+    def setup(self, builder: Builder):
         super().setup(builder)
         self.causes = ['maternal_disorders', 'other_causes']
 
@@ -274,7 +275,8 @@ class PregnancyObserver:
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=[self.previous_state_column])
 
-        columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date', self.previous_state_column]
+        columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date',
+                            self.previous_state_column]
         if self.configuration.by_age:
             columns_required += ['age']
         if self.configuration.by_sex:
@@ -297,7 +299,8 @@ class PregnancyObserver:
             """Custom person time getter that handles state column name assumptions"""
             base_key = get_output_template(**config).substitute(measure=f'{state}_with_{outcome}_person_time',
                                                                 year=current_year)
-            base_filter = QueryString(f'alive == "alive" and {state_machine} == "{state}" and pregnancy_outcome == "{outcome}"')
+            base_filter = QueryString(
+                f'alive == "alive" and {state_machine} == "{state}" and pregnancy_outcome == "{outcome}"')
             person_time = get_group_counts(pop, base_filter, base_key, config, age_bins,
                                            aggregate=lambda x: len(x) * utilities.to_years(step_size))
             return person_time
@@ -308,7 +311,8 @@ class PregnancyObserver:
             for outcome in models.PREGNANCY_OUTCOMES:
                 # noinspection PyTypeChecker
                 state_person_time_this_step = get_state_person_time(
-                    pop, self.configuration, 'pregnancy_status', state, outcome, self.clock().year, event.step_size, self.age_bins
+                    pop, self.configuration, 'pregnancy_status', state, outcome, self.clock().year, event.step_size,
+                    self.age_bins
                 )
                 self.person_time.update(state_person_time_this_step)
 
@@ -326,14 +330,15 @@ class PregnancyObserver:
         # get transition counts
         for transition in models.PREGNANCY_MODEL_TRANSITIONS:
             base_key = get_output_template(**configuration).substitute(measure=f'{transition}_count',
-                                                                year=event.time.year)
-            base_filter = QueryString(f'alive == "alive" and {self.previous_state_column} == "{transition.from_state}" and pregnancy_status == "{transition.to_state}"')
+                                                                       year=event.time.year)
+            base_filter = QueryString(
+                f'alive == "alive" and {self.previous_state_column} == "{transition.from_state}" and pregnancy_status == "{transition.to_state}"')
             counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
 
         # get pregnancy outcome counts
         for outcome in models.PREGNANCY_OUTCOMES:
             base_key = get_output_template(**configuration).substitute(measure=f'{outcome}_count',
-                                                                          year=event.time.year)
+                                                                       year=event.time.year)
             base_filter = QueryString(
                 f'alive == "alive" and pregnancy_status == "postpartum" and pregnancy_outcome == "{outcome}"')
             counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
@@ -365,7 +370,6 @@ class MaternalDisordersObserver:
     def __repr__(self):
         return 'MaternalDisordersObserver()'
 
-
     ##############
     # Properties #
     ##############
@@ -395,7 +399,8 @@ class MaternalDisordersObserver:
         self.disability_weight_pipelines = {'maternal_disorders': builder.value.get_value('disability_weight')}
         self.causes = results.CAUSES_OF_DISABILITY
 
-        columns_required = ['alive', 'exit_time', 'cause_of_death', 'pregnancy_status', 'pregnancy_state_change_date', 'years_lived_with_disability', 'years_of_life_lost']
+        columns_required = ['alive', 'exit_time', 'cause_of_death', 'pregnancy_status', 'pregnancy_state_change_date',
+                            'years_lived_with_disability', 'years_of_life_lost']
         if self.configuration.by_age:
             columns_required += ['age']
         if self.configuration.by_sex:
@@ -405,7 +410,6 @@ class MaternalDisordersObserver:
         builder.event.register_listener('collect_metrics', self.on_collect_metrics)
         builder.value.register_value_modifier('metrics', self.metrics)
 
-
     def on_collect_metrics(self, event: Event):
         pop = self.population_view.get(event.index)
         configuration = self.configuration.to_dict()
@@ -414,25 +418,28 @@ class MaternalDisordersObserver:
         deaths_this_step = {}
         died_this_step_pop = pop[pop["exit_time"] == event.time]
         death_key = get_output_template(**configuration).substitute(measure='death_due_to_maternal_disorders',
-                                                            year=event.time.year)
+                                                                    year=event.time.year)
         death_filter = QueryString(f'alive == "dead" and cause_of_death == "maternal_disorders"')
-        deaths_this_step.update(get_group_counts(died_this_step_pop, death_filter, death_key, self.configuration, self.age_bins))
+        deaths_this_step.update(
+            get_group_counts(died_this_step_pop, death_filter, death_key, self.configuration, self.age_bins))
         self.deaths.update(deaths_this_step)
 
         # count incident cases of to maternal disorders
         cases_this_step = {}
         pregnancy_change_this_step_pop = pop[pop["pregnancy_state_change_date"] == event.time]
         case_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_disorders',
-                                                            year=event.time.year)
+                                                                   year=event.time.year)
         case_filter = QueryString(f"pregnancy_status=='maternal_disorder'")
-        cases_this_step.update(get_group_counts(pregnancy_change_this_step_pop, case_filter, case_key, self.configuration, self.age_bins))
+        cases_this_step.update(
+            get_group_counts(pregnancy_change_this_step_pop, case_filter, case_key, self.configuration, self.age_bins))
         self.counts.update(cases_this_step)
 
         # count YLDs due to maternal disorders
         ylds_this_step = {}
         ylds_this_step.update(get_years_lived_with_disability(pop, self.configuration,
-                                                         self.clock().year, self.step_size(),
-                                                         self.age_bins, self.disability_weight_pipelines, self.causes))
+                                                              self.clock().year, self.step_size(),
+                                                              self.age_bins, self.disability_weight_pipelines,
+                                                              self.causes))
         self.ylds.update(ylds_this_step)
 
     ##################################
@@ -503,7 +510,8 @@ class MaternalHemorrhageObserver:
 
         # Accrue all counts and time to the current year
         state_person_time_this_step = utilities.get_state_person_time(
-            pop, self.configuration, 'maternal_hemorrhage', models.MATERNAL_HEMORRHAGE_STATE, self.clock().year, event.step_size, self.age_bins
+            pop, self.configuration, 'maternal_hemorrhage', models.MATERNAL_HEMORRHAGE_STATE, self.clock().year,
+            event.step_size, self.age_bins
         )
         self.person_time.update(state_person_time_this_step)
 
@@ -516,7 +524,8 @@ class MaternalHemorrhageObserver:
         # count maternal hemorrhage incident cases
         base_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_hemorrhage',
                                                                    year=event.time.year)
-        base_filter = QueryString(f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "maternal_hemorrhage"')
+        base_filter = QueryString(
+            f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "maternal_hemorrhage"')
         counts_this_step.update(get_group_counts(pregnancy_change_this_step_pop,
                                                  base_filter, base_key,
                                                  self.configuration,
