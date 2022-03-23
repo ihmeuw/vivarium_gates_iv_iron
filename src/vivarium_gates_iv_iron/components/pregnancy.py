@@ -135,6 +135,13 @@ class Pregnancy:
                                                                         p=pregnancy_outcome_probabilities,
                                                                         additional_key='pregnancy_outcome')
 
+        pregnancy_outcome_probabilities = self.outcome_probabilities(is_postpartum_idx)[list(models.PREGNANCY_OUTCOMES)]
+        pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_postpartum_idx,
+                                                                        choices=models.PREGNANCY_OUTCOMES,
+                                                                        p=pregnancy_outcome_probabilities,
+                                                                        additional_key='pregnancy_outcome')
+
+
         sex_of_child = pd.Series(models.INVALID_OUTCOME, index=pop_data.index)
         # TODO: update sex_of_child distribution
         sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'],
