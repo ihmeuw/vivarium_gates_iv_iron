@@ -243,6 +243,9 @@ class PregnancyObserver:
         }
     }
 
+    def __init__(self):
+        self.previous_state_column_name = "previous_state"
+
     def __repr__(self):
         return 'PregnancyObserver()'
 
@@ -271,12 +274,11 @@ class PregnancyObserver:
         self.person_time = Counter()
         self.counts = Counter()
 
-        self.previous_state_column = "previous_state"
         builder.population.initializes_simulants(self.on_initialize_simulants,
-                                                 creates_columns=[self.previous_state_column])
+                                                 creates_columns=[self.previous_state_column_name])
 
         columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date',
-                            self.previous_state_column]
+                            self.previous_state_column_name]
 
         if self.configuration.by_age:
             columns_required += ['age']
@@ -289,7 +291,7 @@ class PregnancyObserver:
         builder.value.register_value_modifier('metrics', self.metrics)
 
     def on_initialize_simulants(self, pop_data):
-        self.population_view.update(pd.Series('', index=pop_data.index, name=self.previous_state_column))
+        self.population_view.update(pd.Series('', index=pop_data.index, name=self.previous_state_column_name))
 
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index)
@@ -319,12 +321,12 @@ class PregnancyObserver:
 
         # This enables tracking of transitions between states
         prior_state_pop = self.population_view.get(event.index)
-        prior_state_pop[self.previous_state_column] = prior_state_pop["pregnancy_status"]
+        prior_state_pop[self.previous_state_column_name] = prior_state_pop["pregnancy_status"]
         self.population_view.update(prior_state_pop)
 
         # This enables tracking of transitions between states
         prior_state_pop = self.population_view.get(event.index)
-        prior_state_pop[self.previous_state_column] = prior_state_pop["pregnancy_status"]
+        prior_state_pop[self.previous_state_column_name] = prior_state_pop["pregnancy_status"]
         self.population_view.update(prior_state_pop)
 
     def on_collect_metrics(self, event: Event):
@@ -338,7 +340,7 @@ class PregnancyObserver:
             base_key = get_output_template(**configuration).substitute(measure=f'{transition}_count',
                                                                        year=event.time.year)
             base_filter = QueryString(
-                f'alive == "alive" and {self.previous_state_column} == "{transition.from_state}" and pregnancy_status == "{transition.to_state}"')
+                f'alive == "alive" and {self.previous_state_column_name} == "{transition.from_state}" and pregnancy_status == "{transition.to_state}"')
             counts_this_step.update(get_group_counts(pop, base_filter, base_key, self.configuration, self.age_bins))
 
         # get pregnancy outcome counts
