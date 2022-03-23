@@ -103,3 +103,17 @@ def get_norm_from_quantiles(mean: float, lower: float, upper: float,
     stdnorm_quantiles = stats.norm.ppf(quantiles)
     sd = (upper - lower) / (stdnorm_quantiles[1] - stdnorm_quantiles[0])
     return stats.norm(loc=mean, scale=sd)
+
+
+def get_truncnorm_from_quantiles(mean: float, lower: float, upper: float,
+                                 quantiles: Tuple[float, float] = (0.025, 0.975),
+                                 lower_clip: float = 0.0, upper_clip: float = 1.0) -> stats.truncnorm:
+    stdnorm_quantiles = stats.norm.ppf(quantiles)
+    sd = (upper - lower) / (stdnorm_quantiles[1] - stdnorm_quantiles[0])
+    try:
+        a = (lower_clip - mean) / sd
+        b = (upper_clip - mean) / sd
+        return stats.truncnorm(loc=mean, scale=sd, a=a, b=b)
+    except ZeroDivisionError:
+        # degenerate case: if upper == lower, then use the mean with sd==0
+        return stats.norm(loc=mean, scale=sd)

@@ -277,6 +277,7 @@ class PregnancyObserver:
 
         columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date',
                             self.previous_state_column]
+
         if self.configuration.by_age:
             columns_required += ['age']
         if self.configuration.by_sex:
@@ -315,6 +316,11 @@ class PregnancyObserver:
                     self.age_bins
                 )
                 self.person_time.update(state_person_time_this_step)
+
+        # This enables tracking of transitions between states
+        prior_state_pop = self.population_view.get(event.index)
+        prior_state_pop[self.previous_state_column] = prior_state_pop["pregnancy_status"]
+        self.population_view.update(prior_state_pop)
 
         # This enables tracking of transitions between states
         prior_state_pop = self.population_view.get(event.index)
