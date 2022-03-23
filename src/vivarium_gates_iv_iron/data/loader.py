@@ -34,7 +34,7 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 from vivarium_gates_iv_iron.constants import data_keys, metadata
 from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.utilities import (
-    get_norm_from_quantiles,
+    get_truncnorm_from_quantiles,
     get_random_variable_draws_for_location,
 )
 
@@ -320,7 +320,7 @@ def create_draws(df: pd.DataFrame, key: str, location: str):
     lower = df['lower_value']
     upper = df['upper_value']
 
-    Tuple = (key, utilities.get_truncnorm_from_quantiles(mean=mean, lower=lower, upper=upper))
+    Tuple = (key, get_truncnorm_from_quantiles(mean=mean, lower=lower, upper=upper))
     # pull index from constants
     draws = get_random_variable_draws_for_location(pd.Index([f'draw_{i}' for i in range(0, 1000)]), location, *Tuple)
 

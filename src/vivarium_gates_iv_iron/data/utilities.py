@@ -234,13 +234,3 @@ def get_gbd_age_bins(age_group_ids: List[int] = None) -> pd.DataFrame:
     # set age start for birth prevalence age bin to -1 to avoid validation issues
     age_bins.loc[age_bins['age_end'] == 0.0, 'age_start'] = -1.0
     return age_bins
-
-
-def get_truncnorm_from_quantiles(mean: float, lower: float, upper: float,
-                                 quantiles: Tuple[float, float] = (0.025, 0.975),
-                                 lower_clip: float = 0.0, upper_clip: float = 1.0) -> stats.truncnorm:
-    stdnorm_quantiles = stats.norm.ppf(quantiles)
-    sd = (upper - lower) / (stdnorm_quantiles[1] - stdnorm_quantiles[0])
-    a = (lower_clip - mean) / sd if sd else 0.0
-    b = (upper_clip - mean) / sd if sd else 0.0
-    return stats.truncnorm(loc=mean, scale=sd, a=a, b=b)
