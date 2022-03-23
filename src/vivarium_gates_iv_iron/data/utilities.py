@@ -3,7 +3,6 @@ from typing import List, Set, Union, Tuple
 import warnings
 
 import pandas as pd
-from scipy import stats
 
 from gbd_mapping import causes, covariates, risk_factors, Cause, ModelableEntity, RiskFactor
 from vivarium.framework.artifact import EntityKey
