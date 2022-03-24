@@ -5,6 +5,7 @@ from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
 from vivarium_public_health.population import Mortality
+from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
                                                           PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO)
@@ -17,6 +18,10 @@ class Pregnancy:
     @property
     def name(self):
         return models.PREGNANCY_MODEL_NAME
+
+    @property
+    def sub_components(self):
+        return [Hemoglobin()]
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
