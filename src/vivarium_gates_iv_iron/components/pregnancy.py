@@ -8,7 +8,8 @@ from vivarium_public_health.population import Mortality
 from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
-                                                          PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO)
+                                                          PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO,
+                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS)
 
 
 class Pregnancy:
@@ -114,9 +115,8 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
 
-        # May need to change
-        hemoglobin_mean = builder.data.load(data_keys.HEMOGLOBIN.MEAN).reset_index()
-        hemoglobin_sd = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).reset_index()
+        builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
+                                              requires_columns=["pregnancy_status"])
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
@@ -353,8 +353,8 @@ class Pregnancy:
                                                              with_maternal_disorders] * 365 / self.step_size().days
         return disability_weight
 
-    def get_hemoglobin_value(self, builder: Builder):
-        pass
+    def hemoglobin_pregnancy_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
+        df['mean'] = df['mean'] * HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR
+        df['stddev'] = df['stddev'] * HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR
 
-    def get_anemia_status(self, pop_data: pd.DataFrame):
-        pass
+        return df
