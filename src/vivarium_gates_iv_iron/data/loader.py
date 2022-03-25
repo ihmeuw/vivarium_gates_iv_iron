@@ -456,16 +456,35 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
 
 def get_hemoglobin_data(key: str, location: str):
-    location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
-    if key == data_keys.HEMOGLOBIN.MEAN:
-        me_id = 10487
-    elif key == data_keys.HEMOGLOBIN.STANDARD_DEVIATION:
-        me_id = 10488
-    else:
-        raise KeyError("Invalid Hemoglobin key")
+    national_level_hemoglobin_data = pd.DataFrame()
+    child_locs = get_child_locs(location)
 
-    hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
-    hemoglobin_data = reshape_to_vivarium_format(hemoglobin_data, location)
-    hemoglobin_data = subset_to_wra(hemoglobin_data)
+    for loc in child_locs:
+        location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
+        if key == data_keys.HEMOGLOBIN.MEAN:
+            me_id = 10487
+        elif key == data_keys.HEMOGLOBIN.STANDARD_DEVIATION:
+            me_id = 10488
+        else:
+            raise KeyError("Invalid Hemoglobin key")
+
+        hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
+        hemoglobin_data = reshape_to_vivarium_format(hemoglobin_data, location)
 
     return hemoglobin_data
+
+
+def get_pregnant_lactating_women_location_weights(key: str, location: str):
+    #  WRA * (ASFR + (ASFR * SBR) + incidence_c996 + incidence_c374)
+    #      - divide by regional population
+    plw_location_weights, wra, asfr,  = pd.DataFrame()
+
+    child_locs = get_child_locs(location)
+
+    for loc in child_locs:
+        # Get WRA data
+        # get all data
+        # do math to calculate population of PLW
+        incidencec374 = get_data(key, loc)
+
+    # Divide each location by total region population

@@ -354,7 +354,9 @@ class Pregnancy:
         return disability_weight
 
     def hemoglobin_pregnancy_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
-        df['mean'] = df['mean'] * HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR
-        df['stddev'] = df['stddev'] * HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR
 
+        mean = HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR[0]
+        stddev = HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR
+        df['mean'] = df['mean'] * mean
+        df['stddev'] = df['stddev'] * stddev
         return df

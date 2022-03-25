@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import scipy
+import scipy.stats
 
 from vivarium.framework.engine import Builder
 from vivarium.framework.population import SimulantData
@@ -61,6 +61,7 @@ class Hemoglobin:
                                                  requires_streams=[self.name])
 
         self.population_view = builder.population.get_view(self.columns_created)
+        builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         location_weights = self.location_weights(pop_data.index)
@@ -71,6 +72,12 @@ class Hemoglobin:
                                    "hemoglobin_percentile": self.randomness.get_draw(pop_data.index, additional_key="hemoglobin_percentile")},
                                   index=pop_data.index)
         self.population_view.update(pop_update)
+
+    def on_time_step(self, event):
+        self.distribution_parameters(event.index)
+        self.hemoglobin(event.index)
+        breakpoint()
+        return
 
     def hemoglobin_source(self, idx: pd.Index) -> pd.Series:
         distribution_parameters = self.distribution_parameters(idx)
