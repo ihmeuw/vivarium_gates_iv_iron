@@ -304,13 +304,14 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     return data
 
 
-def create_draws(df: pd.DataFrame, key: str, location: str):
+def create_draws(df: pd.DataFrame, key: str, location: str, distribution_function=get_truncnorm_from_quantiles):
     """
     Parameters
     ----------
     df: Multi-index dataframe with mean, lower, and upper values columns.
     location
     key:
+    distribution_function: Distribution function to use to create draws
     Returns
     -------
 
@@ -320,7 +321,7 @@ def create_draws(df: pd.DataFrame, key: str, location: str):
     lower = df['lower_value']
     upper = df['upper_value']
 
-    Tuple = (key, get_truncnorm_from_quantiles(mean=mean, lower=lower, upper=upper))
+    Tuple = (key, distribution_function(mean=mean, lower=lower, upper=upper))
     # pull index from constants
     draws = get_random_variable_draws_for_location(pd.Index([f'draw_{i}' for i in range(0, 1000)]), location, *Tuple)
 
