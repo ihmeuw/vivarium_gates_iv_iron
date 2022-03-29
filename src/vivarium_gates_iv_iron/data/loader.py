@@ -476,7 +476,7 @@ def get_hemoglobin_data(key: str, location: str):
         hemoglobin_data = pd.concat([hemoglobin_data], keys=[loc], names=['location'])
         country_dfs.append(hemoglobin_data)
 
-    national_level_hemoglobin_data = pd.conat(country_dfs)
+    national_level_hemoglobin_data = pd.concat(country_dfs)
 
     return national_level_hemoglobin_data
 
