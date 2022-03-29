@@ -34,6 +34,7 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 from vivarium_gates_iv_iron.constants import data_keys, metadata
 from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.utilities import (
+    get_lognorm_from_quantiles,
     get_truncnorm_from_quantiles,
     get_random_variable_draws_for_location,
 )
@@ -62,6 +63,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
+        data_keys.POPULATION.PLW_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
         data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
         data_keys.PREGNANCY.PREGNANT_PREVALENCE: get_prevalence_pregnant,
         data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE: get_prevalence_not_pregnant,
@@ -304,7 +306,7 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     return data
 
 
-def create_draws(df: pd.DataFrame, key: str, location: str, distribution_function=get_truncnorm_from_quantiles):
+def create_draws(df: pd.DataFrame, key: str, location: str, distribution_function=get_lognorm_from_quantiles):
     """
     Parameters
     ----------
@@ -482,14 +484,41 @@ def get_hemoglobin_data(key: str, location: str):
 def get_pregnant_lactating_women_location_weights(key: str, location: str):
     #  WRA * (ASFR + (ASFR * SBR) + incidence_c996 + incidence_c374)
     #      - divide by regional population
-    plw_location_weights, wra, asfr,  = pd.DataFrame()
+    plw_location_weights = pd.DataFrame()
 
     child_locs = get_child_locs(location)
+    regional_pop = get_wra(child_locs[0]) * 0
 
     for loc in child_locs:
-        # Get WRA data
-        # get all data
+        # ASFR
+        asfr = load_standard_data(data_keys.PREGNANCY.ASFR, loc)
+        asfr = asfr.reset_index()
+        asfr_pivot = asfr.pivot(index=[col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"],
+                                columns='parameter', values='value')
+        asfr_draws = asfr_pivot.apply(create_draws, args=(data_keys.PREGNANCY.ASFR, loc), axis=1)
+
+        # SBR
+        sbr = load_standard_data(data_keys.PREGNANCY.SBR, loc)
+        sbr = sbr.reset_index()
+        sbr = sbr[sbr.parameter == "mean_value"]
+        sbr = sbr.drop(["parameter"], axis=1).set_index(['year_start', 'year_end'])
+        sbr = sbr.reset_index(level="year_end", drop=True).reindex(asfr_draws.index, level="year_start").value
+
+        # WRA
+        wra = get_wra(loc)
+        wra = wra.reset_index().set_index("age_start").wra.reindex(asfr_draws.index, level="age_start").fillna(0)
+        wra.loc["Male"] = 0
+
+        incidence_c996 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, loc)
+        incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, loc)
+
         # do math to calculate population of PLW
-        incidencec374 = get_data(key, loc)
+        plw_loc = (asfr_draws.mul(1 + sbr, axis=0) + incidence_c996 + incidence_c374).mul(wra, axis=0).groupby(["year_start", "year_end"]).sum()
+        plw_loc = pd.concat([plw_loc.query("year_start==2019")], keys=[loc], names=['location'])
+        plw_loc = plw_loc.droplevel(["year_start", "year_end"])
+
+        plw_location_weights = plw_location_weights.append(plw_loc)
 
     # Divide each location by total region population
+    plw_location_weights = plw_location_weights/plw_location_weights.sum(axis=0)
+    return plw_location_weights
