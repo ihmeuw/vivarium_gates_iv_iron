@@ -6,7 +6,7 @@ from vivarium.framework.engine import Builder
 from vivarium.framework.population import SimulantData
 
 
-from vivarium_gates_iv_iron.constants.data_values import HEMOGLOBIN_DISTRIBUTION_PARAMETERS
+from vivarium_gates_iv_iron.constants.data_values import HEMOGLOBIN_DISTRIBUTION_PARAMETERS, HEMOGLOBIN_THRESHOLD_DATA, ANEMIA_DISABILITY_WEIGHTS
 from vivarium_gates_iv_iron.constants import data_keys
 
 
@@ -39,6 +39,10 @@ class Hemoglobin:
         self.hemoglobin = builder.value.register_value_producer("hemoglobin.exposure", source=self.hemoglobin_source,
                                                                 requires_values=["hemoglobin.exposure_parameters"],
                                                                 requires_streams=[self.name])
+
+        self.thresholds = builder.lookup.build_table(HEMOGLOBIN_THRESHOLD_DATA,
+                                                     key_columns=["sex", "pregnancy_status"],
+                                                     parameter_columns=["age"])
 
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=self.columns_created,
@@ -108,6 +112,16 @@ class Hemoglobin:
         gamma = propensity_distribution < 0.4
         gumbel = ~gamma
         ret_val = pd.Series(index=propensity_distribution.index, name="value")
-        ret_val.loc[gamma] = self._gamma_ppf(propensity.loc[gamma], mean, sd)
-        ret_val.loc[gumbel] = self._mirrored_gumbel_ppf(propensity.loc[gumbel], mean, sd)
+        ret_val.loc[gamma] = self._gamma_ppf(propensity, mean, sd)[gamma]
+        ret_val.loc[gumbel] = self._mirrored_gumbel_ppf(propensity, mean, sd)[gumbel]
         return ret_val
+
+    def disability_weight(self, index: pd.Index) -> pd.Series:
+        hemoglobin_level = self.hemoglobin(index)
+        thresholds = self.thresholds(index)
+        choice_index = (hemoglobin_level.values[np.newaxis].T < thresholds).sum(axis=1)
+        anemia_levels = pd.Series(np.array(["none", "mild", "moderate", "severe"])[choice_index], index=index,
+                                 name="anemia_levels")
+        return anemia_levels.map(ANEMIA_DISABILITY_WEIGHTS)
+
+
