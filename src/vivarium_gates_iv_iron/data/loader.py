@@ -34,6 +34,7 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 from vivarium_gates_iv_iron.constants import data_keys, metadata
 from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.utilities import (
+    get_lognorm_from_quantiles,
     get_truncnorm_from_quantiles,
     get_random_variable_draws_for_location,
 )
@@ -62,6 +63,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
+        data_keys.POPULATION.PLW_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
         data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
         data_keys.PREGNANCY.PREGNANT_PREVALENCE: get_prevalence_pregnant,
         data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE: get_prevalence_not_pregnant,
@@ -304,13 +306,14 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     return data
 
 
-def create_draws(df: pd.DataFrame, key: str, location: str):
+def create_draws(df: pd.DataFrame, key: str, location: str, distribution_function=get_lognorm_from_quantiles):
     """
     Parameters
     ----------
     df: Multi-index dataframe with mean, lower, and upper values columns.
     location
     key:
+    distribution_function: Distribution function to use to create draws
     Returns
     -------
 
@@ -320,7 +323,7 @@ def create_draws(df: pd.DataFrame, key: str, location: str):
     lower = df['lower_value']
     upper = df['upper_value']
 
-    Tuple = (key, get_truncnorm_from_quantiles(mean=mean, lower=lower, upper=upper))
+    Tuple = (key, distribution_function(mean=mean, lower=lower, upper=upper))
     # pull index from constants
     draws = get_random_variable_draws_for_location(pd.Index([f'draw_{i}' for i in range(0, 1000)]), location, *Tuple)
 
@@ -456,16 +459,66 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
 
 def get_hemoglobin_data(key: str, location: str):
-    location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
-    if key == data_keys.HEMOGLOBIN.MEAN:
-        me_id = 10487
-    elif key == data_keys.HEMOGLOBIN.STANDARD_DEVIATION:
-        me_id = 10488
-    else:
-        raise KeyError("Invalid Hemoglobin key")
+    country_dfs = []
+    child_locs = get_child_locs(location)
 
-    hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
-    hemoglobin_data = reshape_to_vivarium_format(hemoglobin_data, location)
-    hemoglobin_data = subset_to_wra(hemoglobin_data)
+    for loc in child_locs:
+        location_id = utility_data.get_location_id(loc) if isinstance(loc, str) else loc
+        if key == data_keys.HEMOGLOBIN.MEAN:
+            me_id = 10487
+        elif key == data_keys.HEMOGLOBIN.STANDARD_DEVIATION:
+            me_id = 10488
+        else:
+            raise KeyError("Invalid Hemoglobin key")
 
-    return hemoglobin_data
+        hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
+        hemoglobin_data = reshape_to_vivarium_format(hemoglobin_data, loc)
+        hemoglobin_data = pd.concat([hemoglobin_data], keys=[loc], names=['location'])
+        country_dfs.append(hemoglobin_data)
+
+    national_level_hemoglobin_data = pd.concat(country_dfs)
+
+    return national_level_hemoglobin_data
+
+
+def get_pregnant_lactating_women_location_weights(key: str, location: str):
+    #  WRA * (ASFR + (ASFR * SBR) + incidence_c996 + incidence_c374)
+    #      - divide by regional population
+    plw_location_weights = pd.DataFrame()
+
+    child_locs = get_child_locs(location)
+    regional_pop = get_wra(child_locs[0]) * 0
+
+    for loc in child_locs:
+        # ASFR
+        asfr = load_standard_data(data_keys.PREGNANCY.ASFR, loc)
+        asfr = asfr.reset_index()
+        asfr_pivot = asfr.pivot(index=[col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"],
+                                columns='parameter', values='value')
+        asfr_draws = asfr_pivot.apply(create_draws, args=(data_keys.PREGNANCY.ASFR, loc), axis=1)
+
+        # SBR
+        sbr = load_standard_data(data_keys.PREGNANCY.SBR, loc)
+        sbr = sbr.reset_index()
+        sbr = sbr[sbr.parameter == "mean_value"]
+        sbr = sbr.drop(["parameter"], axis=1).set_index(['year_start', 'year_end'])
+        sbr = sbr.reset_index(level="year_end", drop=True).reindex(asfr_draws.index, level="year_start").value
+
+        # WRA
+        wra = get_wra(loc)
+        wra = wra.reset_index().set_index("age_start").wra.reindex(asfr_draws.index, level="age_start").fillna(0)
+        wra.loc["Male"] = 0
+
+        incidence_c996 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, loc)
+        incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, loc)
+
+        # do math to calculate population of PLW
+        plw_loc = (asfr_draws.mul(1 + sbr, axis=0) + incidence_c996 + incidence_c374).mul(wra, axis=0).groupby(["year_start", "year_end"]).sum()
+        plw_loc = pd.concat([plw_loc.query("year_start==2019")], keys=[loc], names=['location'])
+        plw_loc = plw_loc.droplevel(["year_start", "year_end"])
+
+        plw_location_weights = plw_location_weights.append(plw_loc)
+
+    # Divide each location by total region population
+    plw_location_weights = plw_location_weights/plw_location_weights.sum(axis=0)
+    return plw_location_weights
