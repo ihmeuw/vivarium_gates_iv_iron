@@ -44,10 +44,10 @@ ANEMIA_DISABILITY_WEIGHTS = {"none": 0., "mild": 0.004, "moderate": 0.052, "seve
 
 
 # tuples are: (age_start, age_end, severe_upper, moderate_upper, mild_upper)
-_hemoglobin_threshold_data = {"pregnant": [(5, 15, 80, 110, 114),
-                                           (15, 57, 70, 100, 109)],
-                              "not_pregnant": [(5, 15, 80, 110, 114),
-                                               (15, 57, 80, 110, 119)]}
+_hemoglobin_threshold_data = {"pregnant": [(5, 15, 80, 110, 115),
+                                           (15, 57, 70, 100, 110)],
+                              "not_pregnant": [(5, 15, 80, 110, 115),
+                                               (15, 57, 80, 110, 120)]}
 _hemoglobin_state_map = {"pregnant": models.PREGNANCY_MODEL_STATES[1:],
                          "not_pregnant": [models.NOT_PREGNANT_STATE]}
 _htd = []
