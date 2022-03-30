@@ -45,14 +45,12 @@ class Hemoglobin:
         stddev = pd.concat(stddev_dfs).set_index(index_columns)["value"].rename("stddev")
         # <<<--- TODO replace
         distribution_parameters = pd.concat([mean, stddev], axis=1).reset_index()
-        # TODO: look in Risk code to make sure we have canonical exposure naming
         self.distribution_parameters = builder.value.register_value_producer("hemoglobin.exposure_parameters",
             source=builder.lookup.build_table(distribution_parameters, key_columns=["sex", "country"], parameter_columns=["age", "year"]),
                                                                              requires_columns=["age", "sex", "country"])
         self.location_weights = builder.lookup.build_table(location_weights, key_columns=["sex"],
                                                            parameter_columns=["age", "year"])
-        # TODO: canonical naming
-        self.hemoglobin = builder.value.register_value_producer("hemoglobin", source=self.hemoglobin_source,
+        self.hemoglobin = builder.value.register_value_producer("hemoglobin.exposure", source=self.hemoglobin_source,
                                                                 requires_values=["hemoglobin.exposure_parameters"],
                                                                 requires_streams=[self.name])
 
