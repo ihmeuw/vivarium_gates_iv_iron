@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from typing import Tuple, Union
+
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
@@ -10,11 +12,13 @@ from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
                                                           PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO,
                                                           HEMOGLOBIN_DISTRIBUTION_PARAMETERS)
+from vivarium_gates_iv_iron.utilities import get_norm_from_quantiles, get_random_variable
+
 
 
 class Pregnancy:
     def __init__(self):
-        pass
+        self.hemoglobin_distribution = Hemoglobin()
 
     @property
     def name(self):
@@ -22,7 +26,8 @@ class Pregnancy:
 
     @property
     def sub_components(self):
-        return [Hemoglobin()]
+        return [self.hemoglobin_distribution]
+
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
@@ -117,6 +122,9 @@ class Pregnancy:
 
         builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
+
+        self.correction_factors = self.sample_correction_factors(builder)
+
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
@@ -344,19 +352,42 @@ class Pregnancy:
         return outcome_probabilities.reset_index()
 
     def accrue_disability(self, index: pd.Index):
-        disability_weight = pd.Series(0, index=index)
+        anemia_disability_weight = self.hemoglobin_distribution.disability_weight(index)
+        maternal_disorder_ylds = self.ylds_per_maternal_disorder(index)
+        maternal_disorder_disability_weight = maternal_disorder_ylds * 365 / self.step_size().days
+        disability_weight = pd.Series(np.nan, index=index)
+
         pop = self.population_view.get(index)
-        with_maternal_disorders = (pop["alive"] == "alive") & (
-                pop["pregnancy_status"] == models.MATERNAL_DISORDER_STATE)
-        maternal_disorder_ylds = self.ylds_per_maternal_disorder(pop.index)
-        disability_weight.loc[with_maternal_disorders] = maternal_disorder_ylds.loc[
-                                                             with_maternal_disorders] * 365 / self.step_size().days
+        alive = pop["alive"] == "alive"
+        pregnant_or_not_pregnant = alive & pop["pregnancy_status"].isin([models.PREGNANT_STATE, models.NOT_PREGNANT_STATE])
+        maternal_disorders = alive & (pop["pregnancy_status"] == models.MATERNAL_DISORDER_STATE)
+        no_maternal_disorders = alive & (pop["pregnancy_status"] == models.NO_MATERNAL_DISORDER_STATE)
+        postpartum = alive & (pop["pregnancy_status"] == models.POSTPARTUM_STATE)
+        disability_weight.loc[pregnant_or_not_pregnant] = anemia_disability_weight.loc[pregnant_or_not_pregnant]
+        disability_weight.loc[maternal_disorders] = maternal_disorder_disability_weight.loc[maternal_disorders]
+        disability_weight.loc[no_maternal_disorders] = 0.
+        disability_weight.loc[postpartum] = 6/5 * anemia_disability_weight.loc[postpartum]
         return disability_weight
 
     def hemoglobin_pregnancy_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
-
-        mean = HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR[0]
-        stddev = HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR
-        df['mean'] = df['mean'] * mean
-        df['stddev'] = df['stddev'] * stddev
+        pop = self.population_view.get(index)
+        for state in models.PREGNANCY_MODEL_STATES:
+            state_index = pop[pop["pregnancy_status"] == state].index
+            df.loc[state_index, "mean"] *= self.correction_factors[state][0]
+            df.loc[state_index, "stddev"] *= self.correction_factors[state][1]
         return df
+
+    def sample_correction_factors(self, builder: Builder):
+        seed = builder.configuration.randomness.random_seed
+        draw = builder.configuration.input_data.input_draw_number
+
+        not_pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
+        not_pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
+        pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
+        pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(
+            *HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR))
+        correction_factors = {models.NOT_PREGNANT_STATE: (not_pregnant_mean_cf, not_pregnant_sd_cf)}
+        for state in models.PREGNANCY_MODEL_STATES[1:]:
+            correction_factors[state] = (pregnant_mean_cf, pregnant_sd_cf)
+        return correction_factors
+
