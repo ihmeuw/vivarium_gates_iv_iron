@@ -44,6 +44,9 @@ class Hemoglobin:
                                                      key_columns=["sex", "pregnancy_status"],
                                                      parameter_columns=["age"])
 
+        self.anemia_levels = builder.value.register_value_producer("anemia_levels", source=self.anemia_source,
+                                                                   requires_values=["hemoglobin.exposure"])
+
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=self.columns_created,
                                                  requires_streams=[self.name])
@@ -66,6 +69,7 @@ class Hemoglobin:
     def on_time_step(self, event):
         self.distribution_parameters(event.index)
         self.hemoglobin(event.index)
+        self.anemia_levels(event.index)
         return
 
     def hemoglobin_source(self, idx: pd.Index) -> pd.Series:
@@ -73,6 +77,12 @@ class Hemoglobin:
         pop = self.population_view.get(idx)
         return self.sample_from_hemoglobin_distribution(pop["hemoglobin_distribution_propensity"], pop["hemoglobin_percentile"], distribution_parameters)
 
+    def anemia_source(self, index: pd.Index) -> pd.Series:
+        hemoglobin_level = self.hemoglobin(index)
+        thresholds = self.thresholds(index)
+        choice_index = (hemoglobin_level.values[np.newaxis].T < thresholds).sum(axis=1)
+
+        return pd.Series(np.array(["none", "mild", "moderate", "severe"])[choice_index], index=index, name="anemia_levels")
 
     @staticmethod
     def _gamma_ppf(propensity, mean, sd):
