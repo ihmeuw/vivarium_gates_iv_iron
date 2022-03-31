@@ -7,6 +7,7 @@ from vivarium.framework.population import SimulantData
 
 
 from vivarium_gates_iv_iron.constants.data_values import HEMOGLOBIN_DISTRIBUTION_PARAMETERS, HEMOGLOBIN_THRESHOLD_DATA, ANEMIA_DISABILITY_WEIGHTS
+
 from vivarium_gates_iv_iron.constants import data_keys
 
 
@@ -36,6 +37,7 @@ class Hemoglobin:
         self.distribution_parameters = builder.value.register_value_producer("hemoglobin.exposure_parameters",
             source=builder.lookup.build_table(distribution_parameters, key_columns=["sex", "country"], parameter_columns=["age", "year"]),
                                                                              requires_columns=["age", "sex", "country"])
+
         self.hemoglobin = builder.value.register_value_producer("hemoglobin.exposure", source=self.hemoglobin_source,
                                                                 requires_values=["hemoglobin.exposure_parameters"],
                                                                 requires_streams=[self.name])
@@ -46,6 +48,7 @@ class Hemoglobin:
 
         self.anemia_levels = builder.value.register_value_producer("anemia_levels", source=self.anemia_source,
                                                                    requires_values=["hemoglobin.exposure"])
+
 
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=self.columns_created,

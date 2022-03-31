@@ -15,6 +15,7 @@ from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DA
 from vivarium_gates_iv_iron.utilities import get_norm_from_quantiles, get_random_variable
 
 
+
 class Pregnancy:
     def __init__(self):
         self.hemoglobin_distribution = Hemoglobin()
@@ -26,6 +27,7 @@ class Pregnancy:
     @property
     def sub_components(self):
         return [self.hemoglobin_distribution]
+
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
