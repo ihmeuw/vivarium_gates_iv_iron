@@ -546,3 +546,77 @@ class MaternalHemorrhageObserver:
         metrics.update(self.counts)
         metrics.update(self.person_time)
         return metrics
+
+
+class HemoglobinObserver:
+    configuration_defaults = {
+        'metrics': {
+            'hemoglobin_observer': {
+                'by_age': True,
+                'by_year': True,
+                'by_sex': True,
+            }
+        }
+    }
+
+    def __repr__(self):
+        return 'HemoglobinObserver()'
+
+    ##############
+    # Properties #
+    ##############
+
+    @property
+    def sub_components(self) -> List:
+        return []
+
+    @property
+    def name(self):
+        return 'hemoglobin_observer'
+
+    #################
+    # Setup methods #
+    #################
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.clock = builder.time.clock()
+        self.configuration = builder.configuration.metrics.maternal_hemorrhage
+        self.start_time = get_time_stamp(builder.configuration.time.start)
+        self.step_size = builder.time.step_size()
+        self.age_bins = utilities.get_age_bins(builder)
+        self.exposure = Counter()
+
+        columns_required = ['alive', 'pregnancy_status', 'maternal_hemorrhage']
+        if self.configuration.by_age:
+            columns_required += ['age']
+        if self.configuration.by_sex:
+            columns_required += ['sex']
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
+        builder.value.register_value_modifier('metrics', self.metrics)
+
+    def on_collect_metrics(self, event: Event):
+        pop = self.population_view.get(event.index)
+        configuration = self.configuration.to_dict()
+        exposure_sum = {}
+
+        # count maternal hemorrhage incident cases
+        base_key = get_output_template(**configuration).substitute(measure='hemoglobin_exposure_sum',
+                                                                   year=event.time.year)
+        for p_state in models.PREGNANCY_MODEL_STATES:
+            for h_state in models.MATERNAL_HEMORRHAGE_STATES:
+                base_filter = QueryString(
+                    f'alive == "alive" and pregnancy_status == "{p_state}" and maternal_hemorrhage == "{h_state}"')
+                exposure_sum.update(get_group_counts(pop,
+                                                     base_filter, base_key,
+                                                     self.configuration,
+                                                     self.age_bins,
+                                                     aggregate=sum))
+
+        self.exposure.update(exposure_sum)
+
+    def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
+        metrics.update(self.exposure)
+        return metrics

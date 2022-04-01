@@ -36,6 +36,7 @@ def make_measure_data(data):
         pregnancy_transition_counts=get_measure_data(data, "pregnancy_transition_counts"),
         maternal_disorder_incident_counts=get_measure_data(data, "maternal_disorder_incident_counts"),
         maternal_hemorrhage_incident_counts=get_measure_data(data, "maternal_hemorrhage_incident_counts"),
+        hemoglobin_exposure_sum=get_measure_data(data, "hemoglobin_exposure_sum"),
 
         # TODO duplicate for each model
         #     disease_state_person_time=get_state_person_time_measure_data(
@@ -59,6 +60,7 @@ class MeasureData(NamedTuple):
     pregnancy_transition_counts: pd.DataFrame
     maternal_disorder_incident_counts: pd.DataFrame
     maternal_hemorrhage_incident_counts: pd.DataFrame
+    hemoglobin_exposure_sum: pd.DataFrame
 
     # TODO duplicate for each model
     # disease_state_person_time: pd.DataFrame

@@ -13,6 +13,7 @@ components:
         - PregnancyObserver()
         - MaternalDisordersObserver()
         - MaternalHemorrhageObserver()
+        - HemoglobinObserver()
 
 #
 #        #- LowBirthWeight()
