@@ -647,7 +647,7 @@ class AnemiaObserver:
 
     @property
     def name(self):
-        return 'hemoglobin_observer'
+        return 'anemia_observer'
 
     #################
     # Setup methods #
@@ -671,7 +671,6 @@ class AnemiaObserver:
         self.population_view = builder.population.get_view(columns_required)
 
         builder.event.register_listener('time_step__prepare', self.on_time_step_prepare)
-        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
         builder.value.register_value_modifier('metrics', self.metrics)
 
     def on_time_step_prepare(self, event: Event):
@@ -690,12 +689,15 @@ class AnemiaObserver:
             person_time = get_group_counts(pop, base_filter, base_key, config, age_bins,
                                            aggregate=lambda x: len(x) * utilities.to_years(step_size))
             return person_time
+
         # Accrue all counts and time to the current year
-        state_person_time_this_step = get_state_person_time(
-            pop, self.configuration, 'anemia_levels', models.PREGNANCY_MODEL_STATES, models.MATERNAL_HEMORRHAGE_STATE, self.clock().year,
-            event.step_size, self.age_bins
-        )
-        self.person_time.update(state_person_time_this_step)
+        for pregnancy_state in models.PREGNANCY_MODEL_STATES:
+            for hemorrhage_type in models.MATERNAL_HEMORRHAGE_STATES:
+                state_person_time_this_step = get_state_person_time(
+                    pop, self.configuration, 'anemia_levels', pregnancy_state,
+                    hemorrhage_type, self.clock().year, event.step_size, self.age_bins
+                )
+                self.person_time.update(state_person_time_this_step)
 
     def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
         metrics.update(self.person_time)
