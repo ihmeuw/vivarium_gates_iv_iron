@@ -621,3 +621,82 @@ class HemoglobinObserver:
     def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
         metrics.update(self.exposure)
         return metrics
+
+
+class AnemiaObserver:
+    configuration_defaults = {
+        'metrics': {
+            'anemia_observer': {
+                'by_age': True,
+                'by_year': True,
+                'by_sex': True,
+            }
+        }
+    }
+
+    def __repr__(self):
+        return 'AnemiaObserver()'
+
+    ##############
+    # Properties #
+    ##############
+
+    @property
+    def sub_components(self) -> List:
+        return []
+
+    @property
+    def name(self):
+        return 'hemoglobin_observer'
+
+    #################
+    # Setup methods #
+    #################
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.clock = builder.time.clock()
+        self.configuration = builder.configuration.metrics.maternal_hemorrhage
+        self.start_time = get_time_stamp(builder.configuration.time.start)
+        self.anemia_levels = builder.value.get_value("anemia_levels")
+        self.step_size = builder.time.step_size()
+        self.age_bins = utilities.get_age_bins(builder)
+        self.person_time = Counter()
+
+        columns_required = ['alive', 'pregnancy_status', 'maternal_hemorrhage']
+        if self.configuration.by_age:
+            columns_required += ['age']
+        if self.configuration.by_sex:
+            columns_required += ['sex']
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener('time_step__prepare', self.on_time_step_prepare)
+        builder.event.register_listener('collect_metrics', self.on_collect_metrics)
+        builder.value.register_value_modifier('metrics', self.metrics)
+
+    def on_time_step_prepare(self, event: Event):
+        pop = self.population_view.get(event.index)
+        pop['anemia_level'] = self.anemia_levels
+
+        def get_state_person_time(pop: pd.DataFrame, config: Dict[str, bool],
+                                  state_machine: str, state: str, pregnancy_state: str,
+                                  hemorrhage_type: str, current_year: Union[str, int],
+                                  step_size: pd.Timedelta, age_bins: pd.DataFrame) -> Dict[str, float]:
+            """Custom person time getter that handles state column name assumptions"""
+            base_key = get_output_template(**config).substitute(measure=f'{state}_person_time_among_{pregnancy_state}_with_{hemorrhage_type}',
+                                                                year=current_year)
+            base_filter = QueryString(
+                f'alive == "alive" and {state_machine} == "{state}" and pregnancy_status == "{pregnancy_state}" and maternal_hemorrhage == "{hemorrhage_type}"')
+            person_time = get_group_counts(pop, base_filter, base_key, config, age_bins,
+                                           aggregate=lambda x: len(x) * utilities.to_years(step_size))
+            return person_time
+        # Accrue all counts and time to the current year
+        state_person_time_this_step = get_state_person_time(
+            pop, self.configuration, 'anemia_levels', models.PREGNANCY_MODEL_STATES, models.MATERNAL_HEMORRHAGE_STATE, self.clock().year,
+            event.step_size, self.age_bins
+        )
+        self.person_time.update(state_person_time_this_step)
+
+    def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
+        metrics.update(self.person_time)
+        return metrics

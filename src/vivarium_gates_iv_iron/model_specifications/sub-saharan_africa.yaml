@@ -11,6 +11,7 @@ components:
         - MaternalDisordersObserver()
         - MaternalHemorrhageObserver()
         - HemoglobinObserver()
+        - AnemiaObserver()
 
 configuration:
     input_data:
