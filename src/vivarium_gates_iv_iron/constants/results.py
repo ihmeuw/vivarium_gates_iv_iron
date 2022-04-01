@@ -2,7 +2,7 @@ import itertools
 
 import pandas as pd
 
-from vivarium_gates_iv_iron.constants import models
+from vivarium_gates_iv_iron.constants import models, data_values
 
 #################################
 # Results columns and variables #
@@ -71,7 +71,10 @@ MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
     "maternal_hemorrhage_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_{YEAR}_in_age_group_{AGE_GROUP}_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}"
+    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+)
+ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
+    '{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}'
 )
 COLUMN_TEMPLATES = {
     "population": TOTAL_POPULATION_COLUMN_TEMPLATE,
@@ -87,6 +90,7 @@ COLUMN_TEMPLATES = {
     "maternal_disorder_incident_counts": MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE,
     "maternal_hemorrhage_incident_counts": MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE,
     "hemoglobin_exposure_sum": HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE,
+    "anemia_state_person_time": ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE,
 }
 
 NON_COUNT_TEMPLATES = []
@@ -128,7 +132,8 @@ TEMPLATE_FIELD_MAP = {
     "PREGNANCY_STATE": models.PREGNANCY_MODEL_STATES,
     "PREGNANCY_OUTCOME": models.PREGNANCY_OUTCOMES,
     "PREGNANCY_TRANSITION": models.PREGNANCY_MODEL_TRANSITIONS,
-    "MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES
+    "MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES,
+    "ANEMIA_LEVEL": data_values.ANEMIA_DISABILITY_WEIGHTS.keys(),
 }
 
 

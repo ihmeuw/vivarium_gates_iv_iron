@@ -20,7 +20,7 @@ from vivarium_public_health.metrics.utilities import (get_group_counts, get_outp
                                                       get_person_time,
                                                       QueryString, TransitionString)
 
-from vivarium_gates_iv_iron.constants import models, results, data_keys
+from vivarium_gates_iv_iron.constants import models, results, data_keys, data_values
 
 
 class ResultsStratifier:
@@ -682,7 +682,7 @@ class AnemiaObserver:
                                   hemorrhage_type: str, current_year: Union[str, int],
                                   step_size: pd.Timedelta, age_bins: pd.DataFrame) -> Dict[str, float]:
             """Custom person time getter that handles state column name assumptions"""
-            base_key = get_output_template(**config).substitute(measure=f'{state}_person_time_among_{pregnancy_state}_with_{hemorrhage_type}',
+            base_key = get_output_template(**config).substitute(measure=f'{state}_anemia_person_time_among_{pregnancy_state}_with_{hemorrhage_type}',
                                                                 year=current_year)
             base_filter = QueryString(
                 f'alive == "alive" and {state_machine} == "{state}" and pregnancy_status == "{pregnancy_state}" and maternal_hemorrhage == "{hemorrhage_type}"')
@@ -691,13 +691,14 @@ class AnemiaObserver:
             return person_time
 
         # Accrue all counts and time to the current year
-        for pregnancy_state in models.PREGNANCY_MODEL_STATES:
-            for hemorrhage_type in models.MATERNAL_HEMORRHAGE_STATES:
-                state_person_time_this_step = get_state_person_time(
-                    pop, self.configuration, 'anemia_levels', pregnancy_state,
-                    hemorrhage_type, self.clock().year, event.step_size, self.age_bins
-                )
-                self.person_time.update(state_person_time_this_step)
+        for level in data_values.ANEMIA_DISABILITY_WEIGHTS.keys():
+            for pregnancy_state in models.PREGNANCY_MODEL_STATES:
+                for hemorrhage_type in models.MATERNAL_HEMORRHAGE_STATES:
+                    state_person_time_this_step = get_state_person_time(
+                        pop, self.configuration, 'anemia_level', level, pregnancy_state,
+                        hemorrhage_type, self.clock().year, event.step_size, self.age_bins
+                    )
+                    self.person_time.update(state_person_time_this_step)
 
     def metrics(self, index: pd.Index, metrics: Dict) -> Dict:
         metrics.update(self.person_time)
