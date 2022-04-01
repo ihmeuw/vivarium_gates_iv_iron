@@ -583,6 +583,7 @@ class HemoglobinObserver:
         self.clock = builder.time.clock()
         self.configuration = builder.configuration.metrics.maternal_hemorrhage
         self.start_time = get_time_stamp(builder.configuration.time.start)
+        self.hemoglobin = builder.value.get_value("hemoglobin.exposure")
         self.step_size = builder.time.step_size()
         self.age_bins = utilities.get_age_bins(builder)
         self.exposure = Counter()
@@ -599,21 +600,21 @@ class HemoglobinObserver:
 
     def on_collect_metrics(self, event: Event):
         pop = self.population_view.get(event.index)
+        pop['hemoglobin'] = self.hemoglobin(event.index)
         configuration = self.configuration.to_dict()
         exposure_sum = {}
 
-        # count maternal hemorrhage incident cases
-        base_key = get_output_template(**configuration).substitute(measure='hemoglobin_exposure_sum',
-                                                                   year=event.time.year)
         for p_state in models.PREGNANCY_MODEL_STATES:
             for h_state in models.MATERNAL_HEMORRHAGE_STATES:
+                base_key = get_output_template(**configuration).substitute(measure=f'hemoglobin_exposure_sum_among_{p_state}_with_{h_state}',
+                                                                           year=event.time.year)
                 base_filter = QueryString(
                     f'alive == "alive" and pregnancy_status == "{p_state}" and maternal_hemorrhage == "{h_state}"')
                 exposure_sum.update(get_group_counts(pop,
                                                      base_filter, base_key,
                                                      self.configuration,
                                                      self.age_bins,
-                                                     aggregate=sum))
+                                                     aggregate=(lambda x: sum(x.hemoglobin))))
 
         self.exposure.update(exposure_sum)
 

@@ -71,7 +71,7 @@ MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
     "maternal_hemorrhage_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_{YEAR}_in_age_group_{AGE_GROUP}_with_{MATERNAL_HEMORRHAGE_STATE}"
+    "hemoglobin_exposure_sum_{YEAR}_in_age_group_{AGE_GROUP}_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}"
 )
 COLUMN_TEMPLATES = {
     "population": TOTAL_POPULATION_COLUMN_TEMPLATE,
