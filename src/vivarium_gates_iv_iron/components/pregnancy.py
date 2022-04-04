@@ -119,6 +119,7 @@ class Pregnancy:
             maternal_hemorrhage_incidence_rate.reset_index(),
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
+        self.maternal_hemorrhage_severity = builder.data.load(data_keys.MATERNAL_HEMORRHAGE.SEVERITY_PROBABILITY)
 
         builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
@@ -232,6 +233,10 @@ class Pregnancy:
                                                                       additional_key='maternal_hemorrhage_incidence')
         maternal_hemorrhage_this_step = maternal_hemorrhage_incidence_draw < self.probability_maternal_hemorrhage(
             pop.index)
+        maternal_hemorrhage_severity_draw = self.randomness.get_draw(pop.index,
+                                                                     additional_key="maternal_hemorrhage_severity_draw")
+        moderate_maternal_hemorrhage_this_step = maternal_hemorrhage_severity_draw < self.maternal_hemorrhage_severity
+        severe_maternal_hemorrhage_this_step = ~moderate_maternal_hemorrhage_this_step
 
         prepostpartum_ends_this_step = (
 
@@ -277,14 +282,22 @@ class Pregnancy:
         pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
         # Pregnancy to maternal disorder state and no maternal disorder state
-        maternal_hemorrhage_this_step = maternal_hemorrhage_this_step & pregnancy_ends_this_step
-        maternal_disorder_this_step = (maternal_disorder_this_step | died_due_to_maternal_disorders) & pregnancy_ends_this_step
+        moderate_maternal_hemorrhage_this_step = (maternal_hemorrhage_this_step
+                                                  & moderate_maternal_hemorrhage_this_step
+                                                  & pregnancy_ends_this_step)
+        severe_maternal_hemorrhage_this_step = (maternal_hemorrhage_this_step
+                                                & severe_maternal_hemorrhage_this_step
+                                                & pregnancy_ends_this_step)
+        maternal_disorder_this_step = ((maternal_disorder_this_step
+                                       | died_due_to_maternal_disorders)
+                                       & pregnancy_ends_this_step)
         no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
 
         pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
         pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
 
-        pop.loc[maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.MATERNAL_HEMORRHAGE_STATE
+        pop.loc[severe_maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.SEVERE_MATERNAL_HEMORRHAGE_STATE
+        pop.loc[moderate_maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.MODERATE_MATERNAL_HEMORRHAGE_STATE
         pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
         pop.loc[no_maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
 

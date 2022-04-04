@@ -32,6 +32,7 @@ from vivarium_inputs import (
 from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys, metadata
+from vivarium_gates_iv_iron.constants.data_values import MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY
 from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.utilities import (
     get_lognorm_from_quantiles,
@@ -83,6 +84,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
         data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
+        data_keys.MATERNAL_HEMORRHAGE.SEVERITY_PROBABILITY: get_maternal_hemorrhage_severity_draws,
         data_keys.HEMOGLOBIN.MEAN: get_hemoglobin_data,
         data_keys.HEMOGLOBIN.STANDARD_DEVIATION: get_hemoglobin_data,
     }
@@ -522,3 +524,10 @@ def get_pregnant_lactating_women_location_weights(key: str, location: str):
     # Divide each location by total region population
     plw_location_weights = plw_location_weights/plw_location_weights.sum(axis=0)
     return plw_location_weights
+
+
+def get_maternal_hemorrhage_severity_draws(key: str, location:str):
+    return create_draws({"mean_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[0],
+                                           "upper_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[2],
+                                           "lower_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[1]},
+                                          key, location, distribution_function=get_truncnorm_from_quantiles)

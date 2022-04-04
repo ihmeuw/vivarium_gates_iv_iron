@@ -117,6 +117,9 @@ class __MaternalHemorrhage(NamedTuple):
     INCIDENCE_RATE: TargetString = TargetString(
         "cause.maternal_hemorrhage.incidence_rate"
     )
+    SEVERITY_PROBABILITY: TargetString = TargetString(
+        "cause.maternal_hemorrhage.severity_probability"
+    )
 
     @property
     def name(self):
