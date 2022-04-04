@@ -554,7 +554,7 @@ class HemoglobinObserver:
             'hemoglobin_observer': {
                 'by_age': True,
                 'by_year': True,
-                'by_sex': True,
+                'by_sex': False,
             }
         }
     }
