@@ -124,7 +124,7 @@ class Hemoglobin:
 
         gamma = propensity_distribution < 0.4
         gumbel = ~gamma
-        ret_val = pd.Series(index=propensity_distribution.index, name="value")
+        ret_val = pd.Series(index=propensity_distribution.index, name="value", dtype=float)
         ret_val.loc[gamma] = self._gamma_ppf(propensity, mean, sd)[gamma]
         ret_val.loc[gumbel] = self._mirrored_gumbel_ppf(propensity, mean, sd)[gumbel]
         return ret_val
