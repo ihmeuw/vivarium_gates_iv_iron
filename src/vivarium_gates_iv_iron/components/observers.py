@@ -675,7 +675,7 @@ class AnemiaObserver:
 
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index)
-        pop['anemia_level'] = self.anemia_levels
+        pop['anemia_level'] = self.anemia_levels(event.index)
 
         def get_state_person_time(pop: pd.DataFrame, config: Dict[str, bool],
                                   state_machine: str, state: str, pregnancy_state: str,
