@@ -465,7 +465,7 @@ class MaternalDisordersObserver:
 class MaternalHemorrhageObserver:
     configuration_defaults = {
         'metrics': {
-            'maternal_hemorrhage_observer': {
+            'maternal_hemorrhage': {
                 'by_age': False,
                 'by_year': False,
                 'by_sex': False,
@@ -553,7 +553,7 @@ class MaternalHemorrhageObserver:
 class HemoglobinObserver:
     configuration_defaults = {
         'metrics': {
-            'hemoglobin_observer': {
+            'hemoglobin': {
                 'by_age': True,
                 'by_year': True,
                 'by_sex': False,
@@ -583,7 +583,7 @@ class HemoglobinObserver:
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder) -> None:
         self.clock = builder.time.clock()
-        self.configuration = builder.configuration.metrics.hemoglobin_observer
+        self.configuration = builder.configuration.metrics.hemoglobin
         self.start_time = get_time_stamp(builder.configuration.time.start)
         self.hemoglobin = builder.value.get_value("hemoglobin.exposure")
         self.step_size = builder.time.step_size()
@@ -628,7 +628,7 @@ class HemoglobinObserver:
 class AnemiaObserver:
     configuration_defaults = {
         'metrics': {
-            'anemia_observer': {
+            'anemia': {
                 'by_age': True,
                 'by_year': True,
                 'by_sex': False,
@@ -658,7 +658,7 @@ class AnemiaObserver:
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder) -> None:
         self.clock = builder.time.clock()
-        self.configuration = builder.configuration.metrics.anemia_observer
+        self.configuration = builder.configuration.metrics.anemia
         self.start_time = get_time_stamp(builder.configuration.time.start)
         self.anemia_levels = builder.value.get_value("anemia_levels")
         self.step_size = builder.time.step_size()

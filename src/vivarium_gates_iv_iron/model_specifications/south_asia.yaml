@@ -2,9 +2,6 @@ components:
     vivarium_public_health:
         population:
             - BasePopulation()
-        #    - Mortality()
-        #risks:
-        #    - Risk('risk_factor.low_birth_weight_and_short_gestation')
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
@@ -15,10 +12,6 @@ components:
         - MaternalHemorrhageObserver()
         - HemoglobinObserver()
         - AnemiaObserver()
-
-#
-#        #- LowBirthWeight()
-#        #- ShortGestation()
 
 configuration:
     input_data:
@@ -65,6 +58,14 @@ configuration:
             by_sex: False
             by_year: True
         maternal_hemorrhage:
+            by_age: True
+            by_sex: False
+            by_year: True
+        hemoglobin:
+            by_age: True
+            by_sex: False
+            by_year: True
+        anemia:
             by_age: True
             by_sex: False
             by_year: True

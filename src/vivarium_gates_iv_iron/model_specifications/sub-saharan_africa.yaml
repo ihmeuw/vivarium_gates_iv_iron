@@ -61,3 +61,11 @@ configuration:
             by_age: True
             by_sex: False
             by_year: True
+        hemoglobin:
+            by_age: True
+            by_sex: False
+            by_year: True
+        anemia:
+            by_age: True
+            by_sex: False
+            by_year: True
