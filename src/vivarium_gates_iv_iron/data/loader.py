@@ -524,10 +524,3 @@ def get_pregnant_lactating_women_location_weights(key: str, location: str):
     # Divide each location by total region population
     plw_location_weights = plw_location_weights/plw_location_weights.sum(axis=0)
     return plw_location_weights
-
-
-def get_maternal_hemorrhage_severity_draws(key: str, location:str):
-    return create_draws({"mean_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[0],
-                                           "upper_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[2],
-                                           "lower_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[1]},
-                                          key, location, distribution_function=get_truncnorm_from_quantiles)

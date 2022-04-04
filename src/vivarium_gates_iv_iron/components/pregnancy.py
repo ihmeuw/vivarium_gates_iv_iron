@@ -11,8 +11,9 @@ from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
                                                           PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO,
-                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS)
-from vivarium_gates_iv_iron.utilities import get_norm_from_quantiles, get_random_variable
+                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS, MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY)
+from vivarium_gates_iv_iron.data.loader import create_draws
+from vivarium_gates_iv_iron.utilities import get_norm_from_quantiles, get_random_variable, get_truncnorm_from_quantiles
 
 
 
@@ -119,7 +120,10 @@ class Pregnancy:
             maternal_hemorrhage_incidence_rate.reset_index(),
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
-        self.maternal_hemorrhage_severity = builder.data.load(data_keys.MATERNAL_HEMORRHAGE.SEVERITY_PROBABILITY)
+        self.maternal_hemorrhage_severity = create_draws({"mean_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[0],
+                                           "upper_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[2],
+                                           "lower_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[1]},
+                                          "", "", distribution_function=get_truncnorm_from_quantiles)
 
         builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
