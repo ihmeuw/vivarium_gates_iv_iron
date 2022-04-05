@@ -31,12 +31,21 @@ def make_measure_data(data):
         ylls=get_by_cause_measure_data(data, "ylls"),
         ylds=get_by_cause_measure_data(data, "ylds"),
         deaths=get_by_cause_measure_data(data, "deaths"),
-        pregnancy_state_person_time=get_measure_data(data, "pregnancy_state_person_time"),
+        pregnancy_state_person_time=get_measure_data(
+            data, "pregnancy_state_person_time"
+        ),
         pregnancy_outcome_counts=get_measure_data(data, "pregnancy_outcome_counts"),
-        pregnancy_transition_counts=get_measure_data(data, "pregnancy_transition_counts"),
-        maternal_disorder_incident_counts=get_measure_data(data, "maternal_disorder_incident_counts"),
-        maternal_hemorrhage_incident_counts=get_measure_data(data, "maternal_hemorrhage_incident_counts"),
-
+        pregnancy_transition_counts=get_measure_data(
+            data, "pregnancy_transition_counts"
+        ),
+        maternal_disorder_incident_counts=get_measure_data(
+            data, "maternal_disorder_incident_counts"
+        ),
+        maternal_hemorrhage_incident_counts=get_measure_data(
+            data, "maternal_hemorrhage_incident_counts"
+        ),
+        hemoglobin_exposure_sum=get_measure_data(data, "hemoglobin_exposure_sum"),
+        anemia_state_person_time=get_measure_data(data, "anemia_state_person_time"),
         # TODO duplicate for each model
         #     disease_state_person_time=get_state_person_time_measure_data(
         #         data, "disease_state_person_time"
@@ -59,6 +68,8 @@ class MeasureData(NamedTuple):
     pregnancy_transition_counts: pd.DataFrame
     maternal_disorder_incident_counts: pd.DataFrame
     maternal_hemorrhage_incident_counts: pd.DataFrame
+    hemoglobin_exposure_sum: pd.DataFrame
+    anemia_state_person_time: pd.DataFrame
 
     # TODO duplicate for each model
     # disease_state_person_time: pd.DataFrame
@@ -75,12 +86,14 @@ def read_data(path: Path, single_run: bool) -> (pd.DataFrame, List[str]):
     # noinspection PyUnresolvedReferences
     data = (
         data.drop(columns=data.columns.intersection(results.THROWAWAY_COLUMNS))
-            .reset_index(drop=True)
-            .rename(columns={results.OUTPUT_SCENARIO_COLUMN: SCENARIO_COLUMN,
-                             results.OUTPUT_INPUT_DRAW_COLUMN: results.INPUT_DRAW_COLUMN,
-                             results.OUTPUT_RANDOM_SEED_COLUMN: results.RANDOM_SEED_COLUMN,
-                             }
-                    )
+        .reset_index(drop=True)
+        .rename(
+            columns={
+                results.OUTPUT_SCENARIO_COLUMN: SCENARIO_COLUMN,
+                results.OUTPUT_INPUT_DRAW_COLUMN: results.INPUT_DRAW_COLUMN,
+                results.OUTPUT_RANDOM_SEED_COLUMN: results.RANDOM_SEED_COLUMN,
+            }
+        )
     )
     if single_run:
         data[results.INPUT_DRAW_COLUMN] = 0
@@ -139,9 +152,9 @@ def aggregate_over_seed(data):
 def pivot_data(data):
     return (
         data.set_index(GROUPBY_COLUMNS)
-            .stack()
-            .reset_index()
-            .rename(columns={f"level_{len(GROUPBY_COLUMNS)}": "key", 0: "value"})
+        .stack()
+        .reset_index()
+        .rename(columns={f"level_{len(GROUPBY_COLUMNS)}": "key", 0: "value"})
     )
 
 
@@ -168,7 +181,7 @@ def get_population_data(data):
             [results.TOTAL_POPULATION_COLUMN]
             + results.RESULT_COLUMNS("population")
             + GROUPBY_COLUMNS
-            ]
+        ]
     )
     total_pop = total_pop.rename(columns={"key": "measure"})
     return sort_data(total_pop)
