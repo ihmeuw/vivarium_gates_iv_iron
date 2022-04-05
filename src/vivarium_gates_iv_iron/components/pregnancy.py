@@ -36,6 +36,7 @@ class Pregnancy:
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
+        self.draw = builder.configuration.input_data.input_draw_number
         self.randomness = builder.randomness.get_stream(self.name)
         self.clock = builder.time.clock()
         self.step_size = builder.time.step_size()
@@ -125,9 +126,9 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
         self.maternal_hemorrhage_severity = create_draws({"mean_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[0],
-                                           "upper_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[2],
-                                           "lower_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[1]},
-                                          "", "", distribution_function=get_truncnorm_from_quantiles)
+                                                          "upper_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[2],
+                                                          "lower_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[1]},
+                                                         "", "", distribution_function=get_truncnorm_from_quantiles)
 
         builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
@@ -244,7 +245,7 @@ class Pregnancy:
         maternal_hemorrhage_severity_draw = self.randomness.get_draw(pop.index,
                                                                      additional_key="maternal_hemorrhage_severity_draw")
         moderate_maternal_hemorrhage_this_step = maternal_hemorrhage_severity_draw < self.maternal_hemorrhage_severity
-        severe_maternal_hemorrhage_this_step = ~moderate_maternal_hemorrhage_this_step
+        severe_maternal_hemorrhage_this_step = ~maternal_hemorrhage_this_step
 
         prepostpartum_ends_this_step = (
 
