@@ -819,6 +819,7 @@ class AnemiaObserver:
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder) -> None:
+        self.clock = builder.time.clock()
         self.configuration = builder.configuration.metrics.anemia
         self.anemia_levels = builder.value.get_value("anemia_levels")
         self.age_bins = utilities.get_age_bins(builder)
@@ -880,7 +881,7 @@ class AnemiaObserver:
                         level,
                         pregnancy_state,
                         hemorrhage_type,
-                        event.time.year,
+                        self.clock().year,
                         event.step_size,
                         self.age_bins,
                     )
