@@ -11,10 +11,14 @@ from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
                                                           PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO,
-                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS, MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY)
-from vivarium_gates_iv_iron.data.loader import create_draws
-from vivarium_gates_iv_iron.utilities import get_norm_from_quantiles, get_random_variable, get_truncnorm_from_quantiles
-
+                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
+                                                          MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY)
+from vivarium_gates_iv_iron.utilities import (
+    create_draws,
+    get_norm_from_quantiles,
+    get_random_variable,
+    get_truncnorm_from_quantiles,
+)
 
 
 class Pregnancy:

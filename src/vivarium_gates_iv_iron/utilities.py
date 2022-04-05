@@ -148,3 +148,27 @@ def get_lognorm_from_quantiles(mean: float, lower: float, upper: float,
         return stats.lognorm(s=sigma, scale=mean)
     except:
         return stats.norm(loc=mean, scale=0)
+
+
+def create_draws(df: pd.DataFrame, key: str, location: str, distribution_function=get_lognorm_from_quantiles):
+    """
+    Parameters
+    ----------
+    df: Multi-index dataframe with mean, lower, and upper values columns.
+    location
+    key:
+    distribution_function: Distribution function to use to create draws
+    Returns
+    -------
+
+    """
+    # location defined in namespace outside of function
+    mean = df['mean_value']
+    lower = df['lower_value']
+    upper = df['upper_value']
+
+    Tuple = (key, distribution_function(mean=mean, lower=lower, upper=upper))
+    # pull index from constants
+    draws = get_random_variable_draws_for_location(pd.Index([f'draw_{i}' for i in range(0, 1000)]), location, *Tuple)
+
+    return draws

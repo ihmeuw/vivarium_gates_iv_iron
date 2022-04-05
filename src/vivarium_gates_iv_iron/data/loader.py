@@ -35,6 +35,7 @@ from vivarium_gates_iv_iron.constants import data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY
 from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.utilities import (
+    create_draws,
     get_lognorm_from_quantiles,
     get_truncnorm_from_quantiles,
     get_random_variable_draws_for_location,
@@ -305,30 +306,6 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
                                       metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE | metadata.AGE_GROUP.GBD_2020)
     data = data[data.index.get_level_values('year_start') == 2019]
     return data
-
-
-def create_draws(df: pd.DataFrame, key: str, location: str, distribution_function=get_lognorm_from_quantiles):
-    """
-    Parameters
-    ----------
-    df: Multi-index dataframe with mean, lower, and upper values columns.
-    location
-    key:
-    distribution_function: Distribution function to use to create draws
-    Returns
-    -------
-
-    """
-    # location defined in namespace outside of function
-    mean = df['mean_value']
-    lower = df['lower_value']
-    upper = df['upper_value']
-
-    Tuple = (key, distribution_function(mean=mean, lower=lower, upper=upper))
-    # pull index from constants
-    draws = get_random_variable_draws_for_location(pd.Index([f'draw_{i}' for i in range(0, 1000)]), location, *Tuple)
-
-    return draws
 
 
 def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
