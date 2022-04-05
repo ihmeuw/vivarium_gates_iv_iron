@@ -18,8 +18,8 @@ RANDOM_SEED_COLUMN = "random_seed"
 OUTPUT_SCENARIO_COLUMN = "placeholder_branch_name.scenario"
 
 # Add due to make_results bug
-OUTPUT_INPUT_DRAW_COLUMN = 'input_data.input_draw_number'
-OUTPUT_RANDOM_SEED_COLUMN = 'randomness.random_seed'
+OUTPUT_INPUT_DRAW_COLUMN = "input_data.input_draw_number"
+OUTPUT_RANDOM_SEED_COLUMN = "randomness.random_seed"
 
 STANDARD_COLUMNS = {
     "total_population": TOTAL_POPULATION_COLUMN,
@@ -30,37 +30,19 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-PERSON_TIME_COLUMN_TEMPLATE = (
-    "person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-DEATH_COLUMN_TEMPLATE = (
-    "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-YLLS_COLUMN_TEMPLATE = (
-    "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-YLDS_COLUMN_TEMPLATE = (
-    "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-STATE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-TRANSITION_COUNT_COLUMN_TEMPLATE = (
-    "{TRANSITION}_event_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-
-PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = (
-    "{PREGNANCY_OUTCOME}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-
+PERSON_TIME_COLUMN_TEMPLATE = "person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+STATE_PERSON_TIME_COLUMN_TEMPLATE = "{STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+TRANSITION_COUNT_COLUMN_TEMPLATE = "{TRANSITION}_event_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
+PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
     "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
-
 PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE = (
     "{PREGNANCY_TRANSITION}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
-
 MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE = (
     "incident_cases_of_maternal_disorders_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
@@ -74,8 +56,9 @@ HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
     "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
-    '{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}'
+    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
+
 COLUMN_TEMPLATES = {
     "population": TOTAL_POPULATION_COLUMN_TEMPLATE,
     "person_time": PERSON_TIME_COLUMN_TEMPLATE,
@@ -98,29 +81,24 @@ NON_COUNT_TEMPLATES = []
 POP_STATES = ("living", "dead", "tracked", "untracked")
 SEXES = ("female",)
 YEARS = tuple(range(2022, 2025))
-# TODO - add literals for ages in the model
 AGE_GROUPS = (
-    '5_to_9',
-    '10_to_14',
-    '15_to_19',
-    '20_to_24',
-    '25_to_29',
-    '30_to_34',
-    '35_to_39',
-    '40_to_44',
-    '45_to_49',
-    '50_to_54',
-    '55_to_59',
+    "5_to_9",
+    "10_to_14",
+    "15_to_19",
+    "20_to_24",
+    "25_to_29",
+    "30_to_34",
+    "35_to_39",
+    "40_to_44",
+    "45_to_49",
+    "50_to_54",
+    "55_to_59",
 )
-# TODO - add causes of death
 CAUSES_OF_DEATH = (
     "other_causes",
     "maternal_disorders",
 )
-# TODO - add causes of disability
-CAUSES_OF_DISABILITY = (
-    "maternal_disorders",
-)
+CAUSES_OF_DISABILITY = ("maternal_disorders",)
 
 TEMPLATE_FIELD_MAP = {
     "POP_STATE": POP_STATES,
