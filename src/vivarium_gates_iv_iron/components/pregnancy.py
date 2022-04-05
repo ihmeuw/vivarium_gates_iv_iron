@@ -14,7 +14,7 @@ from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DA
                                                           HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
                                                           MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY)
 from vivarium_gates_iv_iron.utilities import (
-    create_draws,
+    create_draw,
     get_norm_from_quantiles,
     get_random_variable,
     get_truncnorm_from_quantiles,
@@ -37,6 +37,7 @@ class Pregnancy:
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
         self.draw = builder.configuration.input_data.input_draw_number
+        self.location = builder.configuration.input_data.location
         self.randomness = builder.randomness.get_stream(self.name)
         self.clock = builder.time.clock()
         self.step_size = builder.time.step_size()
@@ -125,16 +126,16 @@ class Pregnancy:
             maternal_hemorrhage_incidence_rate.reset_index(),
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
-        self.maternal_hemorrhage_severity = create_draws({"mean_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[0],
-                                                          "upper_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[2],
-                                                          "lower_value": MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY[1]},
-                                                         "", "", distribution_function=get_truncnorm_from_quantiles)
+        # Get value for the probability of moderate maternal hemorrhage. The probability of severe maternal
+        # hemorrhage is 1 minus that probability.
+        self.maternal_hemorrhage_severity = create_draw(self.draw, MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY,
+                                                        "maternal_hemorrhage_severity", self.location,
+                                                        distribution_function=get_truncnorm_from_quantiles)
 
         builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
 
         self.correction_factors = self.sample_correction_factors(builder)
-
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]

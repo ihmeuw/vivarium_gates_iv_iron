@@ -535,7 +535,7 @@ class MaternalHemorrhageObserver:
             base_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_hemorrhage',
                                                                        year=event.time.year)
             base_filter = QueryString(
-                f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "{state}')
+                f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "{state}"')
             counts_this_step.update(get_group_counts(pregnancy_change_this_step_pop,
                                                      base_filter, base_key,
                                                      self.configuration,
