@@ -404,7 +404,7 @@ class Pregnancy:
         draw = builder.configuration.input_data.input_draw_number
 
         not_pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
-        not_pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
+        not_pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR))
         pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
         pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(
             *HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR))

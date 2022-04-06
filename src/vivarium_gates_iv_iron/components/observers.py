@@ -532,7 +532,7 @@ class MaternalHemorrhageObserver:
 
         for state in models.MATERNAL_HEMORRHAGE_STATES[:-1]:
             # count maternal hemorrhage incident cases
-            base_key = get_output_template(**configuration).substitute(measure='incident_cases_of',
+            base_key = get_output_template(**configuration).substitute(measure=f'incident_cases_of_{state}',
                                                                        year=event.time.year)
             base_filter = QueryString(
                 f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "{state}"')
