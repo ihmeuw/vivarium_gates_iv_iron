@@ -616,9 +616,7 @@ class HemoglobinObserver:
                                                      base_filter, base_key,
                                                      self.configuration,
                                                      self.age_bins,
-                                                     aggregate=(
-                                                         lambda x: sum(x.hemoglobin)
-                                                                   * utilities.to_years(event.step_size))
+                                                     aggregate=lambda x: sum(x.hemoglobin)
                                                      )
                                     )
 
