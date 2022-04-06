@@ -63,3 +63,5 @@ class __AgeGroup(NamedTuple):
 
 
 AGE_GROUP = __AgeGroup()
+
+USE_PLW_LOCATION_WEIGHTS = False

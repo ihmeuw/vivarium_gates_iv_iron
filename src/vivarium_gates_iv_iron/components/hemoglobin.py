@@ -6,9 +6,8 @@ from vivarium.framework.engine import Builder
 from vivarium.framework.population import SimulantData
 
 
-from vivarium_gates_iv_iron.constants.data_values import HEMOGLOBIN_DISTRIBUTION_PARAMETERS, HEMOGLOBIN_THRESHOLD_DATA, ANEMIA_DISABILITY_WEIGHTS
-
-from vivarium_gates_iv_iron.constants import data_keys
+from vivarium_gates_iv_iron.constants.data_values import (HEMOGLOBIN_DISTRIBUTION_PARAMETERS, HEMOGLOBIN_THRESHOLD_DATA, ANEMIA_DISABILITY_WEIGHTS)
+from vivarium_gates_iv_iron.constants import data_keys, metadata
 
 
 class Hemoglobin:
@@ -29,7 +28,7 @@ class Hemoglobin:
         # TODO: do this s/location/country in the loader?
         mean = builder.data.load(data_keys.HEMOGLOBIN.MEAN).rename(columns={"location": "country"})
         stddev = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).rename(columns={"location": "country"})
-        self.location_weights = builder.data.load(data_keys.POPULATION.PLW_LOCATION_WEIGHTS).rename(columns={"location": "country"})
+        self.location_weights = self._get_location_weights(builder)
         index_columns = ["country", "sex", "age_start", 'age_end', 'year_start', 'year_end']
         mean = mean.set_index(index_columns)["value"].rename("mean")
         stddev = stddev.set_index(index_columns)["value"].rename("stddev")
@@ -137,4 +136,12 @@ class Hemoglobin:
                                  name="anemia_levels")
         return anemia_levels.map(ANEMIA_DISABILITY_WEIGHTS)
 
+    def _get_location_weights(self, builder: Builder):
+        if metadata.USE_PLW_LOCATION_WEIGHTS:
+            location_weights = builder.data.load(data_keys.POPULATION.PLW_LOCATION_WEIGHTS).rename(
+                columns={"location": "country"})
+        else:
+            location_weights = builder.data.load(data_keys.POPULATION.WRA_LOCATION_WEIGHTS).rename(
+                columns={"location": "country"})
 
+        return location_weights
