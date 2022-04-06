@@ -530,9 +530,9 @@ class MaternalHemorrhageObserver:
         pregnancy_change_this_step_pop = pop[pop["pregnancy_state_change_date"] == event.time]
         configuration = self.configuration.to_dict()
 
-        for state in models.MATERNAL_HEMORRHAGE_STATES[-1]:
+        for state in models.MATERNAL_HEMORRHAGE_STATES[:-1]:
             # count maternal hemorrhage incident cases
-            base_key = get_output_template(**configuration).substitute(measure='incident_cases_of_maternal_hemorrhage',
+            base_key = get_output_template(**configuration).substitute(measure='incident_cases_of',
                                                                        year=event.time.year)
             base_filter = QueryString(
                 f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "{state}"')
