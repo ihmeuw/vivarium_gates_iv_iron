@@ -246,7 +246,7 @@ class Pregnancy:
         maternal_hemorrhage_severity_draw = self.randomness.get_draw(pop.index,
                                                                      additional_key="maternal_hemorrhage_severity_draw")
         moderate_maternal_hemorrhage_this_step = maternal_hemorrhage_severity_draw < self.maternal_hemorrhage_severity
-        severe_maternal_hemorrhage_this_step = ~maternal_hemorrhage_this_step
+        severe_maternal_hemorrhage_this_step = ~moderate_maternal_hemorrhage_this_step
 
         prepostpartum_ends_this_step = (
 
