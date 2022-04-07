@@ -11,9 +11,14 @@ from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
                                                           PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO,
-                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS)
-from vivarium_gates_iv_iron.utilities import get_norm_from_quantiles, get_random_variable
-
+                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
+                                                          MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY)
+from vivarium_gates_iv_iron.utilities import (
+    create_draw,
+    get_norm_from_quantiles,
+    get_random_variable,
+    get_truncnorm_from_quantiles,
+)
 
 
 class Pregnancy:
@@ -31,6 +36,8 @@ class Pregnancy:
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
+        self.draw = builder.configuration.input_data.input_draw_number
+        self.location = builder.configuration.input_data.location
         self.randomness = builder.randomness.get_stream(self.name)
         self.clock = builder.time.clock()
         self.step_size = builder.time.step_size()
@@ -119,12 +126,16 @@ class Pregnancy:
             maternal_hemorrhage_incidence_rate.reset_index(),
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
+        # Get value for the probability of moderate maternal hemorrhage. The probability of severe maternal
+        # hemorrhage is 1 minus that probability.
+        self.maternal_hemorrhage_severity = create_draw(self.draw, MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY,
+                                                        "maternal_hemorrhage_severity", self.location,
+                                                        distribution_function=get_truncnorm_from_quantiles)
 
         builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
 
         self.correction_factors = self.sample_correction_factors(builder)
-
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]
@@ -232,6 +243,10 @@ class Pregnancy:
                                                                       additional_key='maternal_hemorrhage_incidence')
         maternal_hemorrhage_this_step = maternal_hemorrhage_incidence_draw < self.probability_maternal_hemorrhage(
             pop.index)
+        maternal_hemorrhage_severity_draw = self.randomness.get_draw(pop.index,
+                                                                     additional_key="maternal_hemorrhage_severity_draw")
+        moderate_maternal_hemorrhage_this_step = maternal_hemorrhage_severity_draw < self.maternal_hemorrhage_severity
+        severe_maternal_hemorrhage_this_step = ~moderate_maternal_hemorrhage_this_step
 
         prepostpartum_ends_this_step = (
 
@@ -277,14 +292,23 @@ class Pregnancy:
         pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
         # Pregnancy to maternal disorder state and no maternal disorder state
-        maternal_hemorrhage_this_step = maternal_hemorrhage_this_step & pregnancy_ends_this_step
-        maternal_disorder_this_step = (maternal_disorder_this_step | died_due_to_maternal_disorders) & pregnancy_ends_this_step
+        moderate_maternal_hemorrhage_this_step = (maternal_hemorrhage_this_step
+                                                  & moderate_maternal_hemorrhage_this_step
+                                                  & pregnancy_ends_this_step)
+        severe_maternal_hemorrhage_this_step = (maternal_hemorrhage_this_step
+                                                & severe_maternal_hemorrhage_this_step
+                                                & pregnancy_ends_this_step)
+        maternal_disorder_this_step = ((maternal_disorder_this_step
+                                       | died_due_to_maternal_disorders)
+                                       & pregnancy_ends_this_step)
+
         no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
 
         pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
         pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
 
-        pop.loc[maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.MATERNAL_HEMORRHAGE_STATE
+        pop.loc[severe_maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.SEVERE_MATERNAL_HEMORRHAGE_STATE
+        pop.loc[moderate_maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.MODERATE_MATERNAL_HEMORRHAGE_STATE
         pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
         pop.loc[no_maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
 
@@ -381,7 +405,7 @@ class Pregnancy:
         draw = builder.configuration.input_data.input_draw_number
 
         not_pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
-        not_pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
+        not_pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR))
         pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
         pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(
             *HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR))
