@@ -278,7 +278,7 @@ class PregnancyObserver:
                                                  creates_columns=[self.previous_state_column_name])
 
         columns_required = ['alive', 'pregnancy_status', 'pregnancy_outcome', 'pregnancy_state_change_date',
-                            self.previous_state_column_name]
+                            self.previous_state_column_name, 'maternal_hemorrhage']
 
         if self.configuration.by_age:
             columns_required += ['age']
