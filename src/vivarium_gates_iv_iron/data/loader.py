@@ -514,7 +514,7 @@ def get_wra_location_weights(key: str, location: str):
 
         wra_loc = wra.groupby(["year_start", "year_end"]).sum()
         wra_loc = pd.concat([wra_loc.query("year_start==2019")], keys=[loc], names=['location'])
-        wra_loc = wra_loc.droplevel(['sex', 'age_start', 'age_end',"year_start", "year_end"])
+        wra_loc = wra_loc.droplevel(["year_start", "year_end"])
 
         wra_location_weights = wra_location_weights.append(wra_loc)
 
