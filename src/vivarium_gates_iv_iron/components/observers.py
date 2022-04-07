@@ -662,16 +662,13 @@ class MaternalHemorrhageObserver:
         pop = self.population_view.get(event.index)
 
         # Accrue all counts and time to the current year
-        state_person_time_this_step = utilities.get_state_person_time(
-            pop,
-            self.configuration,
-            "maternal_hemorrhage",
-            models.MATERNAL_HEMORRHAGE_STATE,
-            self.clock().year,
-            event.step_size,
-            self.age_bins,
-        )
-        self.person_time.update(state_person_time_this_step)
+        for state in models.MATERNAL_HEMORRHAGE_STATES:
+             # Accrue all counts and time to the current year
+             state_person_time_this_step = utilities.get_state_person_time(
+                 pop, self.configuration, 'maternal_hemorrhage', state, self.clock().year,
+                 event.step_size, self.age_bins
+             )
+             self.person_time.update(state_person_time_this_step)
 
     def on_collect_metrics(self, event: Event):
         counts_this_step = {}
