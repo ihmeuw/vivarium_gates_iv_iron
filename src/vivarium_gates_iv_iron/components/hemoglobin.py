@@ -42,8 +42,11 @@ class Hemoglobin:
         mean = mean.set_index(index_columns)["value"].rename("mean")
         stddev = stddev.set_index(index_columns)["value"].rename("stddev")
         distribution_parameters = pd.concat([mean, stddev], axis=1).reset_index()
-        self.   distribution_parameters = builder.value.register_value_producer("hemoglobin.exposure_parameters",
-            source=builder.lookup.build_table(distribution_parameters, key_columns=["sex", "country"], parameter_columns=["age", "year"]),
+        self.distribution_parameters = builder.value.register_value_producer("hemoglobin.exposure_parameters",
+                                                                             source=builder.lookup.build_table(
+                                                                                 distribution_parameters,
+                                                                                 key_columns=["sex", "country"],
+                                                                                 parameter_columns=["age", "year"]),
                                                                              requires_columns=["age", "sex", "country"])
 
         self.hemoglobin = builder.value.register_value_producer("hemoglobin.exposure", source=self.hemoglobin_source,

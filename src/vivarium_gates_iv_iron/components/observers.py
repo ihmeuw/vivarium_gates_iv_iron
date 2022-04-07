@@ -782,7 +782,7 @@ class AnemiaObserver:
     @property
     def name(self):
         return "anemia_observer"
-    
+
     #################
     # Setup methods #
     #################
