@@ -519,6 +519,5 @@ def get_wra_location_weights(key: str, location: str):
         wra_location_weights = wra_location_weights.append(wra_loc)
 
         # Divide each location by total region population
-    wra_location_weights = wra_location_weights / wra_location_weights.sum(axis=0)
-
+    wra_location_weights = wra_location_weights / wra_location_weights.sum(axis=0).rename(columns={"wra": "value"})
     return wra_location_weights
