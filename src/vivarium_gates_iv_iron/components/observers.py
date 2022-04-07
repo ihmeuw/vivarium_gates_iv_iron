@@ -681,22 +681,16 @@ class MaternalHemorrhageObserver:
         ]
         configuration = self.configuration.to_dict()
 
-        # count maternal hemorrhage incident cases
-        base_key = get_output_template(**configuration).substitute(
-            measure="incident_cases_of_maternal_hemorrhage", year=event.time.year
-        )
-        base_filter = QueryString(
-            f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "maternal_hemorrhage"'
-        )
-        counts_this_step.update(
-            get_group_counts(
-                pregnancy_change_this_step_pop,
-                base_filter,
-                base_key,
-                self.configuration,
-                self.age_bins,
-            )
-        )
+        for state in models.MATERNAL_HEMORRHAGE_STATES[:-1]:
+            # count maternal hemorrhage incident cases
+            base_key = get_output_template(**configuration).substitute(measure=f'incident_cases_of_{state}',
+                                                                       year=event.time.year)
+            base_filter = QueryString(
+                f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "{state}"')
+            counts_this_step.update(get_group_counts(pregnancy_change_this_step_pop,
+                                                     base_filter, base_key,
+                                                     self.configuration,
+                                                     self.age_bins))
 
         self.counts.update(counts_this_step)
 

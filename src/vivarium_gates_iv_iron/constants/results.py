@@ -47,7 +47,7 @@ MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE = (
     "incident_cases_of_maternal_disorders_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_maternal_hemorrhage_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
     "maternal_hemorrhage_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
@@ -111,6 +111,7 @@ TEMPLATE_FIELD_MAP = {
     "PREGNANCY_OUTCOME": models.PREGNANCY_OUTCOMES,
     "PREGNANCY_TRANSITION": models.PREGNANCY_MODEL_TRANSITIONS,
     "MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES,
+    "WITH_MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES[:-1],
     "ANEMIA_LEVEL": data_values.ANEMIA_DISABILITY_WEIGHTS.keys(),
 }
 
