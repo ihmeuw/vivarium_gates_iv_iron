@@ -214,8 +214,12 @@ class Pregnancy:
     def on_time_step(self, event: Event):
         pop = self.population_view.get(event.index, query="alive =='alive'")
         conception_rate = self.conception_rate(pop.index)
-        pregnant_this_step = self.randomness.filter_for_rate(pop.index, conception_rate,
-                                                             additional_key='new_pregnancy')
+
+        pregnant_this_step = pd.Series(False, index=pop.index)
+        pregnant_this_step_idx = self.randomness.filter_for_rate(pop.index, conception_rate, additional_key='new_pregnancy')
+        pregnant_this_step.loc[pregnant_this_step_idx] = True
+        pregnant_this_step = (pop['pregnancy_status'] == models.NOT_PREGNANT_STATE) & pregnant_this_step
+
         p = self.outcome_probabilities(pop.index)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome = self.randomness.choice(pop.index, choices=models.PREGNANCY_OUTCOMES, p=p,
                                                    additional_key='pregnancy_outcome')
