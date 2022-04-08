@@ -17,7 +17,8 @@ class __Population(NamedTuple):
     DEMOGRAPHY: str = "population.demographic_dimensions"
     TMRLE: str = "population.theoretical_minimum_risk_life_expectancy"
     ACMR: str = "cause.all_causes.cause_specific_mortality_rate"
-    PLW_LOCATION_WEIGHTS: str = "population.pregnant_and_lactating_women_location_weight"
+    PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = "population.pregnant_and_lactating_women_location_weights"
+    WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: str = "population.women_of_reproductive_age_location_weights"
 
     @property
     def name(self):

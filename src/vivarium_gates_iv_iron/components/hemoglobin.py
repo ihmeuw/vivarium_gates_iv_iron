@@ -5,7 +5,6 @@ import scipy.stats
 from vivarium.framework.engine import Builder
 from vivarium.framework.population import SimulantData
 
-
 from vivarium_gates_iv_iron.constants.data_values import (
     HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
     HEMOGLOBIN_THRESHOLD_DATA,
@@ -42,16 +41,14 @@ class Hemoglobin:
         stddev = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).rename(
             columns={"location": "country"}
         )
-        self.location_weights = builder.data.load(
-            data_keys.POPULATION.PLW_LOCATION_WEIGHTS
-        ).rename(columns={"location": "country"})
+        self.location_weights = self._get_location_weights(builder)
         index_columns = [
             "country",
             "sex",
             "age_start",
-            "age_end",
-            "year_start",
-            "year_end",
+            'age_end',
+            'year_start',
+            'year_end',
         ]
         mean = mean.set_index(index_columns)["value"].rename("mean")
         stddev = stddev.set_index(index_columns)["value"].rename("stddev")
@@ -61,35 +58,30 @@ class Hemoglobin:
             source=builder.lookup.build_table(
                 distribution_parameters,
                 key_columns=["sex", "country"],
-                parameter_columns=["age", "year"],
-            ),
-            requires_columns=["age", "sex", "country"],
+                parameter_columns=["age", "year"]),
+            requires_columns=["age", "sex", "country"]
         )
 
         self.hemoglobin = builder.value.register_value_producer(
-            "hemoglobin.exposure",
-            source=self.hemoglobin_source,
+            "hemoglobin.exposure", source=self.hemoglobin_source,
             requires_values=["hemoglobin.exposure_parameters"],
-            requires_streams=[self.name],
+            requires_streams=[self.name]
         )
 
         self.thresholds = builder.lookup.build_table(
             HEMOGLOBIN_THRESHOLD_DATA,
             key_columns=["sex", "pregnancy_status"],
-            parameter_columns=["age"],
+            parameter_columns=["age"]
         )
 
         self.anemia_levels = builder.value.register_value_producer(
-            "anemia_levels",
-            source=self.anemia_source,
-            requires_values=["hemoglobin.exposure"],
+            "anemia_levels", source=self.anemia_source,
+            requires_values=["hemoglobin.exposure"]
         )
 
-        builder.population.initializes_simulants(
-            self.on_initialize_simulants,
-            creates_columns=self.columns_created,
-            requires_streams=[self.name],
-        )
+        builder.population.initializes_simulants(self.on_initialize_simulants,
+                                                 creates_columns=self.columns_created,
+                                                 requires_streams=[self.name])
 
         self.population_view = builder.population.get_view(self.columns_created)
         builder.event.register_listener("time_step", self.on_time_step)
@@ -187,6 +179,7 @@ class Hemoglobin:
 
         gamma = propensity_distribution < 0.4
         gumbel = ~gamma
+
         ret_val = pd.Series(
             index=propensity_distribution.index, name="value", dtype=float
         )
@@ -204,3 +197,14 @@ class Hemoglobin:
             name="anemia_levels",
         )
         return anemia_levels.map(ANEMIA_DISABILITY_WEIGHTS)
+
+    def _get_location_weights(self, builder: Builder):
+        pregnant_lactating_women = builder.configuration.population.pregnant_lactating_women
+        if pregnant_lactating_women:
+            location_weights = builder.data.load(data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS).rename(
+                columns={"location": "country"})
+        else:
+            location_weights = builder.data.load(data_keys.POPULATION.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS).rename(
+                columns={"location": "country"})
+
+        return location_weights
