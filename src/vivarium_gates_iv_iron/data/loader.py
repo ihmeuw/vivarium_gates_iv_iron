@@ -65,7 +65,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
-        data_keys.POPULATION.PLW_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
+        data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
+        data_keys.POPULATION.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: get_women_reproductive_age_location_weights,
         data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
         data_keys.PREGNANCY.PREGNANT_PREVALENCE: get_prevalence_pregnant,
         data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE: get_prevalence_not_pregnant,
@@ -465,7 +466,6 @@ def get_pregnant_lactating_women_location_weights(key: str, location: str):
     plw_location_weights = pd.DataFrame()
 
     child_locs = get_child_locs(location)
-    regional_pop = get_wra(child_locs[0]) * 0
 
     for loc in child_locs:
         # ASFR
@@ -500,3 +500,24 @@ def get_pregnant_lactating_women_location_weights(key: str, location: str):
     # Divide each location by total region population
     plw_location_weights = plw_location_weights/plw_location_weights.sum(axis=0)
     return plw_location_weights
+
+
+def get_women_reproductive_age_location_weights(key: str, location: str):
+    # Used to get location weights with women of reproductive age
+    # This will be used instead of pregnant and lactating women location weights unless specified otherwise
+
+    wra_location_weights = pd.DataFrame()
+    child_locs = get_child_locs(location)
+
+    for loc in child_locs:
+        wra = get_wra(loc)
+
+        wra_loc = wra
+        wra_loc = pd.concat([wra_loc.query("year_start==2019")], keys=[loc], names=['location'])
+        wra_location_weights = wra_location_weights.append(wra_loc)
+
+        # Divide each location by total region population
+    wra_location_weights = wra_location_weights / wra_location_weights.sum(axis=0)
+    wra_location_weights = wra_location_weights.rename(columns={"wra": "value"})
+
+    return wra_location_weights

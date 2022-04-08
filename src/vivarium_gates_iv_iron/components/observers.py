@@ -9,6 +9,7 @@ from vivarium.framework.event import Event
 from vivarium.framework.population import PopulationView
 from vivarium.framework.time import Time, get_time_stamp
 from vivarium.framework.values import Pipeline
+
 from vivarium_public_health.metrics import (
     utilities,
     MortalityObserver as MortalityObserver_,
@@ -338,10 +339,11 @@ class PregnancyObserver:
         )
 
         columns_required = [
-            "alive",
-            "pregnancy_status",
-            "pregnancy_outcome",
-            "pregnancy_state_change_date",
+            'alive',
+            'pregnancy_status',
+            'pregnancy_outcome',
+            'pregnancy_state_change_date',
+            'maternal_hemorrhage',
             self.previous_state_column_name,
         ]
 
@@ -363,30 +365,25 @@ class PregnancyObserver:
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index)
 
-        def get_state_person_time(
-            pop: pd.DataFrame,
-            config: Dict[str, bool],
-            state_machine: str,
-            state: str,
-            outcome: str,
-            current_year: Union[str, int],
-            step_size: pd.Timedelta,
-            age_bins: pd.DataFrame,
-        ) -> Dict[str, float]:
+        def get_state_person_time(pop: pd.DataFrame,
+                                  config: Dict[str, bool],
+                                  state_machine: str, state: str, outcome: str, hemorrhage_type: str,
+                                  current_year: Union[str, int],
+                                  step_size: pd.Timedelta, age_bins: pd.DataFrame) -> Dict[str, float]:
             """Custom person time getter that handles state column name assumptions"""
             base_key = get_output_template(**config).substitute(
-                measure=f"{state}_with_{outcome}_person_time", year=current_year
+                measure=f'{state}_with_{outcome}_with_{hemorrhage_type}_person_time',
+                year=current_year
             )
             base_filter = QueryString(
-                f'alive == "alive" and {state_machine} == "{state}" and pregnancy_outcome == "{outcome}"'
+                f'alive == "alive" and {state_machine} == "{state}" and pregnancy_outcome == "{outcome}" and maternal_hemorrhage == "{hemorrhage_type}"'
             )
             person_time = get_group_counts(
                 pop,
                 base_filter,
-                base_key,
-                config,
+                base_key, config,
                 age_bins,
-                aggregate=lambda x: len(x) * utilities.to_years(step_size),
+                aggregate=lambda x: len(x) * utilities.to_years(step_size)
             )
             return person_time
 
@@ -394,18 +391,19 @@ class PregnancyObserver:
         # Accrue all counts and time to the current year.
         for state in models.PREGNANCY_MODEL_STATES:
             for outcome in models.PREGNANCY_OUTCOMES:
-                # noinspection PyTypeChecker
-                state_person_time_this_step = get_state_person_time(
-                    pop,
-                    self.configuration,
-                    "pregnancy_status",
-                    state,
-                    outcome,
-                    self.clock().year,
-                    event.step_size,
-                    self.age_bins,
-                )
-                self.person_time.update(state_person_time_this_step)
+                for hemorrhage_type in models.MATERNAL_HEMORRHAGE_STATES:
+                    # noinspection PyTypeChecker
+                    state_person_time_this_step = get_state_person_time(
+                        pop,
+                        self.configuration,
+                        'pregnancy_status',
+                        state, outcome,
+                        hemorrhage_type,
+                        self.clock().year,
+                        event.step_size,
+                        self.age_bins
+                    )
+                    self.person_time.update(state_person_time_this_step)
 
         # This enables tracking of transitions between states
         prior_state_pop = self.population_view.get(event.index)

@@ -39,6 +39,7 @@ configuration:
         population_size: 10_000
         age_start: 7
         age_end: 54
+        pregnant_lactating_women: False
 
     metrics:
         disability:
