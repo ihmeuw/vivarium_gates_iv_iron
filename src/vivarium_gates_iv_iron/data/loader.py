@@ -65,8 +65,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
-        data_keys.POPULATION.PLW_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
-        data_keys.POPULATION.WRA_LOCATION_WEIGHTS: get_wra_location_weights,
+        data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
+        data_keys.POPULATION.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: get_women_reproductive_age_location_weights,
         data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
         data_keys.PREGNANCY.PREGNANT_PREVALENCE: get_prevalence_pregnant,
         data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE: get_prevalence_not_pregnant,
@@ -502,7 +502,7 @@ def get_pregnant_lactating_women_location_weights(key: str, location: str):
     return plw_location_weights
 
 
-def get_wra_location_weights(key: str, location: str):
+def get_women_reproductive_age_location_weights(key: str, location: str):
     # Used to get location weights with women of reproductive age
     # This will be used instead of pregnant and lactating women location weights unless specified otherwise
 

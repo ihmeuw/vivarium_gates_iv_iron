@@ -35,31 +35,49 @@ class Hemoglobin:
         ]
         # load data
         # TODO: do this s/location/country in the loader?
-        mean = builder.data.load(data_keys.HEMOGLOBIN.MEAN).rename(columns={"location": "country"})
-        stddev = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).rename(columns={"location": "country"})
+        mean = builder.data.load(data_keys.HEMOGLOBIN.MEAN).rename(
+            columns={"location": "country"}
+        )
+        stddev = builder.data.load(data_keys.HEMOGLOBIN.STANDARD_DEVIATION).rename(
+            columns={"location": "country"}
+        )
         self.location_weights = self._get_location_weights(builder)
-        index_columns = ["country", "sex", "age_start", 'age_end', 'year_start', 'year_end']
+        index_columns = [
+            "country",
+            "sex",
+            "age_start",
+            'age_end',
+            'year_start',
+            'year_end',
+        ]
         mean = mean.set_index(index_columns)["value"].rename("mean")
         stddev = stddev.set_index(index_columns)["value"].rename("stddev")
         distribution_parameters = pd.concat([mean, stddev], axis=1).reset_index()
-        self.distribution_parameters = builder.value.register_value_producer("hemoglobin.exposure_parameters",
-                                                                             source=builder.lookup.build_table(
-                                                                                 distribution_parameters,
-                                                                                 key_columns=["sex", "country"],
-                                                                                 parameter_columns=["age", "year"]),
-                                                                             requires_columns=["age", "sex", "country"])
+        self.distribution_parameters = builder.value.register_value_producer(
+            "hemoglobin.exposure_parameters",
+            source=builder.lookup.build_table(
+                distribution_parameters,
+                key_columns=["sex", "country"],
+                parameter_columns=["age", "year"]),
+            requires_columns=["age", "sex", "country"]
+        )
 
-        self.hemoglobin = builder.value.register_value_producer("hemoglobin.exposure", source=self.hemoglobin_source,
-                                                                requires_values=["hemoglobin.exposure_parameters"],
-                                                                requires_streams=[self.name])
+        self.hemoglobin = builder.value.register_value_producer(
+            "hemoglobin.exposure", source=self.hemoglobin_source,
+            requires_values=["hemoglobin.exposure_parameters"],
+            requires_streams=[self.name]
+        )
 
-        self.thresholds = builder.lookup.build_table(HEMOGLOBIN_THRESHOLD_DATA,
-                                                     key_columns=["sex", "pregnancy_status"],
-                                                     parameter_columns=["age"])
+        self.thresholds = builder.lookup.build_table(
+            HEMOGLOBIN_THRESHOLD_DATA,
+            key_columns=["sex", "pregnancy_status"],
+            parameter_columns=["age"]
+        )
 
-        self.anemia_levels = builder.value.register_value_producer("anemia_levels", source=self.anemia_source,
-                                                                   requires_values=["hemoglobin.exposure"])
-
+        self.anemia_levels = builder.value.register_value_producer(
+            "anemia_levels", source=self.anemia_source,
+            requires_values=["hemoglobin.exposure"]
+        )
 
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=self.columns_created,
@@ -181,11 +199,12 @@ class Hemoglobin:
         return anemia_levels.map(ANEMIA_DISABILITY_WEIGHTS)
 
     def _get_location_weights(self, builder: Builder):
-        if metadata.USE_PLW_LOCATION_WEIGHTS:
-            location_weights = builder.data.load(data_keys.POPULATION.PLW_LOCATION_WEIGHTS).rename(
+        pregnant_lactating_women = builder.configuration.population.pregnant_lactating_women
+        if pregnant_lactating_women:
+            location_weights = builder.data.load(data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS).rename(
                 columns={"location": "country"})
         else:
-            location_weights = builder.data.load(data_keys.POPULATION.WRA_LOCATION_WEIGHTS).rename(
+            location_weights = builder.data.load(data_keys.POPULATION.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS).rename(
                 columns={"location": "country"})
 
         return location_weights
