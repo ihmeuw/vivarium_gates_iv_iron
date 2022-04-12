@@ -438,7 +438,7 @@ class PregnancyObserver:
                 measure=f"{outcome}_count", year=event.time.year
             )
             base_filter = QueryString(
-                f'alive == "alive" and pregnancy_status == "postpartum" and pregnancy_outcome == "{outcome}"'
+                f'alive == "alive" and (pregnancy_status == "{models.MATERNAL_DISORDER_STATE}" or pregnancy_status == "{models.NO_MATERNAL_DISORDER_STATE}") and pregnancy_outcome == "{outcome}"'
             )
             counts_this_step.update(
                 get_group_counts(
