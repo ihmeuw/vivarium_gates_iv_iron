@@ -412,13 +412,6 @@ class PregnancyObserver:
         ]
         self.population_view.update(prior_state_pop)
 
-        # This enables tracking of transitions between states
-        prior_state_pop = self.population_view.get(event.index)
-        prior_state_pop[self.previous_state_column_name] = prior_state_pop[
-            "pregnancy_status"
-        ]
-        self.population_view.update(prior_state_pop)
-
     def on_collect_metrics(self, event: Event):
         counts_this_step = {}
         pop = self.population_view.get(event.index)
