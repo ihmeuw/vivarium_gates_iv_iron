@@ -412,13 +412,6 @@ class PregnancyObserver:
         ]
         self.population_view.update(prior_state_pop)
 
-        # This enables tracking of transitions between states
-        prior_state_pop = self.population_view.get(event.index)
-        prior_state_pop[self.previous_state_column_name] = prior_state_pop[
-            "pregnancy_status"
-        ]
-        self.population_view.update(prior_state_pop)
-
     def on_collect_metrics(self, event: Event):
         counts_this_step = {}
         pop = self.population_view.get(event.index)
@@ -445,7 +438,7 @@ class PregnancyObserver:
                 measure=f"{outcome}_count", year=event.time.year
             )
             base_filter = QueryString(
-                f'alive == "alive" and pregnancy_status == "postpartum" and pregnancy_outcome == "{outcome}"'
+                f'alive == "alive" and (pregnancy_status == "{models.MATERNAL_DISORDER_STATE}" or pregnancy_status == "{models.NO_MATERNAL_DISORDER_STATE}") and pregnancy_outcome == "{outcome}"'
             )
             counts_this_step.update(
                 get_group_counts(
@@ -681,7 +674,7 @@ class MaternalHemorrhageObserver:
             base_key = get_output_template(**configuration).substitute(measure=f'incident_cases_of_{state}',
                                                                        year=event.time.year)
             base_filter = QueryString(
-                f'alive == "alive" and pregnancy_status != "postpartum" and maternal_hemorrhage == "{state}"')
+                f'alive == "alive" and maternal_hemorrhage == "{state}"')
             counts_this_step.update(get_group_counts(pregnancy_change_this_step_pop,
                                                      base_filter, base_key,
                                                      self.configuration,

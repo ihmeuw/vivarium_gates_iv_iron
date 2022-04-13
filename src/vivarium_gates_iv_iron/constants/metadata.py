@@ -14,7 +14,7 @@ ARTIFACT_INDEX_COLUMNS = [
 ]
 
 PROJECT_NAME = "vivarium_gates_iv_iron"
-CLUSTER_PROJECT = "proj_cost_effect"
+CLUSTER_PROJECT = "proj_simscience"
 
 CLUSTER_QUEUE = "all.q"
 MAKE_ARTIFACT_MEM = "10G"
