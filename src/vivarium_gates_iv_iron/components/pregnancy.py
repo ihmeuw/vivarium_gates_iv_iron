@@ -153,7 +153,10 @@ class Pregnancy:
         pregnancy_outcome = pd.Series(models.INVALID_OUTCOME, index=pop_data.index)
         is_pregnant_idx = pop_data.index[pregnancy_status == models.PREGNANT_STATE]
         is_postpartum_idx = pop_data.index[pregnancy_status == models.POSTPARTUM_STATE]
+        is_prepostpartum_idx = pop_data.index[((pregnancy_status == models.NO_MATERNAL_DISORDER_STATE)
+                                               | (pregnancy_status == models.MATERNAL_DISORDER_STATE))]
 
+        # TODO refactor these calls...
         pregnancy_outcome_probabilities = self.outcome_probabilities(is_pregnant_idx)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx,
                                                                         choices=models.PREGNANCY_OUTCOMES,
@@ -162,6 +165,12 @@ class Pregnancy:
 
         pregnancy_outcome_probabilities = self.outcome_probabilities(is_postpartum_idx)[list(models.PREGNANCY_OUTCOMES)]
         pregnancy_outcome.loc[is_postpartum_idx] = self.randomness.choice(is_postpartum_idx,
+                                                                        choices=models.PREGNANCY_OUTCOMES,
+                                                                        p=pregnancy_outcome_probabilities,
+                                                                        additional_key='pregnancy_outcome')
+
+        pregnancy_outcome_probabilities = self.outcome_probabilities(is_prepostpartum_idx)[list(models.PREGNANCY_OUTCOMES)]
+        pregnancy_outcome.loc[is_prepostpartum_idx] = self.randomness.choice(is_prepostpartum_idx,
                                                                         choices=models.PREGNANCY_OUTCOMES,
                                                                         p=pregnancy_outcome_probabilities,
                                                                         additional_key='pregnancy_outcome')
@@ -190,6 +199,8 @@ class Pregnancy:
         postpartum_start_date = pop_data.creation_time - days_until_postpartum_ends
         pregnancy_state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
         pregnancy_state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
+        pregnancy_state_change_date.loc[is_prepostpartum_idx] = (pop_data.creation_time
+                                                                 - pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))
 
         # initialize columns for 'cause_of_death', 'years_of_life_lost'
         cause_of_death = pd.Series("not_dead", index=pop_data.index, dtype="string")
