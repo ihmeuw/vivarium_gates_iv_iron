@@ -125,7 +125,7 @@ class Pregnancy:
         maternal_hemorrhage_csmr = builder.data.load(data_keys.MATERNAL_HEMORRHAGE.CSMR).set_index(self.index_cols)
         calculated_maternal_hemorrhage_incidence_rate = (
                 (maternal_hemorrhage_incidence_rate - maternal_hemorrhage_csmr)
-                / (not_pregnant_prevalence * not_pregnant_prevalence))
+                / (conception_rate_data * not_pregnant_prevalence))
         self.probability_maternal_hemorrhage = builder.lookup.build_table(
             calculated_maternal_hemorrhage_incidence_rate.reset_index(),
             key_columns=['sex'],
