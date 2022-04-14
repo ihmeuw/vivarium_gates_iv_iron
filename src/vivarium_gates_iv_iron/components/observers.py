@@ -665,7 +665,11 @@ class MaternalHemorrhageObserver:
         counts_this_step = {}
         pop = self.population_view.get(event.index)
         pregnancy_change_this_step_pop = pop[
-            pop["pregnancy_state_change_date"] == event.time
+            (pop["pregnancy_state_change_date"] == event.time)
+            & (
+                (pop["pregnancy_status"] == models.MATERNAL_DISORDER_STATE)
+                | (pop["pregnancy_status"] == models.NO_MATERNAL_DISORDER_STATE)
+            )
         ]
         configuration = self.configuration.to_dict()
 
