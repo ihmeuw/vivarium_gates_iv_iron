@@ -413,6 +413,9 @@ def get_maternal_ylds(entity_list, location):
 
 
 def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
+    # YLDS updated equation 4/14: (maternal_ylds - anemia_ylds) /
+    #   (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
+
     maternal_disorders = [causes.maternal_disorders]
 
     maternal_ylds = get_maternal_ylds(maternal_disorders, location)
@@ -429,12 +432,11 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     # Update incidence for 55-59 year age group to match 50-54 year age group
     maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
 
-    # TODO: check with Ali for final demoninator
-    # maternal_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
-    # acmr = get_data(data_keys.POPULATION.ACMR, location)
+    csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
+    acmr = get_data(data_keys.POPULATION.ACMR, location)
 
     # TODO: replace nans with 0 here instead of in pregnancy component?
-    return (maternal_ylds - anemia_ylds) / maternal_incidence
+    return (maternal_ylds - anemia_ylds) / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
 
 
 def get_hemoglobin_data(key: str, location: str):
