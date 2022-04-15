@@ -436,8 +436,7 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     acmr = get_data(data_keys.POPULATION.ACMR, location)
 
     # TODO: replace nans with 0 here instead of in pregnancy component?
-    return (maternal_ylds - anemia_ylds) / maternal_incidence
-    #return (maternal_ylds - anemia_ylds) / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
+    return (maternal_ylds - anemia_ylds) / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
 
 
 def get_hemoglobin_data(key: str, location: str):
