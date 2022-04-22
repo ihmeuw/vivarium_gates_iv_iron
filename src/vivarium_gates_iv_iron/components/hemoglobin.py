@@ -26,6 +26,7 @@ class Hemoglobin:
     def name(self):
         return "hemoglobin"
 
+    # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
         self.randomness = builder.randomness.get_stream(self.name)
         self.columns_created = [
@@ -46,9 +47,9 @@ class Hemoglobin:
             "country",
             "sex",
             "age_start",
-            'age_end',
-            'year_start',
-            'year_end',
+            "age_end",
+            "year_start",
+            "year_end",
         ]
         mean = mean.set_index(index_columns)["value"].rename("mean")
         stddev = stddev.set_index(index_columns)["value"].rename("stddev")
@@ -58,30 +59,35 @@ class Hemoglobin:
             source=builder.lookup.build_table(
                 distribution_parameters,
                 key_columns=["sex", "country"],
-                parameter_columns=["age", "year"]),
-            requires_columns=["age", "sex", "country"]
+                parameter_columns=["age", "year"],
+            ),
+            requires_columns=["age", "sex", "country"],
         )
 
         self.hemoglobin = builder.value.register_value_producer(
-            "hemoglobin.exposure", source=self.hemoglobin_source,
+            "hemoglobin.exposure",
+            source=self.hemoglobin_source,
             requires_values=["hemoglobin.exposure_parameters"],
-            requires_streams=[self.name]
+            requires_streams=[self.name],
         )
 
         self.thresholds = builder.lookup.build_table(
             HEMOGLOBIN_THRESHOLD_DATA,
             key_columns=["sex", "pregnancy_status"],
-            parameter_columns=["age"]
+            parameter_columns=["age"],
         )
 
         self.anemia_levels = builder.value.register_value_producer(
-            "anemia_levels", source=self.anemia_source,
-            requires_values=["hemoglobin.exposure"]
+            "anemia_levels",
+            source=self.anemia_source,
+            requires_values=["hemoglobin.exposure"],
         )
 
-        builder.population.initializes_simulants(self.on_initialize_simulants,
-                                                 creates_columns=self.columns_created,
-                                                 requires_streams=[self.name])
+        builder.population.initializes_simulants(
+            self.on_initialize_simulants,
+            creates_columns=self.columns_created,
+            requires_streams=[self.name],
+        )
 
         self.population_view = builder.population.get_view(self.columns_created)
         builder.event.register_listener("time_step", self.on_time_step)
@@ -142,24 +148,14 @@ class Hemoglobin:
         return scipy.stats.gamma(a=shape, scale=scale).ppf(propensity)
 
     @staticmethod
-    def _mirrored_gumbel_ppf(propensity, mean, sd):
+    def _mirrored_gumbel_ppf_2017(propensity, mean, sd):
         """Returns the quantile for the given quantile rank (`propensity`) of a mirrored Gumbel
         distribution with the specified mean and standard deviation.
         """
-        _alpha = (
-            HEMOGLOBIN_DISTRIBUTION_PARAMETERS.XMAX
-            - mean
-            - (
-                sd
-                * HEMOGLOBIN_DISTRIBUTION_PARAMETERS.EULERS_CONSTANT
-                * np.sqrt(6)
-                / np.pi
-            )
-        )
+        x_max = HEMOGLOBIN_DISTRIBUTION_PARAMETERS.XMAX
+        alpha = x_max - mean - (sd * np.euler_gamma * np.sqrt(6) / np.pi)
         scale = sd * np.sqrt(6) / np.pi
-        tmp = _alpha + (scale * HEMOGLOBIN_DISTRIBUTION_PARAMETERS.EULERS_CONSTANT)
-        alpha = _alpha + HEMOGLOBIN_DISTRIBUTION_PARAMETERS.XMAX - (2 * tmp)
-        return scipy.stats.gumbel_r(alpha, scale=scale).ppf(propensity)
+        return x_max - scipy.stats.gumbel_r(alpha, scale=scale).ppf(1 - propensity)
 
     def sample_from_hemoglobin_distribution(
         self, propensity_distribution, propensity, exposure_parameters
@@ -177,14 +173,19 @@ class Hemoglobin:
         mean = exposure_data["mean"]
         sd = exposure_data["stddev"]
 
-        gamma = propensity_distribution < 0.4
+        gamma = (
+            propensity_distribution
+            < HEMOGLOBIN_DISTRIBUTION_PARAMETERS.GAMMA_DISTRIBUTION_WEIGHT
+        )
         gumbel = ~gamma
 
         ret_val = pd.Series(
             index=propensity_distribution.index, name="value", dtype=float
         )
         ret_val.loc[gamma] = self._gamma_ppf(propensity, mean, sd)[gamma]
-        ret_val.loc[gumbel] = self._mirrored_gumbel_ppf(propensity, mean, sd)[gumbel]
+        ret_val.loc[gumbel] = self._mirrored_gumbel_ppf_2017(propensity, mean, sd)[
+            gumbel
+        ]
         return ret_val
 
     def disability_weight(self, index: pd.Index) -> pd.Series:
@@ -199,12 +200,16 @@ class Hemoglobin:
         return anemia_levels.map(ANEMIA_DISABILITY_WEIGHTS)
 
     def _get_location_weights(self, builder: Builder):
-        pregnant_lactating_women = builder.configuration.population.pregnant_lactating_women
+        pregnant_lactating_women = (
+            builder.configuration.population.pregnant_lactating_women
+        )
         if pregnant_lactating_women:
-            location_weights = builder.data.load(data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS).rename(
-                columns={"location": "country"})
+            location_weights = builder.data.load(
+                data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS
+            ).rename(columns={"location": "country"})
         else:
-            location_weights = builder.data.load(data_keys.POPULATION.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS).rename(
-                columns={"location": "country"})
+            location_weights = builder.data.load(
+                data_keys.POPULATION.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS
+            ).rename(columns={"location": "country"})
 
         return location_weights
