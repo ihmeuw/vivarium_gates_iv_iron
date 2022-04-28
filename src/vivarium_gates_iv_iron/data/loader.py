@@ -34,6 +34,7 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 from vivarium_gates_iv_iron.constants import data_keys, metadata
 from vivarium_gates_iv_iron.constants.data_values import MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY
 from vivarium_gates_iv_iron.data import utilities
+from vivarium_gates_iv_iron.paths import PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV
 from vivarium_gates_iv_iron.utilities import (
     create_draws,
     get_lognorm_from_quantiles,
@@ -88,6 +89,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
         data_keys.HEMOGLOBIN.MEAN: get_hemoglobin_data,
         data_keys.HEMOGLOBIN.STANDARD_DEVIATION: get_hemoglobin_data,
+        data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70: get_hemoglobin_csv_data
     }
     return mapping[lookup_key](lookup_key, location)
 
@@ -523,3 +525,15 @@ def get_women_reproductive_age_location_weights(key: str, location: str):
     wra_location_weights = wra_location_weights.rename(columns={"wra": "value"})
 
     return wra_location_weights
+
+
+def get_hemoglobin_csv_data(key: str, location: str):
+    try:
+        source_file = {
+            data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70: PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV,
+        }[key]
+    except KeyError:
+        raise ValueError(f'Unrecognized key {key}')
+
+    data = pd.read_csv(source_file)
+    # TODO: add guts here
