@@ -33,7 +33,6 @@ class Pregnancy:
     def sub_components(self):
         return [self.hemoglobin_distribution]
 
-
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
         self.draw = builder.configuration.input_data.input_draw_number
@@ -47,8 +46,6 @@ class Pregnancy:
         self.columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
             'pregnancy_outcome',  # livebirth, still birth, other
-            'sex_of_child',
-            'birth_weight',
             'pregnancy_state_change_date',
             'pregnancy_duration',
             'cause_of_death',
@@ -109,12 +106,17 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'])
 
-        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
+        self.pregnancy_duration_in_weeks = builder.value.get_value('pregnancy_duration.exposure')
+
+        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex', 'sex_of_child']
         self.population_view = builder.population.get_view(view_columns)
-        builder.population.initializes_simulants(self.on_initialize_simulants,
-                                                 creates_columns=self.columns_created,
-                                                 requires_streams=[self.name],
-                                                 requires_columns=['age', 'sex'])
+        builder.population.initializes_simulants(
+            self.on_initialize_simulants,
+            creates_columns=self.columns_created,
+            requires_streams=[self.name],
+            requires_values=['pregnancy_duration.exposure'],
+            requires_columns=['age', 'sex', "sex_of_child"]
+        )
         builder.event.register_listener("time_step", self.on_time_step)
 
         builder.value.register_value_modifier("disability_weight", self.accrue_disability,
@@ -179,24 +181,20 @@ class Pregnancy:
                                                                         p=pregnancy_outcome_probabilities,
                                                                         additional_key='pregnancy_outcome')
 
-        sex_of_child = pd.Series(models.INVALID_OUTCOME, index=pop_data.index)
-        # TODO: update sex_of_child distribution
-        sex_of_child.loc[is_pregnant_idx] = self.randomness.choice(is_pregnant_idx, choices=['Male', 'Female'],
-                                                                   p=[0.5, 0.5], additional_key='sex_of_child')
-
-        birth_weight = pd.Series(np.nan, index=pop_data.index)
-        # TODO implement LBWSG on next line for sampling
-        birth_weight.loc[is_pregnant_idx] = 1500.0 + 1500 * self.randomness.get_draw(is_pregnant_idx,
-                                                                                     additional_key='birth_weight')
+        sex_of_child = self.population_view.subview(["sex_of_child"]).get(pop_data.index).squeeze()
+        sex_of_child[is_pregnant_idx] = self._get_sex_of_child(is_pregnant_idx)
+        self.population_view.update(sex_of_child)
 
         pregnancy_duration = pd.Series(pd.NaT, index=pop_data.index)
-        pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(9 * 28,
-                                                                  unit='d')
+        pregnancy_duration.loc[is_pregnant_idx] = pd.to_timedelta(
+            7 * self.pregnancy_duration_in_weeks(is_pregnant_idx), unit='d',
+        )
 
         pregnancy_state_change_date = pd.Series(pd.NaT, index=pop_data.index)
-        days_until_pregnancy_ends = pregnancy_duration * self.randomness.get_draw(pop_data.index,
-                                                                                  additional_key='conception_date')
-        conception_date = pop_data.creation_time - days_until_pregnancy_ends
+        days_since_conception = pregnancy_duration * self.randomness.get_draw(
+            pop_data.index, additional_key='conception_date'
+        )
+        conception_date = pop_data.creation_time - days_since_conception
         days_until_postpartum_ends = pd.to_timedelta(
             POSTPARTUM_DURATION_DAYS * self.randomness.get_draw(pop_data.index,
                                                                 additional_key='days_until_postpartum_ends'))
@@ -215,8 +213,6 @@ class Pregnancy:
 
         pop_update = pd.DataFrame({'pregnancy_status': pregnancy_status,
                                    'pregnancy_outcome': pregnancy_outcome,
-                                   'sex_of_child': sex_of_child,
-                                   'birth_weight': birth_weight,
                                    'pregnancy_duration': pregnancy_duration,
                                    'pregnancy_state_change_date': pregnancy_state_change_date,
                                    'cause_of_death': cause_of_death,
@@ -239,14 +235,14 @@ class Pregnancy:
         pregnancy_outcome = self.randomness.choice(pop.index, choices=models.PREGNANCY_OUTCOMES, p=p,
                                                    additional_key='pregnancy_outcome')
 
-        sex_of_child = self.randomness.choice(pop.index, choices=['Male', 'Female'],
-                                              p=[0.5, 0.5], additional_key='sex_of_child')
+        pop.loc[pregnant_this_step_idx, "sex_of_child"] = self._get_sex_of_child(
+            pregnant_this_step_idx
+        )
+        self.population_view.update(pop["sex_of_child"])
 
-        # TODO: update with birth_weight distribution
-        birth_weight = 1500.0 + 1500 * self.randomness.get_draw(pop.index, additional_key='birth_weight')
-
-        pregnancy_duration = pd.to_timedelta(9 * 28,
-                                             unit='d')
+        pregnancy_duration = pd.to_timedelta(
+            7 * self.pregnancy_duration_in_weeks(pregnant_this_step_idx), unit='d'
+        )
 
         # Make masks for subsets
         pregnancy_ends_this_step = (
@@ -305,8 +301,6 @@ class Pregnancy:
         # pregnant_this_step = pregnant_this_step & ~died_this_step
         pop.loc[pregnant_this_step, "pregnancy_status"] = models.PREGNANT_STATE
         pop.loc[pregnant_this_step, "pregnancy_outcome"] = pregnancy_outcome.loc[pregnant_this_step]
-        pop.loc[pregnant_this_step, "sex_of_child"] = sex_of_child.loc[pregnant_this_step]
-        pop.loc[pregnant_this_step, "birth_weight"] = birth_weight.loc[pregnant_this_step]
         pop.loc[pregnant_this_step, "pregnancy_duration"] = pregnancy_duration
         pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
 
@@ -339,7 +333,6 @@ class Pregnancy:
         pop.loc[postpartum_ends_this_step, "pregnancy_status"] = models.NOT_PREGNANT_STATE
         pop.loc[postpartum_ends_this_step, "pregnancy_outcome"] = models.INVALID_OUTCOME
         pop.loc[postpartum_ends_this_step, "sex_of_child"] = models.INVALID_OUTCOME
-        pop.loc[postpartum_ends_this_step, "birth_weight"] = np.nan
         pop.loc[postpartum_ends_this_step, "pregnancy_duration"] = pd.NaT
         pop.loc[postpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
         pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = models.NOT_MATERNAL_HEMORRHAGE_STATE
@@ -433,3 +426,8 @@ class Pregnancy:
             correction_factors[state] = (pregnant_mean_cf, pregnant_sd_cf)
         return correction_factors
 
+    def _get_sex_of_child(self, index: pd.Index) -> pd.Series:
+        # TODO: update sex_of_child distribution
+        return self.randomness.choice(
+            index, choices=['Male', 'Female'], p=[0.5, 0.5], additional_key='sex_of_child',
+        )
