@@ -2,6 +2,7 @@ from typing import List, Union
 
 import pandas as pd
 from vivarium.framework.engine import Builder
+from vivarium.framework.population import PopulationView, SimulantData
 from vivarium.framework.values import Pipeline
 from vivarium.framework.time import Time
 from vivarium_public_health.risks import LBWSGDistribution
@@ -10,10 +11,13 @@ from vivarium_public_health.risks.implementations.low_birth_weight_and_short_ges
     GESTATIONAL_AGE,
 )
 
+from vivarium_gates_iv_iron.constants.models import INVALID_OUTCOME
+
 
 class LBWSGExposure:
 
     randomness_stream_name = 'birth_propensities'
+    sex_of_child_column_name = 'sex_of_child'
     birth_weight_pipeline_name = 'birth_weight.exposure'
     pregnancy_duration_pipeline_name = 'pregnancy_duration.exposure'
     exposure_parameters_pipeline_name = (
@@ -55,7 +59,10 @@ class LBWSGExposure:
     def setup(self, builder: Builder):
         self.randomness = builder.randomness.get_stream(self.randomness_stream_name)
         self.birth_weight = self._get_birth_weight_pipeline(builder)
-        self.pregnancy_duration = self._get_pregnancy_duration_pipeline(builder)
+        self.pregnancy_duration_in_weeks = self._get_pregnancy_duration_pipeline(builder)
+        self.population_view = self.get_population_view(builder)
+
+        self._register_simulant_initializer(builder)
 
     def _get_birth_weight_pipeline(self, builder: Builder) -> Pipeline:
         return builder.value.register_value_producer(
@@ -71,6 +78,24 @@ class LBWSGExposure:
             self._pregnancy_duration_pipeline_source,
             requires_streams=[self.randomness_stream_name],
             requires_values=[self.exposure_parameters_pipeline_name],
+        )
+
+    def get_population_view(self, builder: Builder) -> PopulationView:
+        return builder.population.get_view([self.sex_of_child_column_name])
+
+    def _register_simulant_initializer(self, builder: Builder) -> None:
+        builder.population.initializes_simulants(
+            self.on_initialize_simulants,
+            creates_columns=[self.sex_of_child_column_name],
+        )
+
+    ########################
+    # Event-driven methods #
+    ########################
+
+    def on_initialize_simulants(self, pop_data: SimulantData) -> None:
+        self.population_view.update(
+            pd.Series(INVALID_OUTCOME, index=pop_data.index, name=self.sex_of_child_column_name)
         )
 
     ##################################

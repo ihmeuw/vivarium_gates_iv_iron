@@ -43,6 +43,9 @@ configuration:
         age_end: 54
         pregnant_lactating_women: False
 
+    lbwsg_distribution:
+        sex_column: "sex_of_child"
+
     metrics:
         disability:
             by_age: True
