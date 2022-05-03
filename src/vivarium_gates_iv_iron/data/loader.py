@@ -32,14 +32,9 @@ from vivarium_inputs import (
 from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys, metadata
-from vivarium_gates_iv_iron.constants.data_values import MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY
 from vivarium_gates_iv_iron.data import utilities
-from vivarium_gates_iv_iron.utilities import (
-    create_draws,
-    get_lognorm_from_quantiles,
-    get_truncnorm_from_quantiles,
-    get_random_variable_draws_for_location,
-)
+from vivarium_gates_iv_iron.paths import PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV as HGB_BELOW_70_CSV
+from vivarium_gates_iv_iron.utilities import create_draws
 
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
@@ -88,6 +83,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
         data_keys.HEMOGLOBIN.MEAN: get_hemoglobin_data,
         data_keys.HEMOGLOBIN.STANDARD_DEVIATION: get_hemoglobin_data,
+        data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70: get_hemoglobin_csv_data
     }
     return mapping[lookup_key](lookup_key, location)
 
@@ -523,3 +519,27 @@ def get_women_reproductive_age_location_weights(key: str, location: str):
     wra_location_weights = wra_location_weights.rename(columns={"wra": "value"})
 
     return wra_location_weights
+
+
+def get_hemoglobin_csv_data(key: str, location: str):
+    try:
+        source_file = {
+            data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70: HGB_BELOW_70_CSV,
+        }[key]
+    except KeyError:
+        raise ValueError(f'Unrecognized key {key}')
+    try:
+        location_id = utility_data.get_location_id(location)
+    except KeyError:
+        raise ValueError(f"Unrecognized location {location}")
+
+    data = pd.read_csv(source_file)
+    data = data[data["location_id"] == location_id]
+    data = data[["draw", "age_group_id", "value"]]
+    age_group_ids = data["age_group_id"].to_list()
+    age_bins = utilities.get_gbd_age_bins(age_group_ids)
+    data = data.merge(age_bins, on="age_group_id")
+    data = data[["draw", "age_start", "age_end", "value"]]
+    data = data.pivot(index=["age_start", "age_end"], columns='draw', values='value')
+    return data
+
