@@ -14,6 +14,7 @@ components:
         - MaternalHemorrhageObserver()
         - HemoglobinObserver()
         - AnemiaObserver()
+        - BirthObserver()
 
 configuration:
     input_data:
@@ -42,6 +43,9 @@ configuration:
         age_start: 7
         age_end: 54
         pregnant_lactating_women: False
+
+    intervention:
+        scenario: "baseline"
 
     lbwsg_distribution:
         sex_column: "sex_of_child"
