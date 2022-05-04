@@ -28,7 +28,7 @@ from vivarium_gates_iv_iron.constants import data_keys, data_values, models, res
 
 
 class LegacyMortalityObserver:
-    """An observer for cause-specific deaths, ylls, and total person time.
+    """(From vivarium_public_health 0.10.15) An observer for cause-specific deaths, ylls, and total person time.
 
     By default, this counts cause-specific deaths, years of life lost, and
     total person time over the full course of the simulation. It can be
@@ -139,7 +139,7 @@ class LegacyMortalityObserver:
 
 
 class LegacyDisabilityObserver:
-    """Counts years lived with disability.
+    """(From vivarium_public_health v0.10.15) Counts years lived with disability.
 
     By default, this counts both aggregate and cause-specific years lived
     with disability over the full course of the simulation. It can be
@@ -426,7 +426,7 @@ class ResultsStratifier:
         }
         return measure_data
 
-
+# TODO: Consider using VPH v0.10.18 MortalityObserver instead
 class MortalityObserver(LegacyMortalityObserver):
     def __init__(self):
         super().__init__()
@@ -475,6 +475,7 @@ class MortalityObserver(LegacyMortalityObserver):
         return metrics
 
 
+# TODO: Consider using VPH v0.10.18 DisabilityObserver instead
 class DisabilityObserver(LegacyDisabilityObserver):
     def __init__(self):
         super().__init__()
