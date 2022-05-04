@@ -6,18 +6,25 @@ import pandas as pd
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.time import Time, get_time_stamp
-from vivarium.framework.values import (list_combiner, rescale_post_processor,
-                                       union_post_processor)
-from vivarium_public_health.disease import (DiseaseState,
-                                            RiskAttributableDisease)
+from vivarium.framework.values import (
+    list_combiner,
+    rescale_post_processor,
+    union_post_processor,
+)
+from vivarium_public_health.disease import DiseaseState, RiskAttributableDisease
 from vivarium_public_health.metrics import utilities
 from vivarium_public_health.metrics.utilities import (
-    QueryString, get_age_bins, get_deaths, get_group_counts,
-    get_output_template, get_person_time, get_years_lived_with_disability,
-    get_years_of_life_lost)
+    QueryString,
+    get_age_bins,
+    get_deaths,
+    get_group_counts,
+    get_output_template,
+    get_person_time,
+    get_years_lived_with_disability,
+    get_years_of_life_lost,
+)
 
-from vivarium_gates_iv_iron.constants import (data_keys, data_values, models,
-                                              results)
+from vivarium_gates_iv_iron.constants import data_keys, data_values, models, results
 
 
 class LegacyMortalityObserver:
