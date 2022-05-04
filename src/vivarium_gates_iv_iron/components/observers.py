@@ -1,31 +1,27 @@
-from collections import Counter
 import itertools
+from collections import Counter
 from typing import Callable, Dict, Iterable, List, Tuple, Union
 
 import pandas as pd
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.time import Time, get_time_stamp
-from vivarium.framework.values import list_combiner, rescale_post_processor, union_post_processor
-
-from vivarium_public_health.disease import DiseaseState, RiskAttributableDisease
+from vivarium.framework.values import (list_combiner, rescale_post_processor,
+                                       union_post_processor)
+from vivarium_public_health.disease import (DiseaseState,
+                                            RiskAttributableDisease)
 from vivarium_public_health.metrics import utilities
 from vivarium_public_health.metrics.utilities import (
-    get_age_bins,
-    get_group_counts,
-    get_output_template,
-    get_deaths,
-    get_years_lived_with_disability,
-    get_years_of_life_lost,
-    get_person_time,
-    QueryString,
-)
+    QueryString, get_age_bins, get_deaths, get_group_counts,
+    get_output_template, get_person_time, get_years_lived_with_disability,
+    get_years_of_life_lost)
 
-from vivarium_gates_iv_iron.constants import models, results, data_keys, data_values
+from vivarium_gates_iv_iron.constants import (data_keys, data_values, models,
+                                              results)
 
 
 class LegacyMortalityObserver:
-    """ An observer for cause-specific deaths, ylls, and total person time.
+    """An observer for cause-specific deaths, ylls, and total person time.
 
     By default, this counts cause-specific deaths, years of life lost, and
     total person time over the full course of the simulation. It can be
@@ -45,19 +41,20 @@ class LegacyMortalityObserver:
                     by_sex: True
 
     """
+
     configuration_defaults = {
-        'metrics': {
-            'mortality': {
-                'by_age': False,
-                'by_year': False,
-                'by_sex': False,
+        "metrics": {
+            "mortality": {
+                "by_age": False,
+                "by_year": False,
+                "by_sex": False,
             }
         }
     }
 
     @property
     def name(self):
-        return 'mortality_observer'
+        return "mortality_observer"
 
     def setup(self, builder):
         self.config = builder.configuration.metrics.mortality
@@ -66,39 +63,67 @@ class LegacyMortalityObserver:
         self.start_time = self.clock()
         self.initial_pop_entrance_time = self.start_time - self.step_size()
         self.age_bins = get_age_bins(builder)
-        diseases = builder.components.get_components_by_type((DiseaseState, RiskAttributableDisease))
-        self.causes = [c.state_id for c in diseases] + ['other_causes']
+        diseases = builder.components.get_components_by_type(
+            (DiseaseState, RiskAttributableDisease)
+        )
+        self.causes = [c.state_id for c in diseases] + ["other_causes"]
 
-        life_expectancy_data = builder.data.load("population.theoretical_minimum_risk_life_expectancy")
-        self.life_expectancy = builder.lookup.build_table(life_expectancy_data, key_columns=[],
-                                                          parameter_columns=['age'])
+        life_expectancy_data = builder.data.load(
+            "population.theoretical_minimum_risk_life_expectancy"
+        )
+        self.life_expectancy = builder.lookup.build_table(
+            life_expectancy_data, key_columns=[], parameter_columns=["age"]
+        )
 
-        columns_required = ['tracked', 'alive', 'entrance_time', 'exit_time', 'cause_of_death',
-                            'years_of_life_lost', 'age']
+        columns_required = [
+            "tracked",
+            "alive",
+            "entrance_time",
+            "exit_time",
+            "cause_of_death",
+            "years_of_life_lost",
+            "age",
+        ]
         if self.config.by_sex:
-            columns_required += ['sex']
+            columns_required += ["sex"]
         self.population_view = builder.population.get_view(columns_required)
 
-        builder.value.register_value_modifier('metrics', self.metrics)
+        builder.value.register_value_modifier("metrics", self.metrics)
 
     def metrics(self, index, metrics):
         pop = self.population_view.get(index)
-        pop.loc[pop.exit_time.isnull(), 'exit_time'] = self.clock()
+        pop.loc[pop.exit_time.isnull(), "exit_time"] = self.clock()
 
-        person_time = get_person_time(pop, self.config.to_dict(), self.start_time, self.clock(), self.age_bins)
-        deaths = get_deaths(pop, self.config.to_dict(), self.start_time, self.clock(), self.age_bins, self.causes)
-        ylls = get_years_of_life_lost(pop, self.config.to_dict(), self.start_time, self.clock(),
-                                      self.age_bins, self.life_expectancy, self.causes)
+        person_time = get_person_time(
+            pop, self.config.to_dict(), self.start_time, self.clock(), self.age_bins
+        )
+        deaths = get_deaths(
+            pop,
+            self.config.to_dict(),
+            self.start_time,
+            self.clock(),
+            self.age_bins,
+            self.causes,
+        )
+        ylls = get_years_of_life_lost(
+            pop,
+            self.config.to_dict(),
+            self.start_time,
+            self.clock(),
+            self.age_bins,
+            self.life_expectancy,
+            self.causes,
+        )
 
         metrics.update(person_time)
         metrics.update(deaths)
         metrics.update(ylls)
 
-        the_living = pop[(pop.alive == 'alive') & pop.tracked]
-        the_dead = pop[pop.alive == 'dead']
-        metrics['years_of_life_lost'] = self.life_expectancy(the_dead.index).sum()
-        metrics['total_population_living'] = len(the_living)
-        metrics['total_population_dead'] = len(the_dead)
+        the_living = pop[(pop.alive == "alive") & pop.tracked]
+        the_dead = pop[pop.alive == "dead"]
+        metrics["years_of_life_lost"] = self.life_expectancy(the_dead.index).sum()
+        metrics["total_population_living"] = len(the_living)
+        metrics["total_population_dead"] = len(the_dead)
 
         return metrics
 
@@ -127,67 +152,88 @@ class LegacyDisabilityObserver:
                     by_sex: True
 
     """
+
     configuration_defaults = {
-        'metrics': {
-            'disability': {
-                'by_age': False,
-                'by_year': False,
-                'by_sex': False,
+        "metrics": {
+            "disability": {
+                "by_age": False,
+                "by_year": False,
+                "by_sex": False,
             }
         }
     }
 
     @property
     def name(self):
-        return 'disability_observer'
+        return "disability_observer"
 
     def setup(self, builder):
         self.config = builder.configuration.metrics.disability
         self.age_bins = get_age_bins(builder)
         self.clock = builder.time.clock()
         self.step_size = builder.time.step_size()
-        self.causes = [c.state_id
-                       for c in builder.components.get_components_by_type((DiseaseState, RiskAttributableDisease))]
+        self.causes = [
+            c.state_id
+            for c in builder.components.get_components_by_type(
+                (DiseaseState, RiskAttributableDisease)
+            )
+        ]
         self.years_lived_with_disability = Counter()
-        self.disability_weight_pipelines = {cause: builder.value.get_value(f'{cause}.disability_weight')
-                                            for cause in self.causes}
+        self.disability_weight_pipelines = {
+            cause: builder.value.get_value(f"{cause}.disability_weight")
+            for cause in self.causes
+        }
 
         self.disability_weight = builder.value.register_value_producer(
-            'disability_weight',
+            "disability_weight",
             source=lambda index: [pd.Series(0.0, index=index)],
             preferred_combiner=list_combiner,
-            preferred_post_processor=_disability_post_processor)
+            preferred_post_processor=_disability_post_processor,
+        )
 
-        columns_required = ['tracked', 'alive', 'years_lived_with_disability']
+        columns_required = ["tracked", "alive", "years_lived_with_disability"]
         if self.config.by_age:
-            columns_required += ['age']
+            columns_required += ["age"]
         if self.config.by_sex:
-            columns_required += ['sex']
+            columns_required += ["sex"]
         self.population_view = builder.population.get_view(columns_required)
-        builder.population.initializes_simulants(self.initialize_disability,
-                                                 creates_columns=['years_lived_with_disability'])
+        builder.population.initializes_simulants(
+            self.initialize_disability, creates_columns=["years_lived_with_disability"]
+        )
         # FIXME: The state table is modified before the clock advances.
         # In order to get an accurate representation of person time we need to look at
         # the state table before anything happens.
-        builder.event.register_listener('time_step__prepare', self.on_time_step_prepare)
-        builder.value.register_value_modifier('metrics', modifier=self.metrics)
+        builder.event.register_listener("time_step__prepare", self.on_time_step_prepare)
+        builder.value.register_value_modifier("metrics", modifier=self.metrics)
 
     def initialize_disability(self, pop_data):
-        self.population_view.update(pd.Series(0., index=pop_data.index, name='years_lived_with_disability'))
+        self.population_view.update(
+            pd.Series(0.0, index=pop_data.index, name="years_lived_with_disability")
+        )
 
     def on_time_step_prepare(self, event):
-        pop = self.population_view.get(event.index, query='tracked == True and alive == "alive"')
-        ylds_this_step = get_years_lived_with_disability(pop, self.config.to_dict(),
-                                                         self.clock().year, self.step_size(),
-                                                         self.age_bins, self.disability_weight_pipelines, self.causes)
+        pop = self.population_view.get(
+            event.index, query='tracked == True and alive == "alive"'
+        )
+        ylds_this_step = get_years_lived_with_disability(
+            pop,
+            self.config.to_dict(),
+            self.clock().year,
+            self.step_size(),
+            self.age_bins,
+            self.disability_weight_pipelines,
+            self.causes,
+        )
         self.years_lived_with_disability.update(ylds_this_step)
 
-        pop.loc[:, 'years_lived_with_disability'] += self.disability_weight(pop.index)
+        pop.loc[:, "years_lived_with_disability"] += self.disability_weight(pop.index)
         self.population_view.update(pop)
 
     def metrics(self, index, metrics):
-        total_ylds = self.population_view.get(index)['years_lived_with_disability'].sum()
-        metrics['years_lived_with_disability'] = total_ylds
+        total_ylds = self.population_view.get(index)[
+            "years_lived_with_disability"
+        ].sum()
+        metrics["years_lived_with_disability"] = total_ylds
         metrics.update(self.years_lived_with_disability)
         return metrics
 
@@ -197,6 +243,7 @@ class LegacyDisabilityObserver:
 
 def _disability_post_processor(value, step_size):
     return rescale_post_processor(union_post_processor(value, step_size), step_size)
+
 
 class ResultsStratifier:
     """Centralized component for handling results stratification.
@@ -504,11 +551,11 @@ class PregnancyObserver:
         )
 
         columns_required = [
-            'alive',
-            'pregnancy_status',
-            'pregnancy_outcome',
-            'pregnancy_state_change_date',
-            'maternal_hemorrhage',
+            "alive",
+            "pregnancy_status",
+            "pregnancy_outcome",
+            "pregnancy_state_change_date",
+            "maternal_hemorrhage",
             self.previous_state_column_name,
         ]
 
@@ -530,15 +577,21 @@ class PregnancyObserver:
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index)
 
-        def get_state_person_time(pop: pd.DataFrame,
-                                  config: Dict[str, bool],
-                                  state_machine: str, state: str, outcome: str, hemorrhage_type: str,
-                                  current_year: Union[str, int],
-                                  step_size: pd.Timedelta, age_bins: pd.DataFrame) -> Dict[str, float]:
+        def get_state_person_time(
+            pop: pd.DataFrame,
+            config: Dict[str, bool],
+            state_machine: str,
+            state: str,
+            outcome: str,
+            hemorrhage_type: str,
+            current_year: Union[str, int],
+            step_size: pd.Timedelta,
+            age_bins: pd.DataFrame,
+        ) -> Dict[str, float]:
             """Custom person time getter that handles state column name assumptions"""
             base_key = get_output_template(**config).substitute(
-                measure=f'{state}_with_{outcome}_with_{hemorrhage_type}_person_time',
-                year=current_year
+                measure=f"{state}_with_{outcome}_with_{hemorrhage_type}_person_time",
+                year=current_year,
             )
             base_filter = QueryString(
                 f'alive == "alive" and {state_machine} == "{state}" and pregnancy_outcome == "{outcome}" and maternal_hemorrhage == "{hemorrhage_type}"'
@@ -546,9 +599,10 @@ class PregnancyObserver:
             person_time = get_group_counts(
                 pop,
                 base_filter,
-                base_key, config,
+                base_key,
+                config,
                 age_bins,
-                aggregate=lambda x: len(x) * utilities.to_years(step_size)
+                aggregate=lambda x: len(x) * utilities.to_years(step_size),
             )
             return person_time
 
@@ -561,12 +615,13 @@ class PregnancyObserver:
                     state_person_time_this_step = get_state_person_time(
                         pop,
                         self.configuration,
-                        'pregnancy_status',
-                        state, outcome,
+                        "pregnancy_status",
+                        state,
+                        outcome,
                         hemorrhage_type,
                         self.clock().year,
                         event.step_size,
-                        self.age_bins
+                        self.age_bins,
                     )
                     self.person_time.update(state_person_time_this_step)
 
@@ -819,12 +874,17 @@ class MaternalHemorrhageObserver:
 
         # Accrue all counts and time to the current year
         for state in models.MATERNAL_HEMORRHAGE_STATES:
-             # Accrue all counts and time to the current year
-             state_person_time_this_step = utilities.get_state_person_time(
-                 pop, self.configuration, 'maternal_hemorrhage', state, self.clock().year,
-                 event.step_size, self.age_bins
-             )
-             self.person_time.update(state_person_time_this_step)
+            # Accrue all counts and time to the current year
+            state_person_time_this_step = utilities.get_state_person_time(
+                pop,
+                self.configuration,
+                "maternal_hemorrhage",
+                state,
+                self.clock().year,
+                event.step_size,
+                self.age_bins,
+            )
+            self.person_time.update(state_person_time_this_step)
 
     def on_collect_metrics(self, event: Event):
         counts_this_step = {}
@@ -840,14 +900,21 @@ class MaternalHemorrhageObserver:
 
         for state in models.MATERNAL_HEMORRHAGE_STATES[:-1]:
             # count maternal hemorrhage incident cases
-            base_key = get_output_template(**configuration).substitute(measure=f'incident_cases_of_{state}',
-                                                                       year=event.time.year)
+            base_key = get_output_template(**configuration).substitute(
+                measure=f"incident_cases_of_{state}", year=event.time.year
+            )
             base_filter = QueryString(
-                f'alive == "alive" and maternal_hemorrhage == "{state}"')
-            counts_this_step.update(get_group_counts(pregnancy_change_this_step_pop,
-                                                     base_filter, base_key,
-                                                     self.configuration,
-                                                     self.age_bins))
+                f'alive == "alive" and maternal_hemorrhage == "{state}"'
+            )
+            counts_this_step.update(
+                get_group_counts(
+                    pregnancy_change_this_step_pop,
+                    base_filter,
+                    base_key,
+                    self.configuration,
+                    self.age_bins,
+                )
+            )
 
         self.counts.update(counts_this_step)
 
