@@ -9,14 +9,13 @@ from vivarium.framework.population import PopulationView, SimulantData
 from vivarium.framework.values import Pipeline
 from vivarium_cluster_tools import mkdir
 from vivarium_public_health.risks.implementations.low_birth_weight_and_short_gestation import (
+    BIRTH_WEIGHT,
+    GESTATIONAL_AGE,
     LBWSGDistribution,
 )
 
 from vivarium_gates_iv_iron import paths
 from vivarium_gates_iv_iron.constants import models
-
-BIRTH_WEIGHT = "birth_weight"
-GESTATIONAL_AGE = "gestational_age"
 
 
 class LBWSGExposure:
