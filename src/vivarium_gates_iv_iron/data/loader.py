@@ -55,7 +55,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
 
     """
     mapping = {
-        data_keys.POPULATION.LOCATION: load_population_location,
+        # data_keys.POPULATION.LOCATION: load_population_location,
         data_keys.POPULATION.STRUCTURE: load_population_structure,
         data_keys.POPULATION.AGE_BINS: load_age_bins,
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
@@ -98,11 +98,11 @@ def load_population_location(key: str, location: str) -> str:
 
 def load_population_structure(key: str, location: str) -> pd.DataFrame:
     if location == "LMICs":
-        world_bank_1 = filter_population(interface.get_population_structure("World Bank Low Income"))
-        world_bank_2 = filter_population(interface.get_population_structure("World Bank Lower Middle Income"))
+        world_bank_1 = interface.get_population_structure("World Bank Low Income")
+        world_bank_2 = interface.get_population_structure("World Bank Lower Middle Income")
         population_structure = pd.concat([world_bank_1, world_bank_2])
     else:
-        population_structure = filter_population(interface.get_population_structure(location))
+        population_structure = interface.get_population_structure(location)
     return population_structure
 
 
@@ -281,14 +281,6 @@ def get_entity(key: str):
     }
     key = EntityKey(key)
     return type_map[key.type][key.name]
-
-
-def filter_population(unfiltered: pd.DataFrame) -> pd.DataFrame:
-    unfiltered = unfiltered.reset_index()
-    filtered_pop = unfiltered[(unfiltered.sex == "Female") & (unfiltered.age_start >= 5) & (unfiltered.age_end <= 60)]
-    filtered_pop = filtered_pop.set_index(metadata.ARTIFACT_INDEX_COLUMNS)
-
-    return filtered_pop
 
 
 def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
