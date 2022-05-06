@@ -1,10 +1,10 @@
 from numbers import Real
-from typing import List, Set, Union, Tuple
+from typing import List, Set, Union
 import warnings
 
 import pandas as pd
 
-from gbd_mapping import causes, covariates, risk_factors, Cause, ModelableEntity, RiskFactor
+from gbd_mapping import causes, covariates, risk_factors, ModelableEntity, RiskFactor
 from vivarium.framework.artifact import EntityKey
 from vivarium_gbd_access import constants as gbd_constants, gbd
 from vivarium_gbd_access.utilities import get_draws, query

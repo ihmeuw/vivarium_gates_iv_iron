@@ -16,7 +16,6 @@ import pandas as pd
 
 from gbd_mapping import causes, covariates, risk_factors, sequelae
 from db_queries import (
-    get_covariate_estimates,
     get_location_metadata,
     get_population,
 )
@@ -33,7 +32,9 @@ from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys, metadata
 from vivarium_gates_iv_iron.data import utilities
-from vivarium_gates_iv_iron.paths import PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV as HGB_BELOW_70_CSV
+from vivarium_gates_iv_iron.paths import (
+    PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV as HGB_BELOW_70_CSV
+)
 from vivarium_gates_iv_iron.utilities import create_draws
 
 
