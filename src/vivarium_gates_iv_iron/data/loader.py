@@ -56,9 +56,9 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
     """
     mapping = {
         # data_keys.POPULATION.LOCATION: load_population_location,
-        data_keys.POPULATION.STRUCTURE: load_population_structure,
-        data_keys.POPULATION.AGE_BINS: load_age_bins,
-        data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
+        # data_keys.POPULATION.STRUCTURE: load_population_structure,
+        # data_keys.POPULATION.AGE_BINS: load_age_bins,
+        # data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
         data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
@@ -111,17 +111,7 @@ def load_age_bins(key: str, location: str) -> pd.DataFrame:
 
 
 def load_demographic_dimensions(key: str, location: str) -> pd.DataFrame:
-    return pd.DataFrame([
-        {
-            'location': location,
-            'sex': 'Female',
-            'age_start': 7,
-            'age_end': 54,
-            'year_start': 2021,
-            'year_end': 2022,
-        }
-    ]).set_index(['location', 'sex', 'age_start', 'age_end', 'year_start', 'year_end'])
-    # return interface.get_demographic_dimensions(location)
+    return interface.get_demographic_dimensions(location)
 
 
 def load_theoretical_minimum_risk_life_expectancy(key: str, location: str) -> pd.DataFrame:
