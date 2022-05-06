@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Dict
 
 import pandas as pd
+from vivarium.config_tree import ConfigurationKeyError
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import PopulationView, SimulantData
@@ -172,7 +173,7 @@ class BirthObserver:
 
         try:
             self.output_path = Path(builder.configuration.output_data.child_path)
-        except:
+        except ConfigurationKeyError:
             self.output_path = paths.CHILD_DATA_OUTPUT_DIR
 
         self.pipelines = self.get_pipelines(builder)
@@ -245,15 +246,27 @@ class BirthObserver:
     # noinspection PyUnusedLocal
     def write_output(self, event: Event) -> None:
         filename = f"{self.location}.{self.scenario}.{self.input_draw}.{self.seed}"
-        output_path = paths.CHILD_DATA_OUTPUT_DIR / f"{filename}.hdf"
-        csv_output_path = paths.CHILD_DATA_OUTPUT_DIR / f"{filename}.csv"
-        mkdir(paths.CHILD_DATA_OUTPUT_DIR, parents=True, exists_ok=True)
+        output_path = self.output_path / f"{filename}.hdf"
+        csv_output_path = self.output_path / f"{filename}.csv"
+        mkdir(self.output_path, parents=True, exists_ok=True)
 
         # add sim-level columns to dataframe to write (draw, seed, scenario)
-        draws = pd.Series(self.input_draw, index=event.index, name="input_draw")
-        seeds = pd.Series(self.seed, index=event.index, name="seed")
-        scenarios = pd.Series(self.scenario, index=event.index, name="scenario")
-        output_data = pd.concat([draws, seeds, scenarios, self.births], axis=1)
+        draws = pd.Series(self.input_draw, index=self.births, name="input_draw")
+        seeds = pd.Series(self.seed, index=self.births, name="seed")
+        scenarios = pd.Series(self.scenario, index=self.births, name="scenario")
+        output_data = pd.concat([draws, seeds, scenarios, *([self.births[col] for col in self.births.columns])], axis=1)
+
+        output_data = self.births.copy()
+        output_data["input_draw"] = self.input_draw
+        output_data["seed"] = self.seed
+        output_data["scenario"] = self.scenario
+        output_data = output_data[
+            ['input_draw', 'seed', 'scenario', 'birth_date', 'sex', 'birth_weight', 'gestational_age',
+             'joint_bmi_anemia_category', 'maternal_supplementation_coverage',
+             'maternal_antenatal_iv_iron_coverage',
+             'maternal_postpartum_iv_iron_coverage',
+             'intervention_birth_weight_shift']]
+
 
         output_data.to_hdf(output_path, "child_birth_data")
         output_data.to_csv(csv_output_path)
