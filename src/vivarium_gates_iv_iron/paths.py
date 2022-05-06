@@ -11,3 +11,4 @@ RESULTS_ROOT = Path(f"/share/costeffectiveness/results/{metadata.PROJECT_NAME}/"
 
 # todo fix a better output location
 CHILD_DATA_OUTPUT_DIR = RESULTS_ROOT / "child_data"
+

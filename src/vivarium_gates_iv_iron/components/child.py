@@ -6,15 +6,18 @@ from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import PopulationView, SimulantData
 from vivarium.framework.values import Pipeline
-from vivarium_public_health.risks import LBWSGDistribution
+from vivarium_cluster_tools import mkdir
 from vivarium_public_health.risks.implementations.low_birth_weight_and_short_gestation import (
-    BIRTH_WEIGHT,
-    GESTATIONAL_AGE,
+    # BIRTH_WEIGHT,
+    # GESTATIONAL_AGE,
+    LBWSGDistribution
 )
 
 from vivarium_gates_iv_iron import paths
 from vivarium_gates_iv_iron.constants import models
 
+BIRTH_WEIGHT = "birth_weight"
+GESTATIONAL_AGE = "gestational_age"
 
 class LBWSGExposure:
 
@@ -124,6 +127,19 @@ class LBWSGExposure:
         )
         return pregnancy_duration
 
+# X Input draw
+# X Scenario
+# X Random seed
+# X Date of birth
+# X Infant sex
+# TODO Joint categorical maternal BMI/anemia exposure: "cat1", "cat2", "cat3", "cat4" with 25% probability
+# X Birthweight exposure (either as sampled from GBD or post-adjustment due to the correlation between maternal anemia/BMI and birhtweight, in which case we would not need the joint categorical maternal BMI/anemia exposure above)
+# X Gestational age exposure
+# TODO Maternal supplementation coverage: "uncovered", "ifa", "mms", or "bep" with probability of 25% each.
+# TODO Maternal antenatal IV iron coverage: "uncovered" or "covered" with probability of 50%
+# TODO Maternal postpartum IV iron coverage: "uncovered" or "covered" with probability of 50%
+# TODO Birthweight shift due to intervention coverage (NOTE: alternatively, this may be calculated in the child simulation from reported maternal intervention coverage values)
+# If they were reported from the maternal sim they should be reported as point values between -500 and 500.
 
 class BirthObserver:
 
@@ -136,6 +152,21 @@ class BirthObserver:
     sex_column_name = "sex"
     birth_weight_column_name = "birth_weight"
     gestational_age_column_name = "gestational_age"
+
+    # Joint categorical maternal BMI/anemia exposure: "cat1", "cat2", "cat3", "cat4" with 25% probability
+    joint_bmi_anemia_category_column_name = "joint_bmi_anemia_category"
+
+    # Maternal supplementation coverage: "uncovered", "ifa", "mms", or "bep" with probability of 25% each.
+    maternal_supplementation_coverage_column_name = "maternal_supplementation_coverage"
+
+    # Maternal antenatal IV iron coverage: "uncovered" or "covered" with probability of 50%
+    maternal_antenatal_iv_iron_coverage_column_name = "maternal_antenatal_iv_iron_coverage"
+
+    # Maternal postpartum IV iron coverage: "uncovered" or "covered" with probability of 50%
+    maternal_postpartum_iv_iron_coverage_column_name = "maternal_postpartum_iv_iron_coverage"
+
+    # Birthweight shift due to intervention coverage: point values between -500 and 500.
+    intervention_birth_weight_shift_column_name = "intervention_birth_weight_shift"
 
     birth_weight_pipeline_name = 'birth_weight.exposure'
 
@@ -164,13 +195,17 @@ class BirthObserver:
         self.pipelines = self.get_pipelines(builder)
         self.population_view = self.get_population_view(builder)
 
-        # todo add other attributes to be tracked as needed to both dataframes
         self.ongoing_pregnancies = pd.DataFrame(
             {
                 self.birth_date_column_name: [],
                 self.sex_column_name: [],
                 self.birth_weight_column_name: [],
                 self.gestational_age_column_name: [],
+                self.joint_bmi_anemia_category_column_name: [],
+                self.maternal_supplementation_coverage_column_name: [],
+                self.maternal_antenatal_iv_iron_coverage_column_name: [],
+                self.maternal_postpartum_iv_iron_coverage_column_name: [],
+                self.intervention_birth_weight_shift_column_name: [],
             }
         )
         self.births = self.ongoing_pregnancies.copy()
@@ -226,21 +261,26 @@ class BirthObserver:
 
     # noinspection PyUnusedLocal
     def write_output(self, event: Event) -> None:
-        filename = f"{self.location}_{self.scenario}_{self.input_draw}_{self.seed}.hdf"
-        output_path = paths.CHILD_DATA_OUTPUT_DIR / filename
+        filename = f"{self.location}.{self.scenario}.{self.input_draw}.{self.seed}"
+        output_path = paths.CHILD_DATA_OUTPUT_DIR / f"{filename}.hdf"
+        csv_output_path = paths.CHILD_DATA_OUTPUT_DIR / f"{filename}.csv"
+        mkdir(paths.CHILD_DATA_OUTPUT_DIR, parents=True, exists_ok=True)
+        # TODO: add sim-level columns to dataframe to write (draw, seed, scenario)
         self.births.to_hdf(output_path, "child_birth_data")
+        self.births.to_csv(csv_output_path)
 
     ##################
     # Helper methods #
     ##################
 
     def _record_births(self, pop: pd.DataFrame, event: Event) -> None:
+        tomorrow = event.time + pd.Timedelta("1 day")  # dummy value for fillna that can compare properly with now
         new_births = self.ongoing_pregnancies[
-            self.ongoing_pregnancies[self.birth_date_column_name] <= event.time
+            self.ongoing_pregnancies[self.birth_date_column_name].fillna(tomorrow) <= event.time
         ]
 
         # this intersection removes all children whose mothers have passed away during pregnancy
-        live_births = new_births[new_births.index.intersection(pop.index)]
+        live_births = new_births.loc[new_births.index.intersection(pop.index)]
 
         self.births = pd.concat([self.births, live_births], ignore_index=True)
         self.ongoing_pregnancies = self.ongoing_pregnancies.drop(new_births.index)
@@ -248,7 +288,7 @@ class BirthObserver:
     def _record_conceptions(self, pop: pd.DataFrame, event: Event = None) -> None:
         conception_mask = pop[self.pregnancy_status_column_name] == models.PREGNANT_STATE
         if event is not None:
-            conception_mask &= (pop[self.pregnancy_state_change_column_name == event.time])
+            conception_mask &= (pop[self.pregnancy_state_change_column_name] == event.time)
 
         conception_index = pop[conception_mask].index
         pregnancy_duration = pop.loc[conception_index, self.pregnancy_duration_column_name]
@@ -259,13 +299,23 @@ class BirthObserver:
         )
         birth_date = (
             pop.loc[conception_index, self.pregnancy_state_change_column_name] + pregnancy_duration
-        )
-        birth_weight = self.pipelines[self.birth_weight_pipeline_name](conception_index)
+        ).rename(self.birth_date_column_name)
+        birth_weight = (self.pipelines[self.birth_weight_pipeline_name](conception_index)).rename(self.birth_weight_column_name)
         gestational_age = (
             pregnancy_duration
             .apply(lambda td: (td.days + td.seconds / (3600 * 24)) / 7.0)
             .rename(self.gestational_age_column_name)
         )
 
-        new_conceptions = pd.concat([child_sex, birth_date, birth_weight, gestational_age], axis=1)
+        # TODO: Replace these dummy values as they get implemented
+        joint_bmi_anemia_category = pd.Series("cat1", index=conception_index, name=self.joint_bmi_anemia_category_column_name)
+        maternal_supplementation_coverage = pd.Series("uncovered", index=conception_index, name=self.maternal_supplementation_coverage_column_name)
+        maternal_antenatal_iv_iron_coverage = pd.Series("uncovered", index=conception_index, name=self.maternal_antenatal_iv_iron_coverage_column_name)
+        maternal_postpartum_iv_iron_coverage = pd.Series("uncovered", index=conception_index, name=self.maternal_postpartum_iv_iron_coverage_column_name)
+        intervention_birth_weight_shift = pd.Series(0., index=conception_index, name=self.intervention_birth_weight_shift_column_name)
+
+        new_conceptions = pd.concat([birth_date, child_sex, birth_weight, gestational_age,
+                                     joint_bmi_anemia_category, maternal_supplementation_coverage,
+                                     maternal_antenatal_iv_iron_coverage, maternal_postpartum_iv_iron_coverage,
+                                     intervention_birth_weight_shift], axis=1)
         self.ongoing_pregnancies = pd.concat([self.ongoing_pregnancies, new_conceptions])
