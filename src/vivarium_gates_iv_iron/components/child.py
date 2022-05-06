@@ -170,6 +170,11 @@ class BirthObserver:
         self.seed = builder.configuration.randomness.random_seed
         self.scenario = builder.configuration.intervention.scenario
 
+        try:
+            self.output_path = Path(builder.configuration.output_data.child_path)
+        except:
+            self.output_path = paths.CHILD_DATA_OUTPUT_DIR
+
         self.pipelines = self.get_pipelines(builder)
         self.population_view = self.get_population_view(builder)
 
@@ -248,8 +253,8 @@ class BirthObserver:
         draws = pd.Series(self.input_draw, index=event.index, name="input_draw")
         seeds = pd.Series(self.seed, index=event.index, name="seed")
         scenarios = pd.Series(self.scenario, index=event.index, name="scenario")
-        output_data = pd.concat([draws, seeds, scenarios, self.births])
-        
+        output_data = pd.concat([draws, seeds, scenarios, self.births], axis=1)
+
         output_data.to_hdf(output_path, "child_birth_data")
         output_data.to_csv(csv_output_path)
 
