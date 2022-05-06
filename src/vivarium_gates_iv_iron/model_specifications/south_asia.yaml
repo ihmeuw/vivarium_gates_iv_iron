@@ -7,13 +7,13 @@ components:
         - Pregnancy()
         - LBWSGExposure()
 
-#        - DisabilityObserver()
-#        - MortalityObserver()
-#        - PregnancyObserver()
-#        - MaternalDisordersObserver()
-#        - MaternalHemorrhageObserver()
-#        - HemoglobinObserver()
-#        - AnemiaObserver()
+        - DisabilityObserver()
+        - MortalityObserver()
+        - PregnancyObserver()
+        - MaternalDisordersObserver()
+        - MaternalHemorrhageObserver()
+        - HemoglobinObserver()
+        - AnemiaObserver()
         - BirthObserver()
 
 configuration:

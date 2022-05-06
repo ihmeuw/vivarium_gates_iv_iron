@@ -127,19 +127,6 @@ class LBWSGExposure:
         )
         return pregnancy_duration
 
-# X Input draw
-# X Scenario
-# X Random seed
-# X Date of birth
-# X Infant sex
-# TODO Joint categorical maternal BMI/anemia exposure: "cat1", "cat2", "cat3", "cat4" with 25% probability
-# X Birthweight exposure (either as sampled from GBD or post-adjustment due to the correlation between maternal anemia/BMI and birhtweight, in which case we would not need the joint categorical maternal BMI/anemia exposure above)
-# X Gestational age exposure
-# TODO Maternal supplementation coverage: "uncovered", "ifa", "mms", or "bep" with probability of 25% each.
-# TODO Maternal antenatal IV iron coverage: "uncovered" or "covered" with probability of 50%
-# TODO Maternal postpartum IV iron coverage: "uncovered" or "covered" with probability of 50%
-# TODO Birthweight shift due to intervention coverage (NOTE: alternatively, this may be calculated in the child simulation from reported maternal intervention coverage values)
-# If they were reported from the maternal sim they should be reported as point values between -500 and 500.
 
 class BirthObserver:
 
@@ -153,19 +140,10 @@ class BirthObserver:
     birth_weight_column_name = "birth_weight"
     gestational_age_column_name = "gestational_age"
 
-    # Joint categorical maternal BMI/anemia exposure: "cat1", "cat2", "cat3", "cat4" with 25% probability
     joint_bmi_anemia_category_column_name = "joint_bmi_anemia_category"
-
-    # Maternal supplementation coverage: "uncovered", "ifa", "mms", or "bep" with probability of 25% each.
     maternal_supplementation_coverage_column_name = "maternal_supplementation_coverage"
-
-    # Maternal antenatal IV iron coverage: "uncovered" or "covered" with probability of 50%
     maternal_antenatal_iv_iron_coverage_column_name = "maternal_antenatal_iv_iron_coverage"
-
-    # Maternal postpartum IV iron coverage: "uncovered" or "covered" with probability of 50%
     maternal_postpartum_iv_iron_coverage_column_name = "maternal_postpartum_iv_iron_coverage"
-
-    # Birthweight shift due to intervention coverage: point values between -500 and 500.
     intervention_birth_weight_shift_column_name = "intervention_birth_weight_shift"
 
     birth_weight_pipeline_name = 'birth_weight.exposure'
@@ -265,9 +243,15 @@ class BirthObserver:
         output_path = paths.CHILD_DATA_OUTPUT_DIR / f"{filename}.hdf"
         csv_output_path = paths.CHILD_DATA_OUTPUT_DIR / f"{filename}.csv"
         mkdir(paths.CHILD_DATA_OUTPUT_DIR, parents=True, exists_ok=True)
-        # TODO: add sim-level columns to dataframe to write (draw, seed, scenario)
-        self.births.to_hdf(output_path, "child_birth_data")
-        self.births.to_csv(csv_output_path)
+
+        # add sim-level columns to dataframe to write (draw, seed, scenario)
+        draws = pd.Series(self.input_draw, index=event.index, name="input_draw")
+        seeds = pd.Series(self.seed, index=event.index, name="seed")
+        scenarios = pd.Series(self.scenario, index=event.index, name="scenario")
+        output_data = pd.concat([draws, seeds, scenarios, self.births])
+        
+        output_data.to_hdf(output_path, "child_birth_data")
+        output_data.to_csv(csv_output_path)
 
     ##################
     # Helper methods #
@@ -300,7 +284,8 @@ class BirthObserver:
         birth_date = (
             pop.loc[conception_index, self.pregnancy_state_change_column_name] + pregnancy_duration
         ).rename(self.birth_date_column_name)
-        birth_weight = (self.pipelines[self.birth_weight_pipeline_name](conception_index)).rename(self.birth_weight_column_name)
+        birth_weight = (self.pipelines[self.birth_weight_pipeline_name](conception_index)).rename(
+            self.birth_weight_column_name)
         gestational_age = (
             pregnancy_duration
             .apply(lambda td: (td.days + td.seconds / (3600 * 24)) / 7.0)
@@ -308,11 +293,16 @@ class BirthObserver:
         )
 
         # TODO: Replace these dummy values as they get implemented
-        joint_bmi_anemia_category = pd.Series("cat1", index=conception_index, name=self.joint_bmi_anemia_category_column_name)
-        maternal_supplementation_coverage = pd.Series("uncovered", index=conception_index, name=self.maternal_supplementation_coverage_column_name)
-        maternal_antenatal_iv_iron_coverage = pd.Series("uncovered", index=conception_index, name=self.maternal_antenatal_iv_iron_coverage_column_name)
-        maternal_postpartum_iv_iron_coverage = pd.Series("uncovered", index=conception_index, name=self.maternal_postpartum_iv_iron_coverage_column_name)
-        intervention_birth_weight_shift = pd.Series(0., index=conception_index, name=self.intervention_birth_weight_shift_column_name)
+        joint_bmi_anemia_category = pd.Series("cat1", index=conception_index,
+                                              name=self.joint_bmi_anemia_category_column_name)
+        maternal_supplementation_coverage = pd.Series("uncovered", index=conception_index,
+                                                      name=self.maternal_supplementation_coverage_column_name)
+        maternal_antenatal_iv_iron_coverage = pd.Series("uncovered", index=conception_index,
+                                                        name=self.maternal_antenatal_iv_iron_coverage_column_name)
+        maternal_postpartum_iv_iron_coverage = pd.Series("uncovered", index=conception_index,
+                                                         name=self.maternal_postpartum_iv_iron_coverage_column_name)
+        intervention_birth_weight_shift = pd.Series(0., index=conception_index,
+                                                    name=self.intervention_birth_weight_shift_column_name)
 
         new_conceptions = pd.concat([birth_date, child_sex, birth_weight, gestational_age,
                                      joint_bmi_anemia_category, maternal_supplementation_coverage,
