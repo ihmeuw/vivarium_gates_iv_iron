@@ -63,7 +63,7 @@ class Pregnancy:
             parameter_columns=['age', 'year']
         )
         not_pregnant_prevalence = prevalence_data.set_index(self.index_cols)[models.NOT_PREGNANT_STATE]
-        conception_rate_data = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE).fillna(0)
+        conception_rate_data = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
         conception_rate = builder.lookup.build_table(conception_rate_data,
                                                      key_columns=['sex'],
                                                      parameter_columns=['age', 'year'])

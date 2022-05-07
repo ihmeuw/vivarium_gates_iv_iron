@@ -65,11 +65,11 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.ACMR: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
         data_keys.PREGNANCY.SBR: load_sbr,
+        data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE: load_miscarriage_rate,
+        data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_ectopic_pregnancy_rate,
         data_keys.PREGNANCY.PREVALENCE: load_pregnancy_prevalence,
+        data_keys.PREGNANCY.CONCEPTION_RATE: load_conception_rate,
 
-        data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
-        data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE: load_standard_data,
-        data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_standard_data,
         data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
         data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: get_women_reproductive_age_location_weights,
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
@@ -196,6 +196,17 @@ def load_sbr(key: str, location: str):
     return sbr
 
 
+@lru_cache
+def load_miscarriage_rate(key: str, location: str):
+    return load_standard_data(key, location)
+
+
+@lru_cache
+def load_ectopic_pregnancy_rate(key: str, location: str):
+    return load_standard_data(key, location)
+
+
+@lru_cache
 def load_pregnancy_prevalence(key: str, location: str):
     asfr = get_data(data_keys.PREGNANCY.ASFR, location)
     sbr = get_data(data_keys.PREGNANCY.SBR, location)
@@ -227,6 +238,22 @@ def load_pregnancy_prevalence(key: str, location: str):
     prevalence[models.NOT_PREGNANT_STATE] = 1 - prevalence.sum(axis=1)
 
     return prevalence
+
+
+def load_conception_rate(key: str, location: str):
+    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
+    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
+    sbr = get_data(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
+    pregnancy_end_rate = asfr + asfr * sbr + incidence_c995 + incidence_c374
+
+    conception_rate = (
+        pregnancy_end_rate / prevalence[models.NOT_PREGNANT_STATE]
+    ).rename('value')
+
+    return conception_rate
+
 
 
 def get_pregnant_lactating_women_location_weights(key: str, location: str):
@@ -289,11 +316,7 @@ def _load_em_from_meid(location, meid, measure):
     return vi_utils.sort_hierarchical_data(data)
 
 
-def load_pregnancy_incidence_rate(key: str, location: str):
-    not_pregnant = get_prevalence_not_pregnant(key, location)
-    pregnancy_incidence_rate = _get_pregnancy_outcome_denominator(key, location) / not_pregnant
 
-    return pregnancy_incidence_rate
 
 
 def get_wra(location: str, decomp: str = "step4"):
