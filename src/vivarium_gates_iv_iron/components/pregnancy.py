@@ -79,16 +79,13 @@ class Pregnancy:
             parameter_columns=['age'],
         )
 
-        all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR)
-        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR)
-        background_mortality_rate_table = builder.lookup.build_table(
-            (all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
-        )
         self.background_mortality_rate = builder.value.register_rate_producer(
             'background_mortality_rate',
-            source=background_mortality_rate_table,
+            source=builder.lookup.build_table(
+                self._get_background_mortality_rate(builder),
+                key_columns=['sex'],
+                parameter_columns=['age', 'year'],
+            ),
         )
 
         self.probability_fatal_maternal_disorder = builder.lookup.build_table(
@@ -388,4 +385,15 @@ class Pregnancy:
         for state in models.PREGNANCY_MODEL_STATES[1:]:
             correction_factors[state] = (pregnant_mean_cf, pregnant_sd_cf)
         return correction_factors
+
+    @staticmethod
+    def _get_background_mortality_rate(builder: Builder) -> pd.DataFrame:
+        all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR)
+        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR)
+        idx = all_cause_mortality_data.columns.difference(['value']).tolist()
+        background_mortality_rate = (
+            all_cause_mortality_data.set_index(idx)
+            - maternal_disorder_csmr.set_index(idx)
+        ).reset_index()
+        return background_mortality_rate
 
