@@ -296,7 +296,8 @@ def load_child_outcome_probabilities(key: str, location: str):
     invalid_probability = 1 - probabilities.groupby(probabilities.index.names).sum()
     invalid_probability['pregnancy_outcome'] = models.INVALID_OUTCOME
     probabilities = pd.concat([probabilities, invalid_probability])
-    probabilities.set_index('pregnancy_outcome', append=True)
+    probabilities = probabilities.set_index('pregnancy_outcome', append=True)
+
     return probabilities
 
 
