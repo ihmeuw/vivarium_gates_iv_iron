@@ -17,8 +17,6 @@ class __Population(NamedTuple):
     DEMOGRAPHY: str = "population.demographic_dimensions"
     TMRLE: str = "population.theoretical_minimum_risk_life_expectancy"
     ACMR: str = "cause.all_causes.cause_specific_mortality_rate"
-    PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = "population.pregnant_and_lactating_women_location_weights"
-    WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: str = "population.women_of_reproductive_age_location_weights"
 
     @property
     def name(self):
@@ -65,14 +63,24 @@ class __Pregnancy(NamedTuple):
     INCIDENCE_RATE: TargetString = TargetString(
         "cause.pregnancy.incidence_rate"
     )
-    ASFR: TargetString = TargetString('covariate.age_specific_fertility_rate.estimate'
+    ASFR: TargetString = TargetString(
+        'covariate.age_specific_fertility_rate.estimate'
     )
-    SBR: TargetString = TargetString('covariate.stillbirth_to_live_birth_ratio.estimate'
+    SBR: TargetString = TargetString(
+        'covariate.stillbirth_to_live_birth_ratio.estimate'
     )
-    INCIDENCE_RATE_ECTOPIC: TargetString = TargetString("cause.ectopic_pregnancy.incidence_rate"
-                                                        )
-    INCIDENCE_RATE_MISCARRIAGE: TargetString = TargetString("cause.maternal_abortion_and_miscarriage.incidence_rate"
-                                                            )
+    INCIDENCE_RATE_ECTOPIC: TargetString = TargetString(
+        "cause.ectopic_pregnancy.incidence_rate"
+    )
+    INCIDENCE_RATE_MISCARRIAGE: TargetString = TargetString(
+        "cause.maternal_abortion_and_miscarriage.incidence_rate"
+    )
+    PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = (
+        "pregnancy.pregnant_and_lactating_women_location_weights"
+    )
+    WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: str = (
+        "pregnancy.women_of_reproductive_age_location_weights"
+    )
 
     @property
     def name(self):
