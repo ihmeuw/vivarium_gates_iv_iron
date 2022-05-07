@@ -49,20 +49,20 @@ PREGNANCY_OUTCOMES = __PregnancyOutcomes()
 
 
 class __Pregnancy(NamedTuple):
+    PREVALENCE: str = "pregnancy.prevalence"
 
-    # Keys that will be loaded into the artifact. must have a colon type declaration
-    PREGNANT_PREVALENCE: TargetString = TargetString(
-        "cause.pregnancy.pregnant_prevalence"
+    CONCEPTION_RATE: str = (
+        "pregnancy.conception_rate"
     )
-    NOT_PREGNANT_PREVALENCE: TargetString = TargetString(
-        "cause.pregnancy.not_pregnant_prevalence"
+    PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = (
+        "pregnancy.pregnant_and_lactating_women_location_weights"
     )
-    POSTPARTUM_PREVALENCE: TargetString = TargetString(
-        "cause.pregnancy.postpartum_prevalence"
+    WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: str = (
+        "pregnancy.women_of_reproductive_age_location_weights"
     )
-    INCIDENCE_RATE: TargetString = TargetString(
-        "cause.pregnancy.incidence_rate"
-    )
+
+
+
     ASFR: TargetString = TargetString(
         'covariate.age_specific_fertility_rate.estimate'
     )
@@ -75,12 +75,7 @@ class __Pregnancy(NamedTuple):
     INCIDENCE_RATE_MISCARRIAGE: TargetString = TargetString(
         "cause.maternal_abortion_and_miscarriage.incidence_rate"
     )
-    PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = (
-        "pregnancy.pregnant_and_lactating_women_location_weights"
-    )
-    WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: str = (
-        "pregnancy.women_of_reproductive_age_location_weights"
-    )
+
 
     @property
     def name(self):

@@ -32,7 +32,7 @@ from vivarium_inputs import (
 )
 from vivarium_inputs.mapping_extension import alternative_risk_factors
 
-from vivarium_gates_iv_iron.constants import data_keys, metadata
+from vivarium_gates_iv_iron.constants import data_keys, metadata, models, data_values
 from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.paths import (
     PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV as HGB_BELOW_70_CSV
@@ -65,11 +65,9 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.ACMR: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
         data_keys.PREGNANCY.SBR: load_sbr,
+        data_keys.PREGNANCY.PREVALENCE: load_pregnancy_prevalence,
 
         data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
-        data_keys.PREGNANCY.PREGNANT_PREVALENCE: get_prevalence_pregnant,
-        data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE: get_prevalence_not_pregnant,
-        data_keys.PREGNANCY.POSTPARTUM_PREVALENCE: get_prevalence_postpartum,
         data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE: load_standard_data,
         data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_standard_data,
         data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
@@ -198,6 +196,39 @@ def load_sbr(key: str, location: str):
     return sbr
 
 
+def load_pregnancy_prevalence(key: str, location: str):
+    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
+    sbr = get_data(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
+    pregnancy_end_rate = asfr + asfr * sbr + incidence_c995 + incidence_c374
+
+    pregnant_prevalence = (
+        data_values.DURATIONS.FULL_TERM * (asfr + asfr * sbr)
+        + data_values.DURATIONS.PARTIAL_TERM * (incidence_c995 + incidence_c374)
+    ).rename(models.PREGNANT_STATE)
+    maternal_disorders_prevalence = pd.Series(
+        0., index=pregnant_prevalence.index, name=models.MATERNAL_DISORDER_STATE
+    )
+    no_maternal_disorders_prevalence = (
+        data_values.DURATIONS.PREPOSTPARTUM * pregnancy_end_rate
+    ).rename(models.NO_MATERNAL_DISORDER_STATE)
+    postpartum_prevalence = (
+        data_values.DURATIONS.POSTPARTUM * pregnancy_end_rate
+    ).rename(models.POSTPARTUM_STATE)
+
+    prevalence = pd.concat([
+        pregnant_prevalence,
+        maternal_disorders_prevalence,
+        no_maternal_disorders_prevalence,
+        postpartum_prevalence,
+    ], axis=1)
+
+    prevalence[models.NOT_PREGNANT_STATE] = 1 - prevalence.sum(axis=1)
+
+    return prevalence
+
+
 def get_pregnant_lactating_women_location_weights(key: str, location: str):
     #  WRA * (ASFR + (ASFR * SBR) + incidence_c996 + incidence_c374)
     #      - divide by regional population
@@ -316,41 +347,10 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     return data
 
 
-def get_prevalence_not_pregnant(key: str, location: str) -> pd.DataFrame:
-    np_prevalence = 1 - get_prevalence_pregnant(key, location) - get_prevalence_postpartum(key, location)
-
-    return np_prevalence
 
 
-def get_prevalence_pregnant(key: str, location: str) -> pd.DataFrame:
-    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
-    sbr = get_data(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
-    incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
-
-    prevalence_pregnant = (((asfr + asfr * sbr) * 40 / 52) +
-                           ((incidence_c995 + incidence_c374) * 24 / 52))
-
-    return prevalence_pregnant
 
 
-def get_prevalence_postpartum(key: str, location: str) -> pd.DataFrame:
-    return _get_pregnancy_outcome_denominator(key, location) * 6 / 52
-
-
-def _get_pregnancy_outcome_denominator(key: str, location: str, asfr=None, sbr=None,
-                                       incidence_c995=None, incidence_c374=None):
-    # ASFR + ASFR * SBR + incidence_c995 + incidence_c374)
-    if asfr is None:
-        asfr = get_data(data_keys.PREGNANCY.ASFR, location)
-    if sbr is None:
-        sbr = get_data(data_keys.PREGNANCY.SBR, location)
-    if incidence_c995 is None:
-        incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
-    if incidence_c374 is None:
-        incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
-
-    return asfr + asfr * sbr + incidence_c995 + incidence_c374
 
 
 def load_pregnancy_outcome(key: str, location: str):

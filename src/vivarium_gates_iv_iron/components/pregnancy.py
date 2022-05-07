@@ -1,18 +1,17 @@
 import numpy as np
 import pandas as pd
 
-from typing import Tuple, Union
-
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
-from vivarium_public_health.population import Mortality
+
 from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.constants import models, data_keys, metadata
-from vivarium_gates_iv_iron.constants.data_values import (POSTPARTUM_DURATION_DAYS, PREPOSTPARTUM_DURATION_DAYS,
-                                                          PREPOSTPARTUM_DURATION_RATIO, POSTPARTUM_DURATION_RATIO,
-                                                          HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
-                                                          MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY)
+from vivarium_gates_iv_iron.constants.data_values import (
+    DURATIONS,
+    HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
+    MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY,
+)
 from vivarium_gates_iv_iron.utilities import (
     create_draw,
     get_norm_from_quantiles,
@@ -32,7 +31,6 @@ class Pregnancy:
     @property
     def sub_components(self):
         return [self.hemoglobin_distribution]
-
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
@@ -58,13 +56,13 @@ class Pregnancy:
 
         self.index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
 
-        prevalences = self.load_pregnancy_prevalence(builder)
-        self.prevalence = builder.lookup.build_table(prevalences,
-                                                     key_columns=['sex'],
-                                                     parameter_columns=['age', 'year'])
-        not_pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE)
-                                   .fillna(0)
-                                   .set_index(self.index_cols))
+        prevalence_data = builder.data.load(data_keys.PREGNANCY.PREVALENCE)
+        self.prevalence = builder.lookup.build_table(
+            prevalence_data,
+            key_columns=['sex'],
+            parameter_columns=['age', 'year']
+        )
+        not_pregnant_prevalence = prevalence_data.set_index(self.index_cols)[models.NOT_PREGNANT_STATE]
         conception_rate_data = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE).fillna(0)
         conception_rate = builder.lookup.build_table(conception_rate_data,
                                                      key_columns=['sex'],
@@ -197,14 +195,15 @@ class Pregnancy:
         days_until_pregnancy_ends = pregnancy_duration * self.randomness.get_draw(pop_data.index,
                                                                                   additional_key='conception_date')
         conception_date = pop_data.creation_time - days_until_pregnancy_ends
+
         days_until_postpartum_ends = pd.to_timedelta(
-            POSTPARTUM_DURATION_DAYS * self.randomness.get_draw(pop_data.index,
-                                                                additional_key='days_until_postpartum_ends'))
+             7 * DURATIONS.POSTPARTUM * self.randomness.get_draw(pop_data.index,
+                                                                 additional_key='days_until_postpartum_ends'))
         postpartum_start_date = pop_data.creation_time - days_until_postpartum_ends
         pregnancy_state_change_date.loc[is_pregnant_idx] = conception_date.loc[is_pregnant_idx]
         pregnancy_state_change_date.loc[is_postpartum_idx] = postpartum_start_date.loc[is_postpartum_idx]
         pregnancy_state_change_date.loc[is_prepostpartum_idx] = (pop_data.creation_time
-                                                                 - pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))
+                                                                 - pd.Timedelta(days=7 * DURATIONS.PREPOSTPARTUM))
 
         # initialize columns for 'cause_of_death', 'years_of_life_lost'
         cause_of_death = pd.Series("not_dead", index=pop_data.index, dtype="string")
@@ -273,12 +272,12 @@ class Pregnancy:
                     ((pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
                      | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE))
                     & (event.time - pop["pregnancy_state_change_date"] >=
-                       pd.Timedelta(days=PREPOSTPARTUM_DURATION_DAYS))  # One time step
+                       pd.Timedelta(days=7 * DURATIONS.PREPOSTPARTUM))  # One time step
             )
         )
         postpartum_ends_this_step = (
                 (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
-                & (event.time - pop["pregnancy_state_change_date"] >= pd.Timedelta(days=POSTPARTUM_DURATION_DAYS))
+                & (event.time - pop["pregnancy_state_change_date"] >= pd.Timedelta(days=7 * DURATIONS.POSTPARTUM))
         )
 
         # Determine who dies
@@ -345,38 +344,6 @@ class Pregnancy:
         pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = models.NOT_MATERNAL_HEMORRHAGE_STATE
 
         self.population_view.update(pop)
-
-    def on_collect_metrics(self):
-        # TODO: Record births, append (sex, bw, ga, birth date, maternal characteristics) tuple to list
-        ...
-
-    def on_simulation_end(self):
-        # TODO: coerce list of children tuples to dataframe
-        # Get output directory from configuration (can be special config key or get from general results key)
-        # write to file
-        ...
-
-    def load_pregnancy_prevalence(self, builder: Builder) -> pd.DataFrame:
-        not_pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE)
-                                   .fillna(0)
-                                   .set_index(self.index_cols))
-        pregnant_prevalence = (builder.data.load(data_keys.PREGNANCY.PREGNANT_PREVALENCE)
-                               .fillna(0)
-                               .set_index(self.index_cols))
-        postpartum_prevalence = (builder.data.load(data_keys.PREGNANCY.POSTPARTUM_PREVALENCE)
-                                 .fillna(0)
-                                 .set_index(self.index_cols))
-        maternal_disorder_prevalence = pd.Series(0., index=postpartum_prevalence.index,
-                                                 name=models.MATERNAL_DISORDER_STATE)
-        no_maternal_disorder_prevalence = PREPOSTPARTUM_DURATION_RATIO * postpartum_prevalence
-        postpartum_prevalence = POSTPARTUM_DURATION_RATIO * postpartum_prevalence
-
-        # order of prevalences must match order of PREGNANCY_MODEL_STATES
-        prevalences = pd.concat([not_pregnant_prevalence, pregnant_prevalence, maternal_disorder_prevalence,
-                                 no_maternal_disorder_prevalence, postpartum_prevalence], axis=1)
-        prevalences.columns = list(models.PREGNANCY_MODEL_STATES)
-
-        return prevalences.reset_index()
 
     def load_pregnancy_outcome_probabilities(self, builder: Builder) -> pd.DataFrame:
         pregnancy_outcome_keys = [data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH,
