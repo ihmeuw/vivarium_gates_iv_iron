@@ -2,10 +2,11 @@ import click
 import numpy as np
 import pandas as pd
 from scipy import stats
-from typing import NamedTuple, Union, List, Tuple
+from typing import Union, List, Tuple
 from pathlib import Path
 from loguru import logger
 
+from vivarium.framework.engine import Builder
 from vivarium.framework.randomness import get_hash
 
 from vivarium_gates_iv_iron.constants import metadata
@@ -54,34 +55,6 @@ def delete_if_exists(*paths: Union[Path, List[Path]], confirm=False):
         for p in existing_paths:
             logger.info(f"Deleting artifact at {str(p)}.")
             p.unlink()
-
-
-# def read_data_by_draw(artifact_path: str, key: str, draw: int) -> pd.DataFrame:
-#     """Reads data from the artifact on a per-draw basis. This
-#     is necessary for Low Birthweight Short Gestation (LBWSG) data.
-#
-#     Parameters
-#     ----------
-#     artifact_path
-#         The artifact to read from.
-#     key
-#         The entity key associated with the data to read.
-#     draw
-#         The data to retrieve.
-#
-#     """
-#     key = key.replace(".", "/")
-#     with pd.HDFStore(artifact_path, mode="r") as store:
-#         index = store.get(f"{key}/index")
-#         draw = store.get(f"{key}/draw_{draw}")
-#     draw = draw.rename("value")
-#     data = pd.concat([index, draw], axis=1)
-#     data = data.drop(columns="location")
-#     data = pivot_categorical(data)
-#     data[
-#         project_globals.LBWSG_MISSING_CATEGORY.CAT
-#     ] = project_globals.LBWSG_MISSING_CATEGORY.EXPOSURE
-#     return data
 
 
 def get_random_variable_draws(columns: pd.Index, seed: str, distribution) -> pd.Series:
@@ -191,3 +164,10 @@ def create_draw(draw: int, distribution_parameters: Tuple, key: str, location: s
                                          upper=distribution_parameters[2])
     seed = f"{key}_{location}"
     return get_random_variable(draw, seed, distribution)
+
+
+def load_and_unstack(builder: Builder, data_key: str, unstack_col: str) -> pd.DataFrame:
+    data = builder.data.load(data_key)
+    idx_cols = data.columns.difference(['value', unstack_col])
+    data = data.pivot(index=idx_cols, columns=unstack_col, values='value')
+    return data.reset_index()

@@ -17,6 +17,7 @@ from vivarium_gates_iv_iron.utilities import (
     get_norm_from_quantiles,
     get_random_variable,
     get_truncnorm_from_quantiles,
+    load_and_unstack,
 )
 
 
@@ -51,23 +52,24 @@ class Pregnancy:
         ]
 
         self.prevalence = builder.lookup.build_table(
-            builder.data.load(data_keys.PREGNANCY.PREVALENCE),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
-        )
-
-        conception_rate_table = builder.lookup.build_table(
-            builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE),
+            load_and_unstack(builder, data_keys.PREGNANCY.PREVALENCE, 'pregnancy_status'),
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
         self.conception_rate = builder.value.register_rate_producer(
             'conception_rate',
-            source=conception_rate_table,
+            source=builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.CONCEPTION_RATE),
+                key_columns=['sex'],
+                parameter_columns=['age', 'year'],
+            ),
         )
-
         self.outcome_probabilities = builder.lookup.build_table(
-            builder.data.load(data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES),
+            load_and_unstack(
+                builder,
+                data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES,
+                'pregnancy_outcome'
+            ),
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
