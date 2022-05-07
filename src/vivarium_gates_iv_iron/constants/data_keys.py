@@ -30,24 +30,6 @@ class __Population(NamedTuple):
 POPULATION = __Population()
 
 
-class __PregnancyOutcomes(NamedTuple):
-    # Live birth, still birth, other
-    STILLBIRTH: str = "pregnancy_outcomes.stillbirth"
-    LIVE_BIRTH: str = "pregnancy_outcomes.live_birth"
-    OTHER: str = "pregnancy_outcomes.other"  # (abortion, miscarriage, ectopic pregnancy)
-
-    @property
-    def name(self):
-        return "pregnancy_outcomes"
-
-    @property
-    def log_name(self):
-        return "pregnancy_outcomes"
-
-
-PREGNANCY_OUTCOMES = __PregnancyOutcomes()
-
-
 class __Pregnancy(NamedTuple):
     ASFR: str = 'covariate.age_specific_fertility_rate.estimate'
     SBR: str = 'covariate.stillbirth_to_live_birth_ratio.estimate'
@@ -56,15 +38,6 @@ class __Pregnancy(NamedTuple):
     PREVALENCE: str = "covariate.pregnancy_prevalence.estimate"
     CONCEPTION_RATE: str = "covariate.conception_rate.estimate"
     CHILD_OUTCOME_PROBABILITIES: str = 'covariate.child_outcome_probability.estimate'
-    PROBABILITY_FATAL_MATERNAL_DISORDER: str = (
-        'covariate.probability_fatal_maternal_disorder.estimate'
-    )
-    PROBABILITY_NONFATAL_MATERNAL_DISORDER: str = (
-        'covariate.probability_nonfatal_maternal_disorder.estimate'
-    )
-    PROBABILITY_MATERNAL_HEMORRHAGE: str = (
-        "covariate.probability_maternal_hemorrhage.estimate"
-    )
 
     PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = (
         "pregnancy.pregnant_and_lactating_women_location_weights"
@@ -86,16 +59,14 @@ PREGNANCY = __Pregnancy()
 
 
 class __MaternalDisorders(NamedTuple):
-
-    CSMR: TargetString = TargetString(
-        "cause.maternal_disorders.cause_specific_mortality_rate"
-    )
-    INCIDENCE_RATE: TargetString = TargetString(
-        "cause.maternal_disorders.incidence_rate"
-    )
-    YLDS: TargetString = TargetString(
-        "cause.maternal_disorders.ylds"
-    )
+    TOTAL_CSMR: str = "cause.maternal_disorders.cause_specific_mortality_rate"
+    TOTAL_INCIDENCE_RATE: str = "cause.maternal_disorders.incidence_rate"
+    HEMORRHAGE_CSMR: str = "cause.maternal_hemorrhage.cause_specific_mortality_rate"
+    HEMORRHAGE_INCIDENCE_RATE: str = "cause.maternal_hemorrhage.incidence_rate"
+    YLDS: str = "cause.maternal_disorders.ylds"
+    PROBABILITY_FATAL: str = 'covariate.probability_fatal_maternal_disorder.estimate'
+    PROBABILITY_NONFATAL: str = 'covariate.probability_nonfatal_maternal_disorder.estimate'
+    PROBABILITY_HEMORRHAGE: str = "covariate.probability_maternal_hemorrhage.estimate"
 
     @property
     def name(self):
@@ -107,27 +78,6 @@ class __MaternalDisorders(NamedTuple):
 
 
 MATERNAL_DISORDERS = __MaternalDisorders()
-
-
-class __MaternalHemorrhage(NamedTuple):
-
-    CSMR: TargetString = TargetString(
-        "cause.maternal_hemorrhage.cause_specific_mortality_rate"
-    )
-    INCIDENCE_RATE: TargetString = TargetString(
-        "cause.maternal_hemorrhage.incidence_rate"
-    )
-
-    @property
-    def name(self):
-        return "maternal_hemorrhage"
-
-    @property
-    def log_name(self):
-        return "maternal_hemorrhage"
-
-
-MATERNAL_HEMORRHAGE = __MaternalHemorrhage()
 
 
 class _Hemoglobin(NamedTuple):
@@ -167,11 +117,10 @@ LBWSG = __LowBirthWeightShortGestation()
 
 
 MAKE_ARTIFACT_KEY_GROUPS = [
-    POPULATION,
-    PREGNANCY,
-    PREGNANCY_OUTCOMES,
-    MATERNAL_DISORDERS,
-    MATERNAL_HEMORRHAGE,
+    #POPULATION,
+    #PREGNANCY,
+    #MATERNAL_DISORDERS,
+    #MATERNAL_HEMORRHAGE,
     LBWSG,
     HEMOGLOBIN,
 ]
