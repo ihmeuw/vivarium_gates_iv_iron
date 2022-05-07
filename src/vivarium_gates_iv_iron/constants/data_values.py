@@ -14,9 +14,8 @@ class _Durations(NamedTuple):
 
 DURATIONS = _Durations()
 
-
 MATERNAL_HEMORRHAGE_HEMOGLOBIN_POSTPARTUM_SHIFT = 6.8  # g/L
-MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY = (0.85, 0.81, 0.89)
+PROBABILITY_MODERATE_MATERNAL_HEMORRHAGE = (0.85, 0.81, 0.89)
 
 
 class _HemoglobinDistributionParameters(NamedTuple):

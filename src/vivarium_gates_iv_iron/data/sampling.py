@@ -1,10 +1,12 @@
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 from vivarium.framework.randomness import get_hash
 
 
-def generate_lognormal_draws(df, seed, quantiles=(0.025, 0.975)):
+def generate_vectorized_lognormal_draws(df: pd.DataFrame, seed: str,) -> pd.DataFrame:
     mean = df['mean_value'].values
     lower = df['lower_value'].values
     upper = df['upper_value'].values
@@ -12,7 +14,7 @@ def generate_lognormal_draws(df, seed, quantiles=(0.025, 0.975)):
     assert np.all((lower == mean) == (upper == mean))
 
     sample_mask = (mean > 0) & (lower < mean) & (mean < upper)
-    stdnorm_quantiles = stats.norm.ppf(quantiles)
+    stdnorm_quantiles = stats.norm.ppf((0.025, 0.975))
     norm_quantiles = np.log([lower[sample_mask], upper[sample_mask]])
     sigma = (norm_quantiles[1] - norm_quantiles[0]) / (
                 stdnorm_quantiles[1] - stdnorm_quantiles[0])

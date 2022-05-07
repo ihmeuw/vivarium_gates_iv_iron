@@ -10,13 +10,10 @@ from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
     DURATIONS,
     HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
-    MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY,
 )
 from vivarium_gates_iv_iron.utilities import (
-    create_draw,
     get_norm_from_quantiles,
     get_random_variable,
-    get_truncnorm_from_quantiles,
     load_and_unstack,
 )
 
@@ -99,7 +96,11 @@ class Pregnancy:
             parameter_columns=['age', 'year'],
         )
         self.probability_maternal_hemorrhage = builder.lookup.build_table(
-            builder.data.load(data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE),
+            load_and_unstack(
+                builder,
+                data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE,
+                'hemorrhage_status'
+            ),
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
@@ -115,19 +116,12 @@ class Pregnancy:
             requires_columns=["alive", "pregnancy_status"],
         )
 
-        # Get value for the probability of moderate maternal hemorrhage.
-        # The probability of severe maternal hemorrhage is 1 minus that probability.
-        self.maternal_hemorrhage_severity = create_draw(self.draw,
-                                                        MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY,
-                                                        "maternal_hemorrhage_severity",
-                                                        self.location,
-                                                        distribution_function=get_truncnorm_from_quantiles)
-
         builder.value.register_value_modifier("hemoglobin.exposure_parameters",
                                               self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
 
         self.correction_factors = self.sample_correction_factors(builder)
+        breakpoint()
 
         view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
         self.population_view = builder.population.get_view(view_columns)

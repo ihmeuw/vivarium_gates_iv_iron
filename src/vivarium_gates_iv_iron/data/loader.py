@@ -15,8 +15,10 @@ for an example.
 """
 from functools import lru_cache
 
+import numpy as np
 import pandas as pd
 from vivarium.framework.artifact import EntityKey
+from vivarium.framework.randomness import get_hash
 from vivarium_gbd_access import gbd
 from vivarium_inputs import (
     globals as vi_globals,
@@ -35,6 +37,9 @@ from vivarium_gates_iv_iron.data import (
     extra_gbd,
     sampling,
     utilities,
+)
+from vivarium_gates_iv_iron.utilities import (
+    get_truncnorm_from_quantiles,
 )
 
 
@@ -160,7 +165,7 @@ def load_asfr(key: str, location: str):
         values='value'
     )
     seed = f'{key}_{location}'
-    asfr_draws = sampling.generate_lognormal_draws(asfr_pivot, seed)
+    asfr_draws = sampling.generate_vectorized_lognormal_draws(asfr_pivot, seed)
     return asfr_draws
 
 
@@ -390,8 +395,32 @@ def load_probability_maternal_hemorrhage(key: str, location: str):
     mh_inc = get_data(data_keys.MATERNAL_DISORDERS.HEMORRHAGE_INCIDENCE_RATE, location)
     mh_csmr = get_data(data_keys.MATERNAL_DISORDERS.HEMORRHAGE_CSMR, location)
     pregnancy_end_rate = _get_pregnancy_end_rate(location)
-    probability = (mh_inc - mh_csmr) / pregnancy_end_rate
-    return probability.fillna(0.)
+
+    p_any_hemorrhage = ((mh_inc - mh_csmr) / pregnancy_end_rate).fillna(0.)
+
+    p_moderate_distribution = get_truncnorm_from_quantiles(
+        *data_values.PROBABILITY_MODERATE_MATERNAL_HEMORRHAGE
+    )
+    np.random.seed(get_hash(f'{key}_{location}'))
+    p_moderate_given_hemorrhage = pd.DataFrame(
+        np.tile(p_moderate_distribution.rvs(size=1000), (len(p_any_hemorrhage), 1)),
+        columns=p_any_hemorrhage.columns,
+        index=p_any_hemorrhage.index
+    )
+
+    p_moderate = p_any_hemorrhage * p_moderate_given_hemorrhage
+    p_moderate['hemorrhage_status'] = models.MODERATE_MATERNAL_HEMORRHAGE_STATE
+    p_severe = p_any_hemorrhage * (1 - p_moderate_given_hemorrhage)
+    p_severe['hemorrhage_status'] = models.SEVERE_MATERNAL_HEMORRHAGE_STATE
+    p_none = 1 - p_any_hemorrhage
+    p_none['hemorrhage_status'] = models.NOT_MATERNAL_HEMORRHAGE_STATE
+
+    probability = pd.concat([p_moderate, p_severe, p_none])
+    probability = probability.set_index('hemorrhage_status', append=True)
+
+    probability = probability / probability.groupby(mh_inc.index.names).transform('sum')
+
+    return probability
 
 
 ##############
