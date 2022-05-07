@@ -80,7 +80,7 @@ class Pregnancy:
         )
 
         all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR)
-        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.CSMR)
+        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR)
         background_mortality_rate_table = builder.lookup.build_table(
             (all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
             key_columns=['sex'],
@@ -92,17 +92,17 @@ class Pregnancy:
         )
 
         self.probability_fatal_maternal_disorder = builder.lookup.build_table(
-            builder.data.load(data_keys.PREGNANCY.PROBABILITY_FATAL_MATERNAL_DISORDER),
+            builder.data.load(data_keys.MATERNAL_DISORDERS.PROBABILITY_FATAL),
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
         self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(
-            builder.data.load(data_keys.PREGNANCY.PROBABILITY_NONFATAL_MATERNAL_DISORDER),
+            builder.data.load(data_keys.MATERNAL_DISORDERS.PROBABILITY_NONFATAL),
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
         self.probability_maternal_hemorrhage = builder.lookup.build_table(
-            builder.data.load(data_keys.PREGNANCY.PROBABILITY_MATERNAL_HEMORRHAGE),
+            builder.data.load(data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE),
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
