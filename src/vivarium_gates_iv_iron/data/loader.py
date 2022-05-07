@@ -13,6 +13,8 @@ for an example.
    No logging is done here. Logging is done in vivarium inputs itself and forwarded.
 
 """
+from functools import lru_cache
+
 import pandas as pd
 from vivarium.framework.artifact import EntityKey
 from vivarium_gbd_access import gbd
@@ -94,6 +96,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
 # Generic loaders and helpers #
 ###############################
 
+@lru_cache
 def load_standard_data(key: str, location: str) -> pd.DataFrame:
     key = EntityKey(key)
     entity = utilities.get_entity(key)
@@ -337,23 +340,32 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     groupby_cols = ['age_group_id', 'sex_id', 'year_id']
     draw_cols = [f"draw_{i}" for i in range(1000)]
 
-    maternal_ylds = extra_gbd.get_maternal_disorder_ylds(location)
-    maternal_ylds = maternal_ylds[groupby_cols + draw_cols]
-    maternal_ylds = utilities.reshape_to_vivarium_format(maternal_ylds, location)
+    all_ylds = extra_gbd.get_maternal_disorder_ylds(location)
+    all_ylds = all_ylds[groupby_cols + draw_cols]
+    all_ylds = utilities.reshape_to_vivarium_format(all_ylds, location)
 
     anemia_ylds = extra_gbd.get_anemia_ylds(location)
     anemia_ylds = anemia_ylds.groupby(groupby_cols)[draw_cols].sum().reset_index()
     anemia_ylds = utilities.reshape_to_vivarium_format(anemia_ylds, location)
 
     acmr = get_data(data_keys.POPULATION.ACMR, location)
-    csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
-    maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
-    # FIXME: Update incidence for 55-59 year age group to match 50-54 year age group
-    # maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
+    csmr = get_data(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR, location)
+    incidence = get_data(data_keys.MATERNAL_DISORDERS.TOTAL_INCIDENCE_RATE, location)
+    idx_cols = incidence.index.names
+    incidence = incidence.reset_index()
+    # FIXME: Why only here???
+    #   Update incidence for 55-59 year age group to match 50-54 year age group
+    to_duplicate = incidence.loc[(incidence.sex == 'Female') & (incidence.age_start == 50.0)]
+    to_duplicate['age_start'] = 55.0
+    to_duplicate['age_end'] = 60.0
+    to_drop = incidence.loc[(incidence.sex == 'Female') & (incidence.age_start == 55.0)]
+    incidence = pd.concat([
+        incidence.drop(to_drop.index), to_duplicate
+    ]).set_index(idx_cols).sort_index()
 
     ylds_per_case = (
-        (maternal_ylds - anemia_ylds)
-        / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
+        (all_ylds - anemia_ylds)
+        / (incidence - (acmr - csmr) * incidence - csmr)
     ).fillna(0)
     return ylds_per_case
 
@@ -388,12 +400,20 @@ def load_probability_maternal_hemorrhage(key: str, location: str):
 def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     entity = utilities.get_entity(data_keys.LBWSG.EXPOSURE)
     data = extra_gbd.load_lbwsg_exposure(location)
-    breakpoint()
+    # This category was a mistake in GBD 2019, so drop.
+    extra_residual_category = vi_globals.EXTRA_RESIDUAL_CATEGORY[entity.name]
+    data = data.loc[data['parameter'] != extra_residual_category]
+    idx_cols = ['location_id', 'sex_id', 'parameter']
+    data = data.set_index(idx_cols)[vi_globals.DRAW_COLUMNS]
 
-    data = utilities.process_exposure(
-        data, entity, location, metadata.GBD_2019_ROUND_ID,
-    )
-    data = data[data.index.get_level_values('year_start') == 2019]
+    # Sometimes there are data values on the order of 10e-300 that cause
+    # floating point headaches, so clip everything to reasonable values
+    data = data.clip(lower=vi_globals.MINIMUM_EXPOSURE_VALUE)
+
+    # normalize so all categories sum to 1
+    total_exposure = data.groupby(['location_id', 'sex_id']).transform('sum')
+    data = (data / total_exposure).reset_index()
+    data = utilities.reshape_to_vivarium_format(data, location)
     return data
 
 
@@ -421,10 +441,14 @@ def get_hemoglobin_data(key: str, location: str):
 
 def get_hemoglobin_csv_data(key: str, location: str):
     location_id = utility_data.get_location_id(location)
+    demography = get_data(data_keys.POPULATION.DEMOGRAPHY, location)
 
     data = pd.read_csv(paths.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV)
     data = data.set_index('location_id').loc[location_id]
-    age_bins = utilities.get_gbd_age_bins(data["age_group_id"].to_list())
+    age_bins = utility_data.get_age_bins()
     data = data.merge(age_bins, on="age_group_id")
     data = data.pivot(index=["age_start", "age_end"], columns='draw', values='value')
+    data = (data
+            .reset_index(level='age_end', drop=True)
+            .reindex(demography.index, level='age_start', fill_value=0.))
     return data
