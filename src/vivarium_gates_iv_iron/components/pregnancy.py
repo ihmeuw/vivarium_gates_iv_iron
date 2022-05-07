@@ -34,13 +34,9 @@ class Pregnancy:
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
-        self.draw = builder.configuration.input_data.input_draw_number
-        self.location = builder.configuration.input_data.location
-        self.randomness = builder.randomness.get_stream(self.name)
         self.clock = builder.time.clock()
         self.step_size = builder.time.step_size()
-
-        # children_born = []  # This will be input for child model
+        self.randomness = builder.randomness.get_stream(self.name)
 
         self.columns_created = [
             'pregnancy_status',  # not_pregnant, pregnant, postpartum
@@ -76,73 +72,74 @@ class Pregnancy:
             parameter_columns=['age', 'year'],
         )
 
-        life_expectancy_data = builder.data.load(data_keys.POPULATION.TMRLE)
-        self.life_expectancy = builder.lookup.build_table(life_expectancy_data, parameter_columns=['age'])
+        self.life_expectancy = builder.lookup.build_table(
+            builder.data.load(data_keys.POPULATION.TMRLE),
+            parameter_columns=['age'],
+        )
 
         all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR)
         maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.CSMR)
         background_mortality_rate_table = builder.lookup.build_table(
             (all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
             key_columns=['sex'],
-            parameter_columns=['age', 'year']
+            parameter_columns=['age', 'year'],
         )
         self.background_mortality_rate = builder.value.register_rate_producer(
             'background_mortality_rate',
-            source=background_mortality_rate_table
+            source=background_mortality_rate_table,
         )
 
-        maternal_disorder_incidence = builder.data.load(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE).set_index(
-            self.index_cols)
-
-        self.probability_maternal_deaths = builder.lookup.build_table(
-            (maternal_disorder_csmr / (conception_rate_data * not_pregnant_prevalence)).reset_index(),
+        self.probability_fatal_maternal_disorder = builder.lookup.build_table(
+            builder.data.load(data_keys.PREGNANCY.PROBABILITY_FATAL_MATERNAL_DISORDER),
             key_columns=['sex'],
-            parameter_columns=['age', 'year'])
+            parameter_columns=['age', 'year'],
+        )
         self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(
-            ((maternal_disorder_incidence - maternal_disorder_csmr) / (
-                        conception_rate_data * not_pregnant_prevalence)).reset_index(),
+            builder.data.load(data_keys.PREGNANCY.PROBABILITY_NONFATAL_MATERNAL_DISORDER),
             key_columns=['sex'],
-            parameter_columns=['age', 'year'])
-
-        maternal_disorder_ylds_per_case = builder.data.load(data_keys.MATERNAL_DISORDERS.YLDS).fillna(
-            0).reset_index().drop('index', axis=1)
+            parameter_columns=['age', 'year'],
+        )
+        self.probability_maternal_hemorrhage = builder.lookup.build_table(
+            builder.data.load(data_keys.PREGNANCY.PROBABILITY_MATERNAL_HEMORRHAGE),
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'],
+        )
 
         self.ylds_per_maternal_disorder = builder.lookup.build_table(
-            maternal_disorder_ylds_per_case,
+            builder.data.load(data_keys.MATERNAL_DISORDERS.YLDS),
             key_columns=['sex'],
-            parameter_columns=['age', 'year'])
+            parameter_columns=['age', 'year'],
+        )
+        builder.value.register_value_modifier(
+            "disability_weight",
+            self.accrue_disability,
+            requires_columns=["alive", "pregnancy_status"],
+        )
 
-        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
-        self.population_view = builder.population.get_view(view_columns)
-        builder.population.initializes_simulants(self.on_initialize_simulants,
-                                                 creates_columns=self.columns_created,
-                                                 requires_streams=[self.name],
-                                                 requires_columns=['age', 'sex'])
-        builder.event.register_listener("time_step", self.on_time_step)
-
-        builder.value.register_value_modifier("disability_weight", self.accrue_disability,
-                                              requires_columns=["alive", "pregnancy_status"])
-
-        maternal_hemorrhage_incidence_rate = builder.data.load(data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE).set_index(
-            self.index_cols)
-        maternal_hemorrhage_csmr = builder.data.load(data_keys.MATERNAL_HEMORRHAGE.CSMR).set_index(self.index_cols)
-        calculated_maternal_hemorrhage_incidence_rate = (
-                (maternal_hemorrhage_incidence_rate - maternal_hemorrhage_csmr)
-                / (conception_rate_data * not_pregnant_prevalence))
-        self.probability_maternal_hemorrhage = builder.lookup.build_table(
-            calculated_maternal_hemorrhage_incidence_rate.reset_index(),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'])
-        # Get value for the probability of moderate maternal hemorrhage. The probability of severe maternal
-        # hemorrhage is 1 minus that probability.
-        self.maternal_hemorrhage_severity = create_draw(self.draw, MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY,
-                                                        "maternal_hemorrhage_severity", self.location,
+        # Get value for the probability of moderate maternal hemorrhage.
+        # The probability of severe maternal hemorrhage is 1 minus that probability.
+        self.maternal_hemorrhage_severity = create_draw(self.draw,
+                                                        MATERNAL_HEMORRHAGE_SEVERITY_PROBABILITY,
+                                                        "maternal_hemorrhage_severity",
+                                                        self.location,
                                                         distribution_function=get_truncnorm_from_quantiles)
 
-        builder.value.register_value_modifier("hemoglobin.exposure_parameters", self.hemoglobin_pregnancy_adjustment,
+        builder.value.register_value_modifier("hemoglobin.exposure_parameters",
+                                              self.hemoglobin_pregnancy_adjustment,
                                               requires_columns=["pregnancy_status"])
 
         self.correction_factors = self.sample_correction_factors(builder)
+
+        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
+        self.population_view = builder.population.get_view(view_columns)
+        builder.population.initializes_simulants(
+            self.on_initialize_simulants,
+            creates_columns=self.columns_created,
+            requires_streams=[self.name],
+            requires_columns=['age', 'sex'],
+        )
+
+        builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnancy_state_probabilities = self.prevalence(pop_data.index)[list(models.PREGNANCY_MODEL_STATES)]

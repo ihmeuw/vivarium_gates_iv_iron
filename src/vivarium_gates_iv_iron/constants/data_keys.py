@@ -56,6 +56,15 @@ class __Pregnancy(NamedTuple):
     PREVALENCE: str = "covariate.pregnancy_prevalence.estimate"
     CONCEPTION_RATE: str = "covariate.conception_rate.estimate"
     CHILD_OUTCOME_PROBABILITIES: str = 'covariate.child_outcome_probability.estimate'
+    PROBABILITY_FATAL_MATERNAL_DISORDER: str = (
+        'covariate.probability_fatal_maternal_disorder.estimate'
+    )
+    PROBABILITY_NONFATAL_MATERNAL_DISORDER: str = (
+        'covariate.probability_nonfatal_maternal_disorder.estimate'
+    )
+    PROBABILITY_MATERNAL_HEMORRHAGE: str = (
+        "covariate.probability_maternal_hemorrhage.estimate"
+    )
 
     PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = (
         "pregnancy.pregnant_and_lactating_women_location_weights"

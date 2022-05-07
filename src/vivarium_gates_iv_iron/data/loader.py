@@ -70,6 +70,9 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY.PREVALENCE: load_pregnancy_prevalence,
         data_keys.PREGNANCY.CONCEPTION_RATE: load_conception_rate,
         data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES: load_child_outcome_probabilities,
+        data_keys.PREGNANCY.PROBABILITY_FATAL_MATERNAL_DISORDER: load_probability_fatal_maternal_disorder,
+        data_keys.PREGNANCY.PROBABILITY_NONFATAL_MATERNAL_DISORDER: load_probability_nonfatal_maternal_disorder,
+        data_keys.PREGNANCY.PROBABILITY_MATERNAL_HEMORRHAGE: load_probability_maternal_hemorrhage,
 
         data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
         data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: get_women_reproductive_age_location_weights,
@@ -279,9 +282,34 @@ def load_child_outcome_probabilities(key: str, location: str):
     return outcome_probabilities
 
 
-def load_maternal_outcome_probabilities(key: str, location: str):
-    acmr = get_data(data_keys.POPULATION.ACMR)
-    pass
+def load_probability_fatal_maternal_disorder(key: str, location: str):
+    md_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
+    conception_rate = get_data(data_keys.PREGNANCY.CONCEPTION_RATE, location)
+    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
+    probability = md_csmr / (conception_rate * prevalence[models.NOT_PREGNANT_STATE])
+    return probability
+
+
+def load_probability_nonfatal_maternal_disorder(key: str, location: str):
+    md_inc = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
+    md_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
+    conception_rate = get_data(data_keys.PREGNANCY.CONCEPTION_RATE, location)
+    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
+    probability = (
+        (md_inc - md_csmr) / (conception_rate * prevalence[models.NOT_PREGNANT_STATE])
+    )
+    return probability
+
+
+def load_probability_maternal_hemorrhage(key: str, location: str):
+    mh_inc = get_data(data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE, location)
+    mh_csmr = get_data(data_keys.MATERNAL_HEMORRHAGE.CSMR, location)
+    conception_rate = get_data(data_keys.PREGNANCY.CONCEPTION_RATE, location)
+    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
+    probability = (
+        (mh_inc - mh_csmr) / (conception_rate * prevalence[models.NOT_PREGNANT_STATE])
+    )
+    return probability
 
 
 
@@ -474,8 +502,12 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
     acmr = get_data(data_keys.POPULATION.ACMR, location)
 
-    # TODO: replace nans with 0 here instead of in pregnancy component?
-    return (maternal_ylds - anemia_ylds) / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
+
+    ylds_per_case =(
+        (maternal_ylds - anemia_ylds)
+        / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
+    ).fillna(0)
+    return ylds_per_case
 
 
 def get_hemoglobin_data(key: str, location: str):
