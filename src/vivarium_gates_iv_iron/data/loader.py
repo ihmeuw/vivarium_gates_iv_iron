@@ -13,27 +13,26 @@ for an example.
    No logging is done here. Logging is done in vivarium inputs itself and forwarded.
 
 """
-from functools import lru_cache
-
-import numpy as np
 import pandas as pd
-from scipy import stats
-
-from gbd_mapping import causes, sequelae
-from vivarium_gbd_access.utilities import get_draws
 from vivarium.framework.artifact import EntityKey
-from vivarium.framework.randomness import get_hash
-from vivarium_gbd_access import constants as gbd_constants, gbd
+from vivarium_gbd_access import gbd
 from vivarium_inputs import (
     globals as vi_globals,
     interface,
     utility_data,
 )
 
-from vivarium_gates_iv_iron.constants import data_keys, metadata, models, data_values
-from vivarium_gates_iv_iron.data import utilities
-from vivarium_gates_iv_iron.paths import (
-    PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV as HGB_BELOW_70_CSV
+from vivarium_gates_iv_iron import paths
+from vivarium_gates_iv_iron.constants import (
+    data_keys,
+    data_values,
+    metadata,
+    models,
+)
+from vivarium_gates_iv_iron.data import (
+    extra_gbd,
+    sampling,
+    utilities,
 )
 
 
@@ -60,26 +59,30 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.DEMOGRAPHY: load_demographic_dimensions,
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
+
         data_keys.PREGNANCY.ASFR: load_asfr,
         data_keys.PREGNANCY.SBR: load_sbr,
-        data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE: load_miscarriage_rate,
-        data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_ectopic_pregnancy_rate,
+        data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE: load_standard_data,
+        data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_standard_data,
         data_keys.PREGNANCY.PREVALENCE: load_pregnancy_prevalence,
         data_keys.PREGNANCY.CONCEPTION_RATE: load_conception_rate,
         data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES: load_child_outcome_probabilities,
-        data_keys.PREGNANCY.PROBABILITY_FATAL_MATERNAL_DISORDER: load_probability_fatal_maternal_disorder,
-        data_keys.PREGNANCY.PROBABILITY_NONFATAL_MATERNAL_DISORDER: load_probability_nonfatal_maternal_disorder,
-        data_keys.PREGNANCY.PROBABILITY_MATERNAL_HEMORRHAGE: load_probability_maternal_hemorrhage,
-        data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
-        data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: get_women_reproductive_age_location_weights,
+        data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: load_pregnant_lactating_women_location_weights,
+        data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: load_women_reproductive_age_location_weights,
+
+        data_keys.MATERNAL_DISORDERS.TOTAL_CSMR: load_standard_data,
+        data_keys.MATERNAL_DISORDERS.TOTAL_INCIDENCE_RATE: load_standard_data,
+        data_keys.MATERNAL_DISORDERS.HEMORRHAGE_CSMR: load_standard_data,
+        data_keys.MATERNAL_DISORDERS.HEMORRHAGE_INCIDENCE_RATE: load_standard_data,
+        data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
+        data_keys.MATERNAL_DISORDERS.PROBABILITY_FATAL: load_probability_fatal_maternal_disorder,
+        data_keys.MATERNAL_DISORDERS.PROBABILITY_NONFATAL: load_probability_nonfatal_maternal_disorder,
+        data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE: load_probability_maternal_hemorrhage,
+
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
         data_keys.LBWSG.CATEGORIES: load_metadata,
         data_keys.LBWSG.EXPOSURE: load_lbwsg_exposure,
-        data_keys.MATERNAL_DISORDERS.CSMR: load_standard_data,
-        data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE: load_standard_data,
-        data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
-        data_keys.MATERNAL_HEMORRHAGE.CSMR: load_standard_data,
-        data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE: load_standard_data,
+
         data_keys.HEMOGLOBIN.MEAN: get_hemoglobin_data,
         data_keys.HEMOGLOBIN.STANDARD_DEVIATION: get_hemoglobin_data,
         data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70: get_hemoglobin_csv_data
@@ -144,7 +147,7 @@ def load_theoretical_minimum_risk_life_expectancy(key: str, location: str) -> pd
 # Pregnancy Data #
 ##################
 
-@lru_cache
+
 def load_asfr(key: str, location: str):
     asfr = load_standard_data(key, location)
     asfr = asfr.reset_index()
@@ -154,14 +157,13 @@ def load_asfr(key: str, location: str):
         values='value'
     )
     seed = f'{key}_{location}'
-    asfr_draws = generate_lognormal_draws(asfr_pivot, seed)
+    asfr_draws = sampling.generate_lognormal_draws(asfr_pivot, seed)
     return asfr_draws
 
 
-@lru_cache
 def load_sbr(key: str, location: str):
     try:
-        return load_child_sbr(location)
+        return get_child_sbr(location)
     except vi_globals.DataDoesNotExistError:
         pass
 
@@ -176,7 +178,7 @@ def load_sbr(key: str, location: str):
                         .sum())
         births_per_location_year.append(child_births)
 
-        child_sbr = load_child_sbr(child_loc)
+        child_sbr = get_child_sbr(child_loc)
         child_sbr = (child_sbr
                      .reset_index(level='year_end', drop=True)
                      .reindex(child_births.index, level='year_start'))
@@ -194,11 +196,10 @@ def load_sbr(key: str, location: str):
            .reset_index())
     sbr['year_end'] = sbr['year_start'] + 1
     sbr = sbr.set_index(['year_start', 'year_end'])
-
     return sbr
 
 
-def load_child_sbr(location: str):
+def get_child_sbr(location: str):
     child_sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
     child_sbr = (child_sbr
                  .reorder_levels(['parameter', 'year_start', 'year_end'])
@@ -206,17 +207,6 @@ def load_child_sbr(location: str):
     return child_sbr
 
 
-@lru_cache
-def load_miscarriage_rate(key: str, location: str):
-    return load_standard_data(key, location)
-
-
-@lru_cache
-def load_ectopic_pregnancy_rate(key: str, location: str):
-    return load_standard_data(key, location)
-
-
-@lru_cache
 def load_pregnancy_prevalence(key: str, location: str):
     asfr = get_data(data_keys.PREGNANCY.ASFR, location)
     sbr = get_data(data_keys.PREGNANCY.SBR, location)
@@ -227,41 +217,55 @@ def load_pregnancy_prevalence(key: str, location: str):
     pregnant_prevalence = (
         data_values.DURATIONS.FULL_TERM * (asfr + asfr * sbr)
         + data_values.DURATIONS.PARTIAL_TERM * (incidence_c995 + incidence_c374)
-    ).rename(models.PREGNANT_STATE)
-    maternal_disorders_prevalence = pd.Series(
-        0., index=pregnant_prevalence.index, name=models.MATERNAL_DISORDER_STATE
     )
+    pregnant_prevalence['pregnancy_status'] = models.PREGNANT_STATE
+    maternal_disorders_prevalence = pd.DataFrame(
+        0., index=pregnant_prevalence.index, columns=pregnant_prevalence.columns
+    )
+    maternal_disorders_prevalence['pregnancy_status'] = models.MATERNAL_DISORDER_STATE
     no_maternal_disorders_prevalence = (
         data_values.DURATIONS.PREPOSTPARTUM * pregnancy_end_rate
-    ).rename(models.NO_MATERNAL_DISORDER_STATE)
+    )
+    no_maternal_disorders_prevalence['pregnancy_status'] = models.NO_MATERNAL_DISORDER_STATE
     postpartum_prevalence = (
         data_values.DURATIONS.POSTPARTUM * pregnancy_end_rate
-    ).rename(models.POSTPARTUM_STATE)
+    )
+    postpartum_prevalence['pregnancy_status'] = models.POSTPARTUM_STATE
 
     prevalence = pd.concat([
         pregnant_prevalence,
         maternal_disorders_prevalence,
         no_maternal_disorders_prevalence,
         postpartum_prevalence,
-    ], axis=1)
-
-    prevalence[models.NOT_PREGNANT_STATE] = 1 - prevalence.sum(axis=1)
+    ])
+    not_pregnant_prevalence = 1 - prevalence.groupby(prevalence.index.names).sum()
+    not_pregnant_prevalence['pregnancy_status'] = models.NOT_PREGNANT_STATE
+    prevalence = pd.concat([prevalence, not_pregnant_prevalence])
+    prevalence = prevalence.set_index('pregnancy_status', append=True)
 
     return prevalence
 
 
-def load_conception_rate(key: str, location: str):
-    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
+def _get_pregnancy_end_rate(location: str):
     asfr = get_data(data_keys.PREGNANCY.ASFR, location)
     sbr = get_data(data_keys.PREGNANCY.SBR, location)
     incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
     incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
-    pregnancy_end_rate = asfr + asfr * sbr + incidence_c995 + incidence_c374
+    pregnancy_end_rate = (asfr + asfr * sbr + incidence_c995 + incidence_c374)
+    return pregnancy_end_rate.reorder_levels(asfr.index.names)
 
-    conception_rate = (
-        pregnancy_end_rate / prevalence[models.NOT_PREGNANT_STATE]
-    ).rename('value')
 
+def _get_not_pregnant_prevalence(location: str):
+    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
+    prevalence = prevalence.reset_index(level='pregnancy_status')
+    not_pregnant = prevalence.pregnancy_status == models.NOT_PREGNANT_STATE
+    return prevalence.loc[not_pregnant].drop(columns='pregnancy_status')
+
+
+def load_conception_rate(key: str, location: str):
+    not_pregnant_prevalence = _get_not_pregnant_prevalence(location)
+    pregnancy_end_rate = _get_pregnancy_end_rate(location)
+    conception_rate = pregnancy_end_rate / not_pregnant_prevalence
     return conception_rate
 
 
@@ -270,76 +274,40 @@ def load_child_outcome_probabilities(key: str, location: str):
     sbr = get_data(data_keys.PREGNANCY.SBR, location)
     incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
     incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
-    pregnancy_end_rate = asfr + asfr * sbr + incidence_c995 + incidence_c374
+    pregnancy_end_rate = _get_pregnancy_end_rate(location)
 
-    live_birth_probability = (
-        asfr / pregnancy_end_rate
-    ).rename(models.LIVE_BIRTH_OUTCOME)
+    live_birth_probability = asfr / pregnancy_end_rate
+    live_birth_probability['pregnancy_outcome'] = models.LIVE_BIRTH_OUTCOME
     still_birth_probability = (
-        asfr * sbr / pregnancy_end_rate
-    ).rename(models.STILLBIRTH_OUTCOME)
-    other_probability = (
-        (incidence_c374 + incidence_c995) / pregnancy_end_rate
-    ).rename(models.OTHER_OUTCOME)
-
-    outcome_probabilities = pd.concat(
-        [live_birth_probability, still_birth_probability, other_probability],
-        axis=1
+        (asfr * sbr / pregnancy_end_rate).reorder_levels(asfr.index.names)
     )
-    outcome_probabilities[models.INVALID_OUTCOME] = 1 - outcome_probabilities.sum(axis=1)
+    still_birth_probability['pregnancy_outcome'] = models.STILLBIRTH_OUTCOME
+    other_probability = (incidence_c374 + incidence_c995) / pregnancy_end_rate
+    other_probability['pregnancy_outcome'] = models.OTHER_OUTCOME
 
-    return outcome_probabilities
-
-
-def load_probability_fatal_maternal_disorder(key: str, location: str):
-    md_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
-    conception_rate = get_data(data_keys.PREGNANCY.CONCEPTION_RATE, location)
-    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
-    probability = md_csmr / (conception_rate * prevalence[models.NOT_PREGNANT_STATE])
-    return probability
-
-
-def load_probability_nonfatal_maternal_disorder(key: str, location: str):
-    md_inc = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
-    md_csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
-    conception_rate = get_data(data_keys.PREGNANCY.CONCEPTION_RATE, location)
-    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
-    probability = (
-        (md_inc - md_csmr) / (conception_rate * prevalence[models.NOT_PREGNANT_STATE])
-    )
-    return probability
+    probabilities = pd.concat([
+        live_birth_probability,
+        still_birth_probability,
+        other_probability,
+    ]).fillna(0)
+    invalid_probability = 1 - probabilities.groupby(probabilities.index.names).sum()
+    invalid_probability['pregnancy_outcome'] = models.INVALID_OUTCOME
+    probabilities = pd.concat([probabilities, invalid_probability])
+    probabilities.set_index('pregnancy_outcome', append=True)
+    return probabilities
 
 
-def load_probability_maternal_hemorrhage(key: str, location: str):
-    mh_inc = get_data(data_keys.MATERNAL_HEMORRHAGE.INCIDENCE_RATE, location)
-    mh_csmr = get_data(data_keys.MATERNAL_HEMORRHAGE.CSMR, location)
-    conception_rate = get_data(data_keys.PREGNANCY.CONCEPTION_RATE, location)
-    prevalence = get_data(data_keys.PREGNANCY.PREVALENCE, location)
-    probability = (
-        (mh_inc - mh_csmr) / (conception_rate * prevalence[models.NOT_PREGNANT_STATE])
-    )
-    return probability
-
-
-def get_pregnant_lactating_women_location_weights(key: str, location: str):
+def load_pregnant_lactating_women_location_weights(key: str, location: str):
     weights = []
     for child_loc in utilities.get_child_locs(location):
         child_pop = get_data(data_keys.POPULATION.STRUCTURE, child_loc)
-        child_asfr = get_data(data_keys.PREGNANCY.ASFR, child_loc)
-        child_asfr.index = child_pop.index  # Add location back
-        sbr = get_data(data_keys.PREGNANCY.SBR, child_loc)
-        sbr = (sbr
-               .reset_index(level='year_end', drop=True)
-               .reindex(child_asfr.index, level='year_start'))
-        incidence_c996 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, child_loc)
-        incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, child_loc)
+        child_pregnancy_end_rate = _get_pregnancy_end_rate(location)
+        child_pregnancy_end_rate.index = child_pop.index
 
-        weight = (
-             (child_asfr.mul(1 + sbr, axis=0) + incidence_c996 + incidence_c374)
-             .mul(child_pop, axis=0)
-             .groupby(["location", "year_start", "year_end"])
-             .sum()
-        )
+        weight = (child_pregnancy_end_rate
+                  .mul(child_pop.value, axis=0)
+                  .groupby(["location", "year_start", "year_end"])
+                  .sum())
         weights.append(weight)
 
     weights = pd.concat(weights)
@@ -347,7 +315,7 @@ def get_pregnant_lactating_women_location_weights(key: str, location: str):
     return weights
 
 
-def get_women_reproductive_age_location_weights(key: str, location: str):
+def load_women_reproductive_age_location_weights(key: str, location: str):
     pops = pd.concat([
         get_data(data_keys.POPULATION.STRUCTURE, child_loc)
         for child_loc in utilities.get_child_locs(location)
@@ -359,15 +327,69 @@ def get_women_reproductive_age_location_weights(key: str, location: str):
     return weights
 
 
-def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
-    if key != data_keys.LBWSG.EXPOSURE:
-        raise ValueError(f'Unrecognized key {key}')
+###########################
+# Maternal Disorders Data #
+###########################
 
-    key = EntityKey(key)
-    entity = utilities.get_entity(key)
-    data = utilities.get_data(key, entity, location, gbd_constants.SOURCES.EXPOSURE, 'rei_id',
-                              metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE, metadata.GBD_2019_ROUND_ID, 'step4')
-    data = data[data['year_id'] == 2019].drop(columns='year_id')
+def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
+    # YLDS updated equation 4/14: (maternal_ylds - anemia_ylds) /
+    #   (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
+    groupby_cols = ['age_group_id', 'sex_id', 'year_id']
+    draw_cols = [f"draw_{i}" for i in range(1000)]
+
+    maternal_ylds = extra_gbd.get_maternal_disorder_ylds(location)
+    maternal_ylds = maternal_ylds[groupby_cols + draw_cols]
+    maternal_ylds = utilities.reshape_to_vivarium_format(maternal_ylds, location)
+
+    anemia_ylds = extra_gbd.get_anemia_ylds(location)
+    anemia_ylds = anemia_ylds.groupby(groupby_cols)[draw_cols].sum().reset_index()
+    anemia_ylds = utilities.reshape_to_vivarium_format(anemia_ylds, location)
+
+    acmr = get_data(data_keys.POPULATION.ACMR, location)
+    csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
+    maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
+    # FIXME: Update incidence for 55-59 year age group to match 50-54 year age group
+    # maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
+
+    ylds_per_case = (
+        (maternal_ylds - anemia_ylds)
+        / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
+    ).fillna(0)
+    return ylds_per_case
+
+
+def load_probability_fatal_maternal_disorder(key: str, location: str):
+    md_csmr = get_data(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR, location)
+    pregnancy_end_rate = _get_pregnancy_end_rate(location)
+    probability = md_csmr / pregnancy_end_rate
+    return probability.fillna(0.)
+
+
+def load_probability_nonfatal_maternal_disorder(key: str, location: str):
+    md_inc = get_data(data_keys.MATERNAL_DISORDERS.TOTAL_INCIDENCE_RATE, location)
+    md_csmr = get_data(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR, location)
+    pregnancy_end_rate = _get_pregnancy_end_rate(location)
+    probability = (md_inc - md_csmr) / pregnancy_end_rate
+    return probability.fillna(0.)
+
+
+def load_probability_maternal_hemorrhage(key: str, location: str):
+    mh_inc = get_data(data_keys.MATERNAL_DISORDERS.HEMORRHAGE_INCIDENCE_RATE, location)
+    mh_csmr = get_data(data_keys.MATERNAL_DISORDERS.HEMORRHAGE_CSMR, location)
+    pregnancy_end_rate = _get_pregnancy_end_rate(location)
+    probability = (mh_inc - mh_csmr) / pregnancy_end_rate
+    return probability.fillna(0.)
+
+
+##############
+# LBWSG Data #
+##############
+
+def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
+    entity = utilities.get_entity(data_keys.LBWSG.EXPOSURE)
+    data = extra_gbd.load_lbwsg_exposure(location)
+    breakpoint()
+
     data = utilities.process_exposure(
         data, entity, location, metadata.GBD_2019_ROUND_ID,
     )
@@ -375,130 +397,34 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     return data
 
 
-def get_maternal_ylds(entity_list, location):
-    gbd_id_types = [entity.kind + '_id' for entity in entity_list]
-    gbd_ids = [int(entity.gbd_id) for entity in entity_list]
-
-    location_id = utility_data.get_location_id(location) if isinstance(location, str) else location
-
-    ylds_draws = get_draws(
-        gbd_id_types,
-        gbd_ids,
-        source=gbd_constants.SOURCES.COMO,
-        year_id=2019,
-        decomp_step=gbd_constants.DECOMP_STEP.STEP_5,
-        gbd_round_id=gbd_constants.ROUND_IDS.GBD_2019,
-        location_id=location_id,
-        measure_id=vi_globals.MEASURES['YLDs']
-    )
-
-    groupby_cols = ['age_group_id', 'sex_id', 'year_id']
-    draw_cols = [f"draw_{i}" for i in range(1000)]
-
-    # aggregate by summing if given multiple entities
-    if len(entity_list) > 1:
-        ylds_draws = ylds_draws.groupby(groupby_cols)[draw_cols].sum().reset_index()
-
-    return ylds_draws[groupby_cols + draw_cols]
-
-
-def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
-    # YLDS updated equation 4/14: (maternal_ylds - anemia_ylds) /
-    #   (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
-
-    maternal_disorders = [causes.maternal_disorders]
-
-    maternal_ylds = get_maternal_ylds(maternal_disorders, location)
-    maternal_ylds = utilities.reshape_to_vivarium_format(maternal_ylds, location)
-
-    anemia_sequelae = [sequelae.mild_anemia_due_to_maternal_hemorrhage,
-                       sequelae.moderate_anemia_due_to_maternal_hemorrhage,
-                       sequelae.severe_anemia_due_to_maternal_hemorrhage]
-
-    anemia_ylds = get_maternal_ylds(anemia_sequelae, location)
-    anemia_ylds = utilities.reshape_to_vivarium_format(anemia_ylds, location)
-
-    maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
-    # Update incidence for 55-59 year age group to match 50-54 year age group
-    maternal_incidence.iloc[-1] = maternal_incidence.iloc[-2]
-
-    csmr = get_data(data_keys.MATERNAL_DISORDERS.CSMR, location)
-    acmr = get_data(data_keys.POPULATION.ACMR, location)
-
-
-    ylds_per_case =(
-        (maternal_ylds - anemia_ylds)
-        / (maternal_incidence - (acmr - csmr) * maternal_incidence - csmr)
-    ).fillna(0)
-    return ylds_per_case
-
+###################
+# Hemoglobin Data #
+###################
 
 def get_hemoglobin_data(key: str, location: str):
+    me_id = {
+        data_keys.HEMOGLOBIN.MEAN: 10487,
+        data_keys.HEMOGLOBIN.STANDARD_DEVIATION: 10488
+    }[key]
+
     country_dfs = []
-    child_locs = utilities.get_child_locs(location)
-
-    for loc in child_locs:
-        location_id = utility_data.get_location_id(loc) if isinstance(loc, str) else loc
-        if key == data_keys.HEMOGLOBIN.MEAN:
-            me_id = 10487
-        elif key == data_keys.HEMOGLOBIN.STANDARD_DEVIATION:
-            me_id = 10488
-        else:
-            raise KeyError("Invalid Hemoglobin key")
-
+    for child_loc in utilities.get_child_locs(location):
+        location_id = utility_data.get_location_id(child_loc)
         hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
-        hemoglobin_data = utilities.reshape_to_vivarium_format(hemoglobin_data, loc)
-        hemoglobin_data = pd.concat([hemoglobin_data], keys=[loc], names=['location'])
+        hemoglobin_data = utilities.reshape_to_vivarium_format(hemoglobin_data, child_loc)
+        hemoglobin_data = pd.concat([hemoglobin_data], keys=[child_loc], names=['location'])
         country_dfs.append(hemoglobin_data)
 
     national_level_hemoglobin_data = pd.concat(country_dfs)
-
     return national_level_hemoglobin_data
 
 
 def get_hemoglobin_csv_data(key: str, location: str):
-    try:
-        source_file = {
-            data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70: HGB_BELOW_70_CSV,
-        }[key]
-    except KeyError:
-        raise ValueError(f'Unrecognized key {key}')
-    try:
-        location_id = utility_data.get_location_id(location)
-    except KeyError:
-        raise ValueError(f"Unrecognized location {location}")
+    location_id = utility_data.get_location_id(location)
 
-    data = pd.read_csv(source_file)
-    data = data[data["location_id"] == location_id]
-    data = data[["draw", "age_group_id", "value"]]
-    age_group_ids = data["age_group_id"].to_list()
-    age_bins = utilities.get_gbd_age_bins(age_group_ids)
+    data = pd.read_csv(paths.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV)
+    data = data.set_index('location_id').loc[location_id]
+    age_bins = utilities.get_gbd_age_bins(data["age_group_id"].to_list())
     data = data.merge(age_bins, on="age_group_id")
-    data = data[["draw", "age_start", "age_end", "value"]]
     data = data.pivot(index=["age_start", "age_end"], columns='draw', values='value')
     return data
-
-
-def generate_lognormal_draws(df, seed, quantiles=(0.025, 0.975)):
-    mean = df['mean_value'].values
-    lower = df['lower_value'].values
-    upper = df['upper_value'].values
-    assert np.all((lower <= mean) & (mean <= upper))
-    assert np.all((lower == mean) == (upper == mean))
-
-    sample_mask = (mean > 0) & (lower < mean) & (mean < upper)
-    stdnorm_quantiles = stats.norm.ppf(quantiles)
-    norm_quantiles = np.log([lower[sample_mask], upper[sample_mask]])
-    sigma = (norm_quantiles[1] - norm_quantiles[0]) / (
-                stdnorm_quantiles[1] - stdnorm_quantiles[0])
-
-    distribution = stats.lognorm(s=sigma, scale=mean[sample_mask])
-    np.random.seed(get_hash(seed))
-    lognorm_samples = distribution.rvs(size=(1000, sample_mask.sum())).T
-    lognorm_samples = pd.DataFrame(lognorm_samples, index=df[sample_mask].index)
-
-    use_means = np.tile(mean[~sample_mask], 1000).reshape((1000, ~sample_mask.sum())).T
-    use_means = pd.DataFrame(use_means, index=df[~sample_mask].index)
-    draws = pd.concat([lognorm_samples, use_means])
-    draws = draws.sort_index().rename(columns=lambda d: f'draw_{d}')
-    return draws
