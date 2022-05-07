@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from gbd_mapping import causes, covariates, risk_factors, sequelae
+from gbd_mapping import causes, sequelae
 from vivarium_gbd_access.utilities import get_draws
 from vivarium.framework.artifact import EntityKey
 from vivarium.framework.randomness import get_hash
@@ -27,17 +27,14 @@ from vivarium_gbd_access import constants as gbd_constants, gbd
 from vivarium_inputs import (
     globals as vi_globals,
     interface,
-    utilities as vi_utils,
     utility_data,
 )
-from vivarium_inputs.mapping_extension import alternative_risk_factors
 
 from vivarium_gates_iv_iron.constants import data_keys, metadata, models, data_values
 from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.paths import (
     PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70_CSV as HGB_BELOW_70_CSV
 )
-from vivarium_gates_iv_iron.utilities import create_draws
 
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
@@ -73,7 +70,6 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY.PROBABILITY_FATAL_MATERNAL_DISORDER: load_probability_fatal_maternal_disorder,
         data_keys.PREGNANCY.PROBABILITY_NONFATAL_MATERNAL_DISORDER: load_probability_nonfatal_maternal_disorder,
         data_keys.PREGNANCY.PROBABILITY_MATERNAL_HEMORRHAGE: load_probability_maternal_hemorrhage,
-
         data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
         data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: get_women_reproductive_age_location_weights,
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
@@ -97,13 +93,13 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
 
 def load_standard_data(key: str, location: str) -> pd.DataFrame:
     key = EntityKey(key)
-    entity = get_entity(key)
+    entity = utilities.get_entity(key)
     return interface.get_measure(entity, key.measure, location).droplevel("location")
 
 
 def load_metadata(key: str, location: str):
     key = EntityKey(key)
-    entity = get_entity(key)
+    entity = utilities.get_entity(key)
     entity_metadata = entity[key.measure]
     if hasattr(entity_metadata, "to_dict"):
         entity_metadata = entity_metadata.to_dict()
@@ -164,20 +160,25 @@ def load_asfr(key: str, location: str):
 
 @lru_cache
 def load_sbr(key: str, location: str):
+    try:
+        return load_child_sbr(location)
+    except vi_globals.DataDoesNotExistError:
+        pass
+
     births_per_location_year, sbr = [], []
     for child_loc in utilities.get_child_locs(location):
         child_pop = get_data(data_keys.POPULATION.STRUCTURE, child_loc)
         child_asfr = get_data(data_keys.PREGNANCY.ASFR, child_loc)
         child_asfr.index = child_pop.index  # Add location back
-        child_births = child_asfr.multiply(child_pop.value, axis=0).groupby(
-            ['location', 'year_start']).sum()
+        child_births = (child_asfr
+                        .multiply(child_pop.value, axis=0)
+                        .groupby(['location', 'year_start'])
+                        .sum())
         births_per_location_year.append(child_births)
 
-        child_sbr = load_standard_data(data_keys.PREGNANCY.SBR, child_loc)
+        child_sbr = load_child_sbr(child_loc)
         child_sbr = (child_sbr
                      .reset_index(level='year_end', drop=True)
-                     .reorder_levels(['parameter', 'year_start'])
-                     .loc['mean_value']
                      .reindex(child_births.index, level='year_start'))
         sbr.append(child_sbr)
 
@@ -195,6 +196,14 @@ def load_sbr(key: str, location: str):
     sbr = sbr.set_index(['year_start', 'year_end'])
 
     return sbr
+
+
+def load_child_sbr(location: str):
+    child_sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
+    child_sbr = (child_sbr
+                 .reorder_levels(['parameter', 'year_start', 'year_end'])
+                 .loc['mean_value'])
+    return child_sbr
 
 
 @lru_cache
@@ -312,103 +321,42 @@ def load_probability_maternal_hemorrhage(key: str, location: str):
     return probability
 
 
-
 def get_pregnant_lactating_women_location_weights(key: str, location: str):
-    #  WRA * (ASFR + (ASFR * SBR) + incidence_c996 + incidence_c374)
-    #      - divide by regional population
-    plw_location_weights = pd.DataFrame()
+    weights = []
+    for child_loc in utilities.get_child_locs(location):
+        child_pop = get_data(data_keys.POPULATION.STRUCTURE, child_loc)
+        child_asfr = get_data(data_keys.PREGNANCY.ASFR, child_loc)
+        child_asfr.index = child_pop.index  # Add location back
+        sbr = get_data(data_keys.PREGNANCY.SBR, child_loc)
+        sbr = (sbr
+               .reset_index(level='year_end', drop=True)
+               .reindex(child_asfr.index, level='year_start'))
+        incidence_c996 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, child_loc)
+        incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, child_loc)
 
-    child_locs = utilities.get_child_locs(location)
+        weight = (
+             (child_asfr.mul(1 + sbr, axis=0) + incidence_c996 + incidence_c374)
+             .mul(child_pop, axis=0)
+             .groupby(["location", "year_start", "year_end"])
+             .sum()
+        )
+        weights.append(weight)
 
-    for loc in child_locs:
-        # ASFR
-        asfr = load_standard_data(data_keys.PREGNANCY.ASFR, loc)
-        asfr = asfr.reset_index()
-        asfr_pivot = asfr.pivot(index=[col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"],
-                                columns='parameter', values='value')
-        asfr_draws = asfr_pivot.apply(create_draws, args=(data_keys.PREGNANCY.ASFR, loc), axis=1)
-
-        # SBR
-        sbr = load_standard_data(data_keys.PREGNANCY.SBR, loc)
-        sbr = sbr.reset_index()
-        sbr = sbr[sbr.parameter == "mean_value"]
-        sbr = sbr.drop(["parameter"], axis=1).set_index(['year_start', 'year_end'])
-        sbr = sbr.reset_index(level="year_end", drop=True).reindex(asfr_draws.index, level="year_start").value
-
-        # WRA
-        wra = get_wra(loc)
-        wra = wra.reset_index().set_index("age_start").wra.reindex(asfr_draws.index, level="age_start").fillna(0)
-        wra.loc["Male"] = 0
-
-        incidence_c996 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, loc)
-        incidence_c374 = load_standard_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, loc)
-
-        # do math to calculate population of PLW
-        plw_loc = (asfr_draws.mul(1 + sbr, axis=0) + incidence_c996 + incidence_c374).mul(wra, axis=0).groupby(["year_start", "year_end"]).sum()
-        plw_loc = pd.concat([plw_loc.query("year_start==2019")], keys=[loc], names=['location'])
-        plw_loc = plw_loc.droplevel(["year_start", "year_end"])
-
-        plw_location_weights = plw_location_weights.append(plw_loc)
-
-    # Divide each location by total region population
-    plw_location_weights = plw_location_weights/plw_location_weights.sum(axis=0)
-    return plw_location_weights
+    weights = pd.concat(weights)
+    weights = weights / weights.groupby(["year_start", "year_end"]).transform("sum")
+    return weights
 
 
-
-def _load_em_from_meid(location, meid, measure):
-    location_id = utility_data.get_location_id(location)
-    data = gbd.get_modelable_entity_draws(meid, location_id)
-    data = data[data.measure_id == vi_globals.MEASURES[measure]]
-    data = vi_utils.normalize(data, fill_value=0)
-    data = data.filter(vi_globals.DEMOGRAPHIC_COLUMNS + vi_globals.DRAW_COLUMNS)
-    data = vi_utils.reshape(data)
-    data = vi_utils.scrub_gbd_conventions(data, location)
-    data = vi_utils.split_interval(
-        data, interval_column="age", split_column_prefix="age"
-    )
-    data = vi_utils.split_interval(
-        data, interval_column="year", split_column_prefix="year"
-    )
-    return vi_utils.sort_hierarchical_data(data)
-
-
-
-
-
-def get_wra(location: str, decomp: str = "step4"):
-    from db_queries import get_population
-    location_id = utility_data.get_location_id(location)
-    wra = get_population(
-        location_id=location_id,
-        age_group_id=[7, 8, 9, 10, 11, 12, 13, 14, 15],
-        sex_id=2,
-        gbd_round_id=metadata.GBD_2019_ROUND_ID,
-        decomp_step=decomp,
-    )
-
-    # reshape to vivarium format
-
-    wra = vi_utils.split_interval(wra, interval_column='age', split_column_prefix='age')
-    wra = vi_utils.split_interval(wra, interval_column='year', split_column_prefix='year')
-    wra = vi_utils.sort_hierarchical_data(wra)
-
-    wra = wra.rename({'population': 'wra'}, axis=1)
-    wra.index = wra.index.droplevel('location')
-
-    return wra
-
-
-def get_entity(key: str):
-    # Map of entity types to their gbd mappings.
-    type_map = {
-        "cause": causes,
-        "covariate": covariates,
-        "risk_factor": risk_factors,
-        "alternative_risk_factor": alternative_risk_factors,
-    }
-    key = EntityKey(key)
-    return type_map[key.type][key.name]
+def get_women_reproductive_age_location_weights(key: str, location: str):
+    pops = pd.concat([
+        get_data(data_keys.POPULATION.STRUCTURE, child_loc)
+        for child_loc in utilities.get_child_locs(location)
+    ])
+    total_pop = (pops
+                 .groupby([n for n in pops.index.names if n != 'location'])
+                 .transform("sum"))
+    weights = pops / total_pop
+    return weights
 
 
 def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
@@ -420,36 +368,11 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     data = utilities.get_data(key, entity, location, gbd_constants.SOURCES.EXPOSURE, 'rei_id',
                               metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE, metadata.GBD_2019_ROUND_ID, 'step4')
     data = data[data['year_id'] == 2019].drop(columns='year_id')
-    data = utilities.process_exposure(data, key, entity, location, metadata.GBD_2019_ROUND_ID,
-                                      metadata.AGE_GROUP.GBD_2019_LBWSG_EXPOSURE | metadata.AGE_GROUP.GBD_2020)
+    data = utilities.process_exposure(
+        data, entity, location, metadata.GBD_2019_ROUND_ID,
+    )
     data = data[data.index.get_level_values('year_start') == 2019]
     return data
-
-
-
-
-
-
-
-
-
-
-
-def subset_to_wra(df):
-    df = df.query("sex=='Female' & year_start==2019 & age_start >= 5 & age_end <= 60")
-
-    return df
-
-
-def reshape_to_vivarium_format(df, location):
-    df = df.set_index(['age_group_id', 'sex_id', 'year_id'])
-    df = utilities.scrub_gbd_conventions(df, location)
-    df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
-    df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
-    df = vi_utils.sort_hierarchical_data(df)
-    df.index = df.index.droplevel("location")
-
-    return df
 
 
 def get_maternal_ylds(entity_list, location):
@@ -486,14 +409,14 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
     maternal_disorders = [causes.maternal_disorders]
 
     maternal_ylds = get_maternal_ylds(maternal_disorders, location)
-    maternal_ylds = reshape_to_vivarium_format(maternal_ylds, location)
+    maternal_ylds = utilities.reshape_to_vivarium_format(maternal_ylds, location)
 
     anemia_sequelae = [sequelae.mild_anemia_due_to_maternal_hemorrhage,
                        sequelae.moderate_anemia_due_to_maternal_hemorrhage,
                        sequelae.severe_anemia_due_to_maternal_hemorrhage]
 
     anemia_ylds = get_maternal_ylds(anemia_sequelae, location)
-    anemia_ylds = reshape_to_vivarium_format(anemia_ylds, location)
+    anemia_ylds = utilities.reshape_to_vivarium_format(anemia_ylds, location)
 
     maternal_incidence = get_data(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE, location)
     # Update incidence for 55-59 year age group to match 50-54 year age group
@@ -524,34 +447,13 @@ def get_hemoglobin_data(key: str, location: str):
             raise KeyError("Invalid Hemoglobin key")
 
         hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
-        hemoglobin_data = reshape_to_vivarium_format(hemoglobin_data, loc)
+        hemoglobin_data = utilities.reshape_to_vivarium_format(hemoglobin_data, loc)
         hemoglobin_data = pd.concat([hemoglobin_data], keys=[loc], names=['location'])
         country_dfs.append(hemoglobin_data)
 
     national_level_hemoglobin_data = pd.concat(country_dfs)
 
     return national_level_hemoglobin_data
-
-
-def get_women_reproductive_age_location_weights(key: str, location: str):
-    # Used to get location weights with women of reproductive age
-    # This will be used instead of pregnant and lactating women location weights unless specified otherwise
-
-    wra_location_weights = pd.DataFrame()
-    child_locs = utilities.get_child_locs(location)
-
-    for loc in child_locs:
-        wra = get_wra(loc)
-
-        wra_loc = wra
-        wra_loc = pd.concat([wra_loc.query("year_start==2019")], keys=[loc], names=['location'])
-        wra_location_weights = wra_location_weights.append(wra_loc)
-
-        # Divide each location by total region population
-    wra_location_weights = wra_location_weights / wra_location_weights.sum(axis=0)
-    wra_location_weights = wra_location_weights.rename(columns={"wra": "value"})
-
-    return wra_location_weights
 
 
 def get_hemoglobin_csv_data(key: str, location: str):
@@ -597,5 +499,6 @@ def generate_lognormal_draws(df, seed, quantiles=(0.025, 0.975)):
 
     use_means = np.tile(mean[~sample_mask], 1000).reshape((1000, ~sample_mask.sum())).T
     use_means = pd.DataFrame(use_means, index=df[~sample_mask].index)
-    return pd.concat([lognorm_samples, use_means]).sort_index().rename(
-        columns=lambda d: f'draw_{d}')
+    draws = pd.concat([lognorm_samples, use_means])
+    draws = draws.sort_index().rename(columns=lambda d: f'draw_{d}')
+    return draws

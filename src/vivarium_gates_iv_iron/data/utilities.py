@@ -73,25 +73,14 @@ def get_data(key: EntityKey, entity: ModelableEntity, location: str, source: str
     return data
 
 
-def validate_and_reshape_gbd_data(data: pd.DataFrame, entity: ModelableEntity, key: EntityKey,
-                                  location: str, gbd_round_id: int, age_group_ids: List[int] = None) -> pd.DataFrame:
-
-    # from vivarium_inputs.core.get_data
-    data = vi_utils.reshape(data, value_cols=vi_globals.DRAW_COLUMNS)
-
-    # from interface.get_measure
-    data = scrub_gbd_conventions(data, location, age_group_ids)
-
-    estimation_years = get_gbd_estimation_years(gbd_round_id)
-    validation_years = pd.DataFrame({'year_start': range(min(estimation_years), max(estimation_years) + 1)})
-    validation_years['year_end'] = validation_years['year_start'] + 1
-
-    # validate_for_simulation(data, entity, key.measure, location, years=validation_years,
-    #                         age_bins=get_gbd_age_bins(age_group_ids))
-    data = vi_utils.split_interval(data, interval_column='age', split_column_prefix='age')
-    data = vi_utils.split_interval(data, interval_column='year', split_column_prefix='year')
-    data = vi_utils.sort_hierarchical_data(data).droplevel('location')
-    return data
+def reshape_to_vivarium_format(df, location):
+    df = vi_utils.reshape(df, value_cols=vi_globals.DRAW_COLUMNS)
+    df = scrub_gbd_conventions(df, location)
+    df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
+    df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
+    df = vi_utils.sort_hierarchical_data(df)
+    df.index = df.index.droplevel("location")
+    return df
 
 
 def normalize_age_and_years(data: pd.DataFrame, fill_value: Real = None,
@@ -172,8 +161,12 @@ def scrub_gbd_conventions(data: pd.DataFrame, location: str, age_group_ids: List
     return data
 
 
-def process_exposure(data: pd.DataFrame, key: str, entity: Union[RiskFactor, AlternativeRiskFactor],
-                     location: str, gbd_round_id: int, age_group_ids: List[int] = None) -> pd.DataFrame:
+def process_exposure(
+    data: pd.DataFrame,
+    entity: Union[RiskFactor, AlternativeRiskFactor],
+    location: str,
+    gbd_round_id: int,
+) -> pd.DataFrame:
     data['rei_id'] = entity.gbd_id
 
     # from vivarium_inputs.extract.extract_exposure
@@ -216,7 +209,7 @@ def process_exposure(data: pd.DataFrame, key: str, entity: Union[RiskFactor, Alt
         data = vi_utils.normalize(data, fill_value=0)
 
     data = data.filter(vi_globals.DEMOGRAPHIC_COLUMNS + vi_globals.DRAW_COLUMNS + ['parameter'])
-    data = validate_and_reshape_gbd_data(data, entity, key, location, gbd_round_id, age_group_ids)
+    data = reshape_to_vivarium_format(data, location)
     return data
 
 

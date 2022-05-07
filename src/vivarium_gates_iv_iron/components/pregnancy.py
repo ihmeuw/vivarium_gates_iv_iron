@@ -6,7 +6,7 @@ from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
 
 from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
-from vivarium_gates_iv_iron.constants import models, data_keys, metadata
+from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
     DURATIONS,
     HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
