@@ -64,8 +64,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.POPULATION.TMRLE: load_theoretical_minimum_risk_life_expectancy,
         data_keys.POPULATION.ACMR: load_standard_data,
         data_keys.PREGNANCY.ASFR: load_asfr,
-
         data_keys.PREGNANCY.SBR: load_sbr,
+
         data_keys.PREGNANCY.INCIDENCE_RATE: load_pregnancy_incidence_rate,
         data_keys.PREGNANCY.PREGNANT_PREVALENCE: get_prevalence_pregnant,
         data_keys.PREGNANCY.NOT_PREGNANT_PREVALENCE: get_prevalence_not_pregnant,
@@ -163,6 +163,39 @@ def load_asfr(key: str, location: str):
     return asfr_draws
 
 
+@lru_cache
+def load_sbr(key: str, location: str):
+    births_per_location_year, sbr = [], []
+    for child_loc in utilities.get_child_locs(location):
+        child_pop = get_data(data_keys.POPULATION.STRUCTURE, child_loc)
+        child_asfr = get_data(data_keys.PREGNANCY.ASFR, child_loc)
+        child_asfr.index = child_pop.index  # Add location back
+        child_births = child_asfr.multiply(child_pop.value, axis=0).groupby(
+            ['location', 'year_start']).sum()
+        births_per_location_year.append(child_births)
+
+        child_sbr = load_standard_data(data_keys.PREGNANCY.SBR, child_loc)
+        child_sbr = (child_sbr
+                     .reset_index(level='year_end', drop=True)
+                     .reorder_levels(['parameter', 'year_start'])
+                     .loc['mean_value']
+                     .reindex(child_births.index, level='year_start'))
+        sbr.append(child_sbr)
+
+    births_per_location_year = pd.concat(births_per_location_year)
+    sbr = pd.concat(sbr)
+
+    births_per_year = births_per_location_year.groupby('year_start').transform('sum')
+    sbr = (births_per_location_year
+           .multiply(sbr.value, axis=0)
+           .divide(births_per_year)
+           .groupby('year_start')
+           .sum()
+           .reset_index())
+    sbr['year_end'] = sbr['year_start'] + 1
+    sbr = sbr.set_index(['year_start', 'year_end'])
+
+    return sbr
 
 
 def get_pregnant_lactating_women_location_weights(key: str, location: str):
@@ -232,50 +265,6 @@ def load_pregnancy_incidence_rate(key: str, location: str):
     return pregnancy_incidence_rate
 
 
-
-
-def load_sbr(key: str, location: str):
-    index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
-
-    child_locs = utilities.get_child_locs(location)
-    child_dfs = [get_child_sbr_with_weighting_unit(loc) for loc in child_locs]
-
-    disaggregated_df = pd.concat(child_dfs)
-
-    df = pd.concat([weighted_average(disaggregated_df, 'sbr', f"draw_{i}", index_cols) for i in range(1000)],
-                   axis=1)
-    df.columns = [f"draw_{i}" for i in range(1000)]
-
-    return df
-
-
-def get_child_sbr_with_weighting_unit(location: str):
-    def get_sbr_value():
-        sbr = load_standard_data(data_keys.PREGNANCY.SBR, location)
-        sbr = sbr.reset_index()
-        sbr = sbr[(sbr.year_start == 2019) & (sbr.parameter == 'mean_value')]['value'].values[0]
-        return sbr
-
-    sbr_df = get_weighting_units(location)
-    sbr_df['sbr'] = get_sbr_value()
-    sbr_df['location'] = location
-    sbr_df = sbr_df.reset_index()
-
-    return sbr_df
-
-
-def get_weighting_units(location):
-    asfr_draws = get_data(data_keys.PREGNANCY.ASFR, location)
-    wra = get_wra(location)
-
-    df = pd.concat([asfr_draws, wra], axis=1)
-    draw_cols = [f"draw_{i}" for i in range(1000)]
-    wu_df = df[draw_cols].multiply(wra['wra'], axis=0)
-    wu_df.index = df.index
-
-    return wu_df
-
-
 def get_wra(location: str, decomp: str = "step4"):
     from db_queries import get_population
     location_id = utility_data.get_location_id(location)
@@ -298,14 +287,6 @@ def get_wra(location: str, decomp: str = "step4"):
     wra.index = wra.index.droplevel('location')
 
     return wra
-
-
-def weighted_average(df, data_col, weight_col, by_col):
-    df['_data_times_weight'] = df[data_col] * df[weight_col]
-    g = df.groupby(by_col)
-    result = g['_data_times_weight'].sum() / g[weight_col].sum()
-    del df['_data_times_weight'], df[weight_col]
-    return result
 
 
 def get_entity(key: str):
