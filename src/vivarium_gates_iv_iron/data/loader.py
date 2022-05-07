@@ -69,15 +69,13 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC: load_ectopic_pregnancy_rate,
         data_keys.PREGNANCY.PREVALENCE: load_pregnancy_prevalence,
         data_keys.PREGNANCY.CONCEPTION_RATE: load_conception_rate,
+        data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES: load_child_outcome_probabilities,
 
         data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: get_pregnant_lactating_women_location_weights,
         data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: get_women_reproductive_age_location_weights,
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
         data_keys.LBWSG.CATEGORIES: load_metadata,
         data_keys.LBWSG.EXPOSURE: load_lbwsg_exposure,
-        data_keys.PREGNANCY_OUTCOMES.STILLBIRTH: load_pregnancy_outcome,
-        data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH: load_pregnancy_outcome,
-        data_keys.PREGNANCY_OUTCOMES.OTHER: load_pregnancy_outcome,
         data_keys.MATERNAL_DISORDERS.CSMR: load_standard_data,
         data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE: load_standard_data,
         data_keys.MATERNAL_DISORDERS.YLDS: load_maternal_disorders_ylds,
@@ -255,6 +253,37 @@ def load_conception_rate(key: str, location: str):
     return conception_rate
 
 
+def load_child_outcome_probabilities(key: str, location: str):
+    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
+    sbr = get_data(data_keys.PREGNANCY.SBR, location)
+    incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
+    incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
+    pregnancy_end_rate = asfr + asfr * sbr + incidence_c995 + incidence_c374
+
+    live_birth_probability = (
+        asfr / pregnancy_end_rate
+    ).rename(models.LIVE_BIRTH_OUTCOME)
+    still_birth_probability = (
+        asfr * sbr / pregnancy_end_rate
+    ).rename(models.STILLBIRTH_OUTCOME)
+    other_probability = (
+        (incidence_c374 + incidence_c995) / pregnancy_end_rate
+    ).rename(models.OTHER_OUTCOME)
+
+    outcome_probabilities = pd.concat(
+        [live_birth_probability, still_birth_probability, other_probability],
+        axis=1
+    )
+    outcome_probabilities[models.INVALID_OUTCOME] = 1 - outcome_probabilities.sum(axis=1)
+
+    return outcome_probabilities
+
+
+def load_maternal_outcome_probabilities(key: str, location: str):
+    acmr = get_data(data_keys.POPULATION.ACMR)
+    pass
+
+
 
 def get_pregnant_lactating_women_location_weights(key: str, location: str):
     #  WRA * (ASFR + (ASFR * SBR) + incidence_c996 + incidence_c374)
@@ -331,8 +360,7 @@ def get_wra(location: str, decomp: str = "step4"):
     )
 
     # reshape to vivarium format
-    wra = wra.set_index(['age_group_id', 'location_id', 'sex_id', 'year_id']).drop('run_id', axis=1)
-    wra = utilities.scrub_gbd_conventions(wra, location)
+
     wra = vi_utils.split_interval(wra, interval_column='age', split_column_prefix='age')
     wra = vi_utils.split_interval(wra, interval_column='year', split_column_prefix='year')
     wra = vi_utils.sort_hierarchical_data(wra)
@@ -376,26 +404,7 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
 
 
 
-def load_pregnancy_outcome(key: str, location: str):
-    # live_birht =  asfr/denom
-    # stillbirth =  asfr*sbr
-    # other = addition both incidence
-    asfr = get_data(data_keys.PREGNANCY.ASFR, location)
-    sbr = get_data(data_keys.PREGNANCY.SBR, location)
-    incidence_c995 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_MISCARRIAGE, location)
-    incidence_c374 = get_data(data_keys.PREGNANCY.INCIDENCE_RATE_ECTOPIC, location)
-    pregnancy_denominator = _get_pregnancy_outcome_denominator(key, location, asfr=asfr, sbr=sbr,
-                                                               incidence_c995=incidence_c995,
-                                                               incidence_c374=incidence_c374)
 
-    if key == data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH:
-        return asfr / pregnancy_denominator
-    elif key == data_keys.PREGNANCY_OUTCOMES.STILLBIRTH:
-        return (asfr * sbr) / pregnancy_denominator
-    elif key == data_keys.PREGNANCY_OUTCOMES.OTHER:
-        return (incidence_c374 + incidence_c995) / pregnancy_denominator
-    else:
-        raise ValueError(f'Unrecognized key {key}')
 
 
 def subset_to_wra(df):

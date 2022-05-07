@@ -49,12 +49,14 @@ PREGNANCY_OUTCOMES = __PregnancyOutcomes()
 
 
 class __Pregnancy(NamedTuple):
-    PREVALENCE: str = "covariate.pregnancy_prevalence.estimate"
-    CONCEPTION_RATE: str = "covariate.conception_rate.estimate"
     ASFR: str = 'covariate.age_specific_fertility_rate.estimate'
     SBR: str = 'covariate.stillbirth_to_live_birth_ratio.estimate'
-    INCIDENCE_RATE_ECTOPIC: str = "cause.ectopic_pregnancy.incidence_rate"
     INCIDENCE_RATE_MISCARRIAGE: str = "cause.maternal_abortion_and_miscarriage.incidence_rate"
+    INCIDENCE_RATE_ECTOPIC: str = "cause.ectopic_pregnancy.incidence_rate"
+    PREVALENCE: str = "covariate.pregnancy_prevalence.estimate"
+    CONCEPTION_RATE: str = "covariate.conception_rate.estimate"
+    CHILD_OUTCOME_PROBABILITIES: str = 'covariate.child_outcome_probability.estimate'
+
     PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: str = (
         "pregnancy.pregnant_and_lactating_women_location_weights"
     )

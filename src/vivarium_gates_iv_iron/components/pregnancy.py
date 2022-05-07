@@ -54,38 +54,43 @@ class Pregnancy:
             'maternal_hemorrhage',
         ]
 
-        self.index_cols = [col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != 'location']
-
-        prevalence_data = builder.data.load(data_keys.PREGNANCY.PREVALENCE)
         self.prevalence = builder.lookup.build_table(
-            prevalence_data,
+            builder.data.load(data_keys.PREGNANCY.PREVALENCE),
             key_columns=['sex'],
-            parameter_columns=['age', 'year']
+            parameter_columns=['age', 'year'],
         )
-        not_pregnant_prevalence = prevalence_data.set_index(self.index_cols)[models.NOT_PREGNANT_STATE]
-        conception_rate_data = builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE)
-        conception_rate = builder.lookup.build_table(conception_rate_data,
-                                                     key_columns=['sex'],
-                                                     parameter_columns=['age', 'year'])
-        self.conception_rate = builder.value.register_rate_producer('conception_rate', source=conception_rate)
-        conception_rate_data = conception_rate_data.set_index(self.index_cols)
 
-        outcome_probabilities = self.load_pregnancy_outcome_probabilities(builder)
-        self.outcome_probabilities = builder.lookup.build_table(outcome_probabilities,
-                                                                key_columns=['sex'],
-                                                                parameter_columns=['age', 'year'])
+        conception_rate_table = builder.lookup.build_table(
+            builder.data.load(data_keys.PREGNANCY.INCIDENCE_RATE),
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'],
+        )
+        self.conception_rate = builder.value.register_rate_producer(
+            'conception_rate',
+            source=conception_rate_table,
+        )
+
+        self.outcome_probabilities = builder.lookup.build_table(
+            builder.data.load(data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES),
+            key_columns=['sex'],
+            parameter_columns=['age', 'year'],
+        )
 
         life_expectancy_data = builder.data.load(data_keys.POPULATION.TMRLE)
         self.life_expectancy = builder.lookup.build_table(life_expectancy_data, parameter_columns=['age'])
 
-        all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR).set_index(self.index_cols)
-        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.CSMR).set_index(self.index_cols)
+        all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR)
+        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.CSMR)
         background_mortality_rate_table = builder.lookup.build_table(
             (all_cause_mortality_data - maternal_disorder_csmr).reset_index(),
             key_columns=['sex'],
-            parameter_columns=['age', 'year'])
-        self.background_mortality_rate = builder.value.register_rate_producer('background_mortality_rate',
-                                                                              source=background_mortality_rate_table)
+            parameter_columns=['age', 'year']
+        )
+        self.background_mortality_rate = builder.value.register_rate_producer(
+            'background_mortality_rate',
+            source=background_mortality_rate_table
+        )
+
         maternal_disorder_incidence = builder.data.load(data_keys.MATERNAL_DISORDERS.INCIDENCE_RATE).set_index(
             self.index_cols)
 
@@ -344,21 +349,6 @@ class Pregnancy:
         pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = models.NOT_MATERNAL_HEMORRHAGE_STATE
 
         self.population_view.update(pop)
-
-    def load_pregnancy_outcome_probabilities(self, builder: Builder) -> pd.DataFrame:
-        pregnancy_outcome_keys = [data_keys.PREGNANCY_OUTCOMES.LIVE_BIRTH,
-                                  data_keys.PREGNANCY_OUTCOMES.STILLBIRTH,
-                                  data_keys.PREGNANCY_OUTCOMES.OTHER]
-        outcome_probabilities = []
-
-        for data_key, status in zip(pregnancy_outcome_keys, models.PREGNANCY_OUTCOMES[:-1]):
-            p = builder.data.load(data_key)
-            p = p.set_index(self.index_cols)['value'].rename(status).fillna(0)
-            outcome_probabilities.append(p)
-        outcome_probabilities = pd.concat(outcome_probabilities, axis=1)
-        outcome_probabilities[models.PREGNANCY_OUTCOMES[-1]] = 1 - outcome_probabilities.sum(axis=1)
-
-        return outcome_probabilities.reset_index()
 
     def accrue_disability(self, index: pd.Index):
         anemia_disability_weight = self.hemoglobin_distribution.disability_weight(index)
