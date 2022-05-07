@@ -12,7 +12,11 @@ from vivarium_inputs import globals as vi_globals, utilities as vi_utils, utilit
 from vivarium_inputs.mapping_extension import alternative_risk_factors, AlternativeRiskFactor
 from vivarium_inputs.validation.raw import check_metadata
 
-from vivarium_gates_iv_iron.constants.metadata import AGE_GROUP, GBD_2020_ROUND_ID
+from vivarium_gates_iv_iron.constants.metadata import (
+    AGE_GROUP,
+    GBD_2019_ROUND_ID,
+    GBD_2020_ROUND_ID,
+)
 
 
 def get_entity(key: EntityKey) -> ModelableEntity:
@@ -24,6 +28,23 @@ def get_entity(key: EntityKey) -> ModelableEntity:
         'alternative_risk_factor': alternative_risk_factors
     }
     return type_map[key.type][key.name]
+
+
+def get_child_locs(location):
+    from db_queries import get_location_metadata
+    # location_set_id 35 is for GBD model results
+    hierarchy = get_location_metadata(
+        location_set_id=35,
+        decomp_step='step4',
+        gbd_round_id=GBD_2019_ROUND_ID,
+    )
+    parent_id = utility_data.get_location_id(location)
+
+    is_child_loc = hierarchy.path_to_top_parent.str.contains(f',{parent_id},')
+    is_country = hierarchy.location_type == "admin0"
+    child_locs = hierarchy.loc[is_child_loc & is_country, 'location_name'].tolist()
+
+    return child_locs
 
 
 def get_data(key: EntityKey, entity: ModelableEntity, location: str, source: str, gbd_id_type: str,

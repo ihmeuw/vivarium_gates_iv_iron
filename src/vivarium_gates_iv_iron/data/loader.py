@@ -11,6 +11,7 @@ for an example.
 .. admonition::
 
    No logging is done here. Logging is done in vivarium inputs itself and forwarded.
+
 """
 from functools import lru_cache
 
@@ -19,10 +20,6 @@ import pandas as pd
 from scipy import stats
 
 from gbd_mapping import causes, covariates, risk_factors, sequelae
-from db_queries import (
-    get_location_metadata,
-    get_population,
-)
 from vivarium_gbd_access.utilities import get_draws
 from vivarium.framework.artifact import EntityKey
 from vivarium.framework.randomness import get_hash
@@ -173,7 +170,7 @@ def get_pregnant_lactating_women_location_weights(key: str, location: str):
     #      - divide by regional population
     plw_location_weights = pd.DataFrame()
 
-    child_locs = get_child_locs(location)
+    child_locs = utilities.get_child_locs(location)
 
     for loc in child_locs:
         # ASFR
@@ -240,7 +237,7 @@ def load_pregnancy_incidence_rate(key: str, location: str):
 def load_sbr(key: str, location: str):
     index_cols = ['sex', 'age_start', 'age_end', 'year_start', 'year_end']
 
-    child_locs = get_child_locs(location)
+    child_locs = utilities.get_child_locs(location)
     child_dfs = [get_child_sbr_with_weighting_unit(loc) for loc in child_locs]
 
     disaggregated_df = pd.concat(child_dfs)
@@ -267,26 +264,6 @@ def get_child_sbr_with_weighting_unit(location: str):
     return sbr_df
 
 
-def get_child_locs(location, location_set_id: int = 35, decomp: str = 'step4'):
-    # Level = 3 default parameter pulls child locations at national level
-    # location_set_id = 35 is for GBD model results
-
-    parent_id = utility_data.get_location_id(location)
-    loc_metadata = get_location_metadata(location_set_id=location_set_id,
-                                         decomp_step=decomp,
-                                         gbd_round_id=metadata.GBD_2019_ROUND_ID)
-
-    path_lists = [[int(loc) for loc in path.split(',')] for path in loc_metadata.path_to_top_parent]
-
-    is_child_loc = [parent_id in path_list for path_list in path_lists]
-
-    # Subset to level
-    is_country = loc_metadata.location_type == "admin0"
-    child_locs = loc_metadata.loc[(is_child_loc) & (is_country), 'location_name'].tolist()
-
-    return child_locs
-
-
 def get_weighting_units(location):
     asfr_draws = get_data(data_keys.PREGNANCY.ASFR, location)
     wra = get_wra(location)
@@ -300,9 +277,15 @@ def get_weighting_units(location):
 
 
 def get_wra(location: str, decomp: str = "step4"):
+    from db_queries import get_population
     location_id = utility_data.get_location_id(location)
-    wra = get_population(decomp_step=decomp, age_group_id=[7, 8, 9, 10, 11, 12, 13, 14, 15], sex_id=2,
-                         gbd_round_id=metadata.GBD_2019_ROUND_ID, location_id=location_id)
+    wra = get_population(
+        location_id=location_id,
+        age_group_id=[7, 8, 9, 10, 11, 12, 13, 14, 15],
+        sex_id=2,
+        gbd_round_id=metadata.GBD_2019_ROUND_ID,
+        decomp_step=decomp,
+    )
 
     # reshape to vivarium format
     wra = wra.set_index(['age_group_id', 'location_id', 'sex_id', 'year_id']).drop('run_id', axis=1)
@@ -484,7 +467,7 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
 def get_hemoglobin_data(key: str, location: str):
     country_dfs = []
-    child_locs = get_child_locs(location)
+    child_locs = utilities.get_child_locs(location)
 
     for loc in child_locs:
         location_id = utility_data.get_location_id(loc) if isinstance(loc, str) else loc
@@ -510,7 +493,7 @@ def get_women_reproductive_age_location_weights(key: str, location: str):
     # This will be used instead of pregnant and lactating women location weights unless specified otherwise
 
     wra_location_weights = pd.DataFrame()
-    child_locs = get_child_locs(location)
+    child_locs = utilities.get_child_locs(location)
 
     for loc in child_locs:
         wra = get_wra(loc)
