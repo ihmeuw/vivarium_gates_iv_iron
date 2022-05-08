@@ -9,11 +9,8 @@ from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
     DURATIONS,
-    HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
 )
 from vivarium_gates_iv_iron.utilities import (
-    get_norm_from_quantiles,
-    get_random_variable,
     load_and_unstack,
 )
 
@@ -116,12 +113,21 @@ class Pregnancy:
             requires_columns=["alive", "pregnancy_status"],
         )
 
-        builder.value.register_value_modifier("hemoglobin.exposure_parameters",
-                                              self.hemoglobin_pregnancy_adjustment,
-                                              requires_columns=["pregnancy_status"])
+        self.correction_factors = builder.lookup.build_table(
+            load_and_unstack(
+                builder,
+                data_keys.PREGNANCY.HEMOGLOBIN_CORRECTION_FACTORS,
+                'parameter'
+            ),
+            key_columns=['sex', 'pregnancy_status'],
+            parameter_columns=['age', 'year'],
+        )
 
-        self.correction_factors = self.sample_correction_factors(builder)
-        breakpoint()
+        builder.value.register_value_modifier(
+            "hemoglobin.exposure_parameters",
+            self.hemoglobin_pregnancy_adjustment,
+            requires_columns=["pregnancy_status"]
+        )
 
         view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
         self.population_view = builder.population.get_view(view_columns)
@@ -359,26 +365,7 @@ class Pregnancy:
         return disability_weight
 
     def hemoglobin_pregnancy_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
-        pop = self.population_view.get(index)
-        for state in models.PREGNANCY_MODEL_STATES:
-            state_index = pop[pop["pregnancy_status"] == state].index
-            df.loc[state_index, "mean"] *= self.correction_factors[state][0]
-            df.loc[state_index, "stddev"] *= self.correction_factors[state][1]
-        return df
-
-    def sample_correction_factors(self, builder: Builder):
-        seed = builder.configuration.randomness.random_seed
-        draw = builder.configuration.input_data.input_draw_number
-
-        not_pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
-        not_pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.NO_PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR))
-        pregnant_mean_cf = get_random_variable(draw, seed, get_norm_from_quantiles(*HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_MEAN_ADJUSTMENT_FACTOR))
-        pregnant_sd_cf = get_random_variable(draw, seed, get_norm_from_quantiles(
-            *HEMOGLOBIN_DISTRIBUTION_PARAMETERS.PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR))
-        correction_factors = {models.NOT_PREGNANT_STATE: (not_pregnant_mean_cf, not_pregnant_sd_cf)}
-        for state in models.PREGNANCY_MODEL_STATES[1:]:
-            correction_factors[state] = (pregnant_mean_cf, pregnant_sd_cf)
-        return correction_factors
+        return df * self.correction_factors(index)
 
     @staticmethod
     def _get_background_mortality_rate(builder: Builder) -> pd.DataFrame:

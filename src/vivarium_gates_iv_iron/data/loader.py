@@ -39,6 +39,7 @@ from vivarium_gates_iv_iron.data import (
     utilities,
 )
 from vivarium_gates_iv_iron.utilities import (
+    get_norm_from_quantiles,
     get_truncnorm_from_quantiles,
 )
 
@@ -76,6 +77,7 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES: load_child_outcome_probabilities,
         data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS: load_pregnant_lactating_women_location_weights,
         data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS: load_women_reproductive_age_location_weights,
+        data_keys.PREGNANCY.HEMOGLOBIN_CORRECTION_FACTORS: load_pregnancy_hemoglobin_correction,
 
         data_keys.MATERNAL_DISORDERS.TOTAL_CSMR: load_standard_data,
         data_keys.MATERNAL_DISORDERS.TOTAL_INCIDENCE_RATE: load_standard_data,
@@ -334,6 +336,31 @@ def load_women_reproductive_age_location_weights(key: str, location: str):
                  .transform("sum"))
     weights = pops / total_pop
     return weights
+
+
+def load_pregnancy_hemoglobin_correction(key: str, location: str):
+    demography = get_data(data_keys.POPULATION.DEMOGRAPHY, location)
+
+    data = []
+    for pregnancy_status in models.PREGNANCY_MODEL_STATES:
+        sample_status = (pregnancy_status if pregnancy_status == models.NOT_PREGNANT_STATE
+                         else models.PREGNANT_STATE)
+        params = data_values.HEMOGLOBIN_CORRECTION_FACTORS[sample_status]
+
+        np.random.seed(get_hash(f'{key}_{sample_status}_{location}'))
+        for param_name, param_set in zip(('mean', 'stddev'), params):
+            dist = get_norm_from_quantiles(*param_set)
+            samples = pd.DataFrame(
+                np.tile(dist.rvs(size=1000), (len(demography), 1)),
+                columns=vi_globals.DRAW_COLUMNS,
+                index=demography.index,
+            )
+            samples['pregnancy_status'] = pregnancy_status
+            samples['parameter'] = param_name
+            data.append(samples)
+
+    data = pd.concat(data).set_index(['pregnancy_status', 'parameter'], append=True)
+    return data
 
 
 ###########################

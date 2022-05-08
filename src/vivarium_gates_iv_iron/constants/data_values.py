@@ -17,16 +17,22 @@ DURATIONS = _Durations()
 MATERNAL_HEMORRHAGE_HEMOGLOBIN_POSTPARTUM_SHIFT = 6.8  # g/L
 PROBABILITY_MODERATE_MATERNAL_HEMORRHAGE = (0.85, 0.81, 0.89)
 
+# state: (mean_params, sd_params)
+HEMOGLOBIN_CORRECTION_FACTORS = {
+    models.NOT_PREGNANT_STATE: (
+        (1., 1., 1.), (1., 1., 1.)
+    ),
+    models.PREGNANT_STATE: (
+        (0.919325, 0.86, 0.98), (1.032920188, 1.032920188, 1.032920188)
+    ),
+}
+
 
 class _HemoglobinDistributionParameters(NamedTuple):
     XMAX: int = 220
     EULERS_CONSTANT: float = np.euler_gamma
     GAMMA_DISTRIBUTION_WEIGHT: float = 0.4
     MIRROR_GUMBEL_DISTRIBUTION_WEIGHT: float = 0.6
-    PREGNANCY_MEAN_ADJUSTMENT_FACTOR: tuple = (0.919325, 0.86, 0.98)  # 95% confidence interval
-    PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR: tuple = (1.032920188, 1.032920188, 1.032920188)
-    NO_PREGNANCY_MEAN_ADJUSTMENT_FACTOR: tuple = (1., 1., 1.)
-    NO_PREGNANCY_STANDARD_DEVIATION_ADJUSTMENT_FACTOR: tuple = (1., 1., 1.)
 
 
 HEMOGLOBIN_DISTRIBUTION_PARAMETERS = _HemoglobinDistributionParameters()
