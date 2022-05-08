@@ -145,7 +145,12 @@ class Pregnancy:
             additional_key='pregnancy_outcome',
         )
 
-        maternal_status.loc[is_pregnant, 'pregnancy_duration'] = pd.Timedelta(days=9 * 28)
+        maternal_status.loc[is_pregnant, 'pregnancy_duration'] = pd.to_timedelta(
+            7 * child_status.loc[is_pregnant, 'gestational_age'], unit='days'
+        )
+        maternal_status['pregnancy_duration'] = pd.to_timedelta(
+            maternal_status['pregnancy_duration']
+        )
         maternal_status.loc[:, 'pregnancy_state_change_date'] = (
             self._sample_initial_pregnancy_state_change_date(
                 pregnancy_status,
@@ -220,6 +225,9 @@ class Pregnancy:
         )
         newly_pregnant = pop.loc[not_pregnant.intersection(potentially_pregnant)].copy()
 
+        child_cols = self.new_children.columns_created
+        newly_pregnant.loc[:, child_cols] = self.new_children(newly_pregnant.index)
+
         newly_pregnant['pregnancy_status'] = models.PREGNANT_STATE
 
         p_outcome = self.outcome_probabilities(newly_pregnant.index)
@@ -230,12 +238,9 @@ class Pregnancy:
             additional_key='pregnancy_outcome',
         )
 
-        newly_pregnant['pregnancy_duration'] = pd.Timedelta(days=9 * 28)
+        newly_pregnant['pregnancy_duration'] = 7 * newly_pregnant['gestational_age']
         newly_pregnant['pregnancy_state_change_date'] = event_time
         newly_pregnant['maternal_hemorrhage'] = models.NOT_MATERNAL_HEMORRHAGE_STATE
-
-        child_cols = self.new_children.columns_created
-        newly_pregnant.loc[:, child_cols] = self.new_children(newly_pregnant.index)
 
         return newly_pregnant
 
