@@ -20,6 +20,9 @@ from vivarium_gates_iv_iron.components.utilities import (
 
 class Pregnancy:
 
+    def __init__(self):
+        self.new_children = NewChildren()
+
     @property
     def name(self):
         return models.PREGNANCY_MODEL_NAME
@@ -29,6 +32,7 @@ class Pregnancy:
         return [
             MaternalMortality(),
             MaternalDisability(),
+            self.new_children,
         ]
 
     # noinspection PyAttributeOutsideInit
@@ -40,12 +44,10 @@ class Pregnancy:
         self.columns_created = [
             'pregnancy_status',
             'pregnancy_outcome',
-            'sex_of_child',
-            'birth_weight',
             'pregnancy_state_change_date',
             'pregnancy_duration',
             'maternal_hemorrhage',
-        ]
+        ] + self.new_children.columns_created
 
         self.prevalence = builder.lookup.build_table(
             load_and_unstack(builder, data_keys.PREGNANCY.PREVALENCE, 'pregnancy_status'),
@@ -101,7 +103,7 @@ class Pregnancy:
             requires_columns=["pregnancy_status"]
         )
 
-        view_columns = self.columns_created + ['alive', 'exit_time', 'age', 'sex']
+        view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
@@ -113,7 +115,6 @@ class Pregnancy:
         builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
-
         prevalence = self.prevalence(pop_data.index)
         pregnancy_status = self.randomness.choice(
             pop_data.index,
@@ -124,11 +125,8 @@ class Pregnancy:
 
         is_pregnant = pop_data.index[pregnancy_status != models.NOT_PREGNANT_STATE]
 
-        child_status = pd.DataFrame({
-            'sex_of_child': models.INVALID_OUTCOME,
-            'birth_weight': np.nan
-        }, index=pop_data.index)
-        child_status.loc[is_pregnant] = self._sample_child_outcomes(is_pregnant)
+        child_status = self.new_children.empty(pop_data.index)
+        child_status.loc[is_pregnant] = self.new_children(is_pregnant)
 
         maternal_status = pd.DataFrame({
             'pregnancy_status': pregnancy_status,
@@ -147,7 +145,6 @@ class Pregnancy:
         )
 
         maternal_status.loc[is_pregnant, 'pregnancy_duration'] = pd.Timedelta(days=9 * 28)
-
         maternal_status.loc[:, 'pregnancy_state_change_date'] = (
             self._sample_initial_pregnancy_state_change_date(
                 pregnancy_status,
@@ -160,107 +157,16 @@ class Pregnancy:
         self.population_view.update(pop_update)
 
     def on_time_step(self, event: Event):
-        pop = self.population_view.get(event.index, query="alive =='alive'")
-        conception_rate = self.conception_rate(pop.index)
-
-        pregnant_this_step = pd.Series(False, index=pop.index)
-        pregnant_this_step_idx = self.randomness.filter_for_rate(pop.index, conception_rate, additional_key='new_pregnancy')
-        pregnant_this_step.loc[pregnant_this_step_idx] = True
-        pregnant_this_step = (pop['pregnancy_status'] == models.NOT_PREGNANT_STATE) & pregnant_this_step
-
-        p = self.outcome_probabilities(pop.index)[list(models.PREGNANCY_OUTCOMES)]
-        pregnancy_outcome = self.randomness.choice(pop.index, choices=models.PREGNANCY_OUTCOMES, p=p,
-                                                   additional_key='pregnancy_outcome')
-
-        sex_of_child = self.randomness.choice(pop.index, choices=['Male', 'Female'],
-                                              p=[0.5, 0.5], additional_key='sex_of_child')
-
-        # TODO: update with birth_weight distribution
-        birth_weight = 1500.0 + 1500 * self.randomness.get_draw(pop.index, additional_key='birth_weight')
-
-        pregnancy_duration = pd.to_timedelta(9 * 28,
-                                             unit='d')
-
-        # Make masks for subsets
-        pregnancy_ends_this_step = (
-                (pop['pregnancy_status'] == models.PREGNANT_STATE)
-                & (event.time - pop["pregnancy_state_change_date"] >= pop["pregnancy_duration"])
-        )
-        maternal_disorder_incidence_draw = self.randomness.get_draw(pop.index,
-                                                                    additional_key="maternal_disorder_incidence")
-        maternal_disorder_this_step = maternal_disorder_incidence_draw < self.probability_non_fatal_maternal_disorder(
-            pop.index)
-
-        maternal_hemorrhage_incidence_draw = self.randomness.get_draw(pop.index,
-                                                                      additional_key='maternal_hemorrhage_incidence')
-        maternal_hemorrhage_this_step = maternal_hemorrhage_incidence_draw < self.probability_maternal_hemorrhage(
-            pop.index)
-        maternal_hemorrhage_severity_draw = self.randomness.get_draw(pop.index,
-                                                                     additional_key="maternal_hemorrhage_severity_draw")
-        moderate_maternal_hemorrhage_this_step = maternal_hemorrhage_severity_draw < self.maternal_hemorrhage_severity
-        severe_maternal_hemorrhage_this_step = ~moderate_maternal_hemorrhage_this_step
-
-        prepostpartum_ends_this_step = (
-
-            (
-                    ((pop['pregnancy_status'] == models.MATERNAL_DISORDER_STATE)
-                     | (pop['pregnancy_status'] == models.NO_MATERNAL_DISORDER_STATE))
-                    & (event.time - pop["pregnancy_state_change_date"] >=
-                       pd.Timedelta(days=7 * DURATIONS.PREPOSTPARTUM))  # One time step
-            )
-        )
-        postpartum_ends_this_step = (
-                (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
-                & (event.time - pop["pregnancy_state_change_date"] >= pd.Timedelta(days=7 * DURATIONS.POSTPARTUM))
-        )
-
-
-
-        # Update new pregnancies
-        # TODO: If you want to be mutually exclusive from death make this
-        # pregnant_this_step = pregnant_this_step & ~died_this_step
-        pop.loc[pregnant_this_step, "pregnancy_status"] = models.PREGNANT_STATE
-        pop.loc[pregnant_this_step, "pregnancy_outcome"] = pregnancy_outcome.loc[pregnant_this_step]
-        pop.loc[pregnant_this_step, "sex_of_child"] = sex_of_child.loc[pregnant_this_step]
-        pop.loc[pregnant_this_step, "birth_weight"] = birth_weight.loc[pregnant_this_step]
-        pop.loc[pregnant_this_step, "pregnancy_duration"] = pregnancy_duration
-        pop.loc[pregnant_this_step, "pregnancy_state_change_date"] = event.time
-
-        # Pregnancy to maternal disorder state and no maternal disorder state
-        moderate_maternal_hemorrhage_this_step = (maternal_hemorrhage_this_step
-                                                  & moderate_maternal_hemorrhage_this_step
-                                                  & pregnancy_ends_this_step)
-        severe_maternal_hemorrhage_this_step = (maternal_hemorrhage_this_step
-                                                & severe_maternal_hemorrhage_this_step
-                                                & pregnancy_ends_this_step)
-        maternal_disorder_this_step = ((maternal_disorder_this_step
-                                       | died_due_to_maternal_disorders)
-                                       & pregnancy_ends_this_step)
-
-        no_maternal_disorder_this_step = ~maternal_disorder_this_step & pregnancy_ends_this_step
-
-        pop.loc[maternal_disorder_this_step, "pregnancy_status"] = models.MATERNAL_DISORDER_STATE
-        pop.loc[maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
-
-        pop.loc[severe_maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.SEVERE_MATERNAL_HEMORRHAGE_STATE
-        pop.loc[moderate_maternal_hemorrhage_this_step, 'maternal_hemorrhage'] = models.MODERATE_MATERNAL_HEMORRHAGE_STATE
-        pop.loc[no_maternal_disorder_this_step, "pregnancy_status"] = models.NO_MATERNAL_DISORDER_STATE
-        pop.loc[no_maternal_disorder_this_step, "pregnancy_state_change_date"] = event.time
-
-        # Handle simulants going from (md or nmd) -> pp
-        pop.loc[prepostpartum_ends_this_step, "pregnancy_status"] = models.POSTPARTUM_STATE
-        pop.loc[prepostpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
-
-        # Postpartum to Not pregnant
-        pop.loc[postpartum_ends_this_step, "pregnancy_status"] = models.NOT_PREGNANT_STATE
-        pop.loc[postpartum_ends_this_step, "pregnancy_outcome"] = models.INVALID_OUTCOME
-        pop.loc[postpartum_ends_this_step, "sex_of_child"] = models.INVALID_OUTCOME
-        pop.loc[postpartum_ends_this_step, "birth_weight"] = np.nan
-        pop.loc[postpartum_ends_this_step, "pregnancy_duration"] = pd.NaT
-        pop.loc[postpartum_ends_this_step, "pregnancy_state_change_date"] = event.time
-        pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = models.NOT_MATERNAL_HEMORRHAGE_STATE
-
-        self.population_view.update(pop)
+        pop_update = pd.concat([
+            self._sample_new_pregnant(event.index, event.time),
+            self._sample_new_prepostpartum(event.index, event.time),
+            self._sample_new_postpartum(event.index, event.time),
+            self._sample_new_not_pregnant(event.index, event.time),
+        ])
+        # Fix bug that causes pandas to coerce timedelta64[ns] to
+        # datetime64[ns] when the whole column is set to NaT.
+        pop_update['pregnancy_duration'] = pd.to_timedelta(pop_update['pregnancy_duration'])
+        self.population_view.update(pop_update)
 
     def hemoglobin_pregnancy_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
         return df * self.correction_factors(index)
@@ -268,21 +174,6 @@ class Pregnancy:
     ####################
     # Sampling helpers #
     ####################
-
-    def _sample_child_outcomes(self, index: pd.Index):
-        sex_of_child = self.randomness.choice(
-            index,
-            choices=['Male', 'Female'],
-            additional_key='sex_of_child',
-        )
-        # TODO implement LBWSG on next line for sampling
-        draw = self.randomness.get_draw(index, additional_key='birth_weight')
-        birth_weight = 1500. * (1 + draw)
-
-        return pd.DataFrame({
-            'sex_of_child': sex_of_child,
-            'birth_weight': birth_weight,
-        }, index=index)
 
     def _sample_initial_pregnancy_state_change_date(
         self,
@@ -313,4 +204,138 @@ class Pregnancy:
         )
         return date
 
+    def _sample_new_pregnant(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
+        pop = self.population_view.get(index, query="alive == 'alive'")
 
+        # Find the new mothers
+        not_pregnant = pop[pop['pregnancy_status'] == models.NOT_PREGNANT_STATE].index
+        potentially_pregnant = self.randomness.filter_for_rate(
+            pop.index,
+            self.conception_rate(pop.index),
+            additional_key='new_pregnancy'
+        )
+        newly_pregnant = pop.loc[not_pregnant.intersection(potentially_pregnant)].copy()
+
+        newly_pregnant['pregnancy_status'] = models.PREGNANT_STATE
+
+        p_outcome = self.outcome_probabilities(newly_pregnant.index)
+        newly_pregnant['pregnancy_outcome'] = self.randomness.choice(
+            newly_pregnant.index,
+            choices=p_outcome.columns.tolist(),
+            p=p_outcome,
+            additional_key='pregnancy_outcome',
+        )
+
+        newly_pregnant['pregnancy_duration'] = pd.Timedelta(days=9 * 28)
+        newly_pregnant['pregnancy_state_change_date'] = event_time
+        newly_pregnant['maternal_hemorrhage'] = models.NOT_MATERNAL_HEMORRHAGE_STATE
+
+        child_cols = self.new_children.columns_created
+        newly_pregnant.loc[:, child_cols] = self.new_children(newly_pregnant.index)
+
+        return newly_pregnant
+
+    def _sample_new_prepostpartum(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
+        pop = self.population_view.get(index)
+
+        # Find the newly prepostpartum
+        eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
+        new_prepostpartum = pop.loc[(
+            eligible
+            & (pop['pregnancy_status'] == models.PREGNANT_STATE)
+            & (event_time - pop["pregnancy_state_change_date"] >= pop["pregnancy_duration"])
+        )].copy()
+
+        # Check for maternal disorders and update
+        fatal_md = new_prepostpartum[
+            new_prepostpartum['cause_of_death'] == 'maternal_disorders'
+        ].index
+        non_fatal_md = self.randomness.filter_for_probability(
+            new_prepostpartum.index,
+            self.probability_non_fatal_maternal_disorder(new_prepostpartum.index),
+            additional_key='maternal_disorder_incidence',
+        )
+        md = fatal_md.union(non_fatal_md)
+        new_prepostpartum['pregnancy_status'] = models.NO_MATERNAL_DISORDER_STATE
+        new_prepostpartum.loc[md, 'pregnancy_status'] = models.MATERNAL_DISORDER_STATE
+
+        # Check for hemorrhage and update
+        p_hemorrhage = self.probability_maternal_hemorrhage(new_prepostpartum.index)
+        new_prepostpartum['maternal_hemorrhage'] = self.randomness.choice(
+            new_prepostpartum.index,
+            choices=p_hemorrhage.columns.tolist(),
+            p=p_hemorrhage,
+            additional_key='maternal_hemorrhage'
+        )
+
+        # Update event time
+        new_prepostpartum['pregnancy_state_change_date'] = event_time
+        return new_prepostpartum
+
+    def _sample_new_postpartum(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
+        pop = self.population_view.get(index)
+
+        prepostpartum_duration = pd.Timedelta(days=7 * DURATIONS.PREPOSTPARTUM)
+        new_postpartum = pop.loc[(
+            pop['pregnancy_status'].isin(models.PREPOSTPARTUM_STATES)
+            & (event_time - pop["pregnancy_state_change_date"] >= prepostpartum_duration)
+        )].copy()
+
+        new_postpartum["pregnancy_status"] = models.POSTPARTUM_STATE
+        new_postpartum["pregnancy_state_change_date"] = event_time
+        return new_postpartum
+
+    def _sample_new_not_pregnant(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
+        pop = self.population_view.get(index)
+
+        postpartum_duration = pd.Timedelta(days=7 * DURATIONS.POSTPARTUM)
+        new_not_pregnant = pop.loc[(
+            (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
+            & (event_time - pop["pregnancy_state_change_date"] >= postpartum_duration)
+        )].copy()
+        # Postpartum to Not pregnant
+        new_not_pregnant["pregnancy_status"] = models.NOT_PREGNANT_STATE
+        new_not_pregnant["pregnancy_outcome"] = models.INVALID_OUTCOME
+        new_not_pregnant["pregnancy_duration"] = pd.NaT
+        new_not_pregnant["pregnancy_state_change_date"] = event_time
+        new_not_pregnant["maternal_hemorrhage"] = models.NOT_MATERNAL_HEMORRHAGE_STATE
+
+        new_not_pregnant.loc[:, self.new_children.columns_created] = (
+            self.new_children.empty(new_not_pregnant.index)
+        )
+        return new_not_pregnant
+
+
+class NewChildren:
+
+    @property
+    def name(self):
+        return 'child_status'
+
+    @property
+    def columns_created(self):
+        return ['sex_of_child', 'birth_weight']
+
+    def setup(self, builder: Builder):
+        self.randomness = builder.randomness.get_stream(self.name)
+
+    def empty(self, index: pd.Index):
+        return pd.DataFrame({
+            'sex_of_child': models.INVALID_OUTCOME,
+            'birth_weight': np.nan,
+        }, index=index)
+
+    def __call__(self, index: pd.Index):
+        sex_of_child = self.randomness.choice(
+            index,
+            choices=['Male', 'Female'],
+            additional_key='sex_of_child',
+        )
+        # TODO implement LBWSG on next line for sampling
+        draw = self.randomness.get_draw(index, additional_key='birth_weight')
+        birth_weight = 1500. * (1 + draw)
+
+        return pd.DataFrame({
+            'sex_of_child': sex_of_child,
+            'birth_weight': birth_weight,
+        }, index=index)

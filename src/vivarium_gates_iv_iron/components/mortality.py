@@ -36,6 +36,8 @@ class MaternalMortality:
         )
 
         columns_required = [
+            'alive',
+            'exit_time',
             'pregnancy_status',
             'pregnancy_state_change_date',
             'pregnancy_duration',
