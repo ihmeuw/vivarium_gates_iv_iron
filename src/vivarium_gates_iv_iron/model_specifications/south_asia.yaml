@@ -11,6 +11,7 @@ components:
         - PregnancyObserver()
         - AnemiaObserver()
         - BirthRecorder()
+        - MaternalBMIExposure()
 
 configuration:
     input_data:

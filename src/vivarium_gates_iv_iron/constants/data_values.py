@@ -54,6 +54,16 @@ for key, states in _hemoglobin_state_map.items():
         for row in _hemoglobin_threshold_data[key]:
             _htd.append((state, "Female", *row))
 
-HEMOGLOBIN_THRESHOLD_DATA = pd.DataFrame(_htd,
-                                         columns=["pregnancy_status", "sex", "age_start", "age_end", "severe",
-                                                  "moderate", "mild"])
+HEMOGLOBIN_THRESHOLD_DATA = pd.DataFrame(
+    _htd,
+    columns=["pregnancy_status", "sex", "age_start", "age_end", "severe", "moderate", "mild"]
+)
+
+
+class _MaternalBMI(NamedTuple):
+    ANEMIA_THRESHOLD = 10.0
+    PROBABILITY_LOW_BMI_ANEMIC = (0.34, 0.31, 0.38)
+    PROBABILITY_LOW_BMI_NON_ANEMIC = (0.17, 0.15, 0.18)
+
+
+MATERNAL_BMI = _MaternalBMI()

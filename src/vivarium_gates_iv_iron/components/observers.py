@@ -279,3 +279,73 @@ class AnemiaObserver:
         metrics.update(self.person_time)
         metrics.update(self.exposure)
         return metrics
+
+
+class MaternalBMIObserver:
+
+    configuration_defaults = {
+        "observers": {
+            "maternal_bmi": {
+                "exclude": [],
+                "include": [],
+            }
+        }
+    }
+
+    @property
+    def name(self):
+        return "maternal_bmi_observer"
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.config = builder.configuration.observers.anemia
+        self.stratifier = builder.components.get_component(ResultsStratifier.name)
+
+        self.bmi_person_time = Counter()
+
+        self.threshold = data_values.MATERNAL_BMI.ANEMIA_THRESHOLD
+        self.hemoglobin = builder.value.get_value('hemoglobin.exposure')
+        self.maternal_bmi = builder.value.get_value('maternal_bmi')
+
+        columns_required = [
+            "alive",
+            "pregnancy_status",
+        ]
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener("time_step__prepare", self.on_time_step_prepare)
+        builder.value.register_value_modifier("metrics", self.metrics)
+
+    def on_time_step_prepare(self, event: Event):
+        pop = self.population_view.get(event.index, query='alive == "alive"')
+        hemoglobin = self.hemoglobin(pop.index)
+        pop['anemic'] = 'not_anemic'
+        pop.loc[hemoglobin < self.threshold, 'anemic'] = 'anemic'
+        pop['bmi'] = self.maternal_bmi(pop.index)
+
+        step_size = to_years(event.step_size)
+
+        measures = list(itertools.product(
+            models.BMI_CATEGORIES,
+            models.PREGNANCY_MODEL_STATES,
+            ['anemic', 'not_anemic'],
+        ))
+
+        new_person_time = {}
+        groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
+        for label, group_mask in groups:
+            group = pop[group_mask]
+            for bmi_cat, pregnancy_status, anemia_status in measures:
+                key = f"bmi_category_{bmi_cat}_person_time_among_{pregnancy_status}_among_{anemia_status}"
+                sub_group = group.query(
+                    f'anemia == "{anemia_status}" '
+                    f'and pregnancy_status == "{pregnancy_status}" '
+                    f'and bmi == "{bmi_cat}"'
+                )
+                new_person_time[key] = len(sub_group) * step_size
+
+        self.bmi_person_time.update(new_person_time)
+
+    def metrics(self, index: pd.Index, metrics: Dict):
+        metrics.update(self.bmi_person_time)
+        return metrics
