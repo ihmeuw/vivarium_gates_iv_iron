@@ -16,7 +16,8 @@ from vivarium_gates_iv_iron.constants import data_keys
 
 class Hemoglobin:
     """
-    class for hemoglobin utilities and calculations that in turn will be used to find anemia status for simulants.
+    class for hemoglobin utilities and calculations that in turn will
+    be used to find anemia status for simulants.
     """
 
     def __init__(self):
