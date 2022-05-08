@@ -126,31 +126,37 @@ class Pregnancy:
 
         is_pregnant = pop_data.index[pregnancy_status != models.NOT_PREGNANT_STATE]
 
-        child_status = self.new_children.empty(pop_data.index)
-        child_status.loc[is_pregnant] = self.new_children(is_pregnant)
-
-        maternal_status = pd.DataFrame({
-            'pregnancy_status': pregnancy_status,
-            'pregnancy_outcome': models.INVALID_OUTCOME,
-            'pregnancy_duration': pd.NaT,
-            'pregnancy_state_change_date': pd.NaT,
-            'maternal_hemorrhage': models.NOT_MATERNAL_HEMORRHAGE_STATE,
-        })
-
         p_outcome = self.outcome_probabilities(is_pregnant)
-        maternal_status.loc[is_pregnant, 'pregnancy_outcome'] = self.randomness.choice(
+        pregnancy_outcome = self.randomness.choice(
             is_pregnant,
             choices=p_outcome.columns.tolist(),
             p=p_outcome,
             additional_key='pregnancy_outcome',
         )
 
-        maternal_status.loc[is_pregnant, 'pregnancy_duration'] = pd.to_timedelta(
-            7 * child_status.loc[is_pregnant, 'gestational_age'], unit='days'
+        other_outcome = pregnancy_outcome[pregnancy_outcome == models.OTHER_OUTCOME].index
+        live_or_still_birth = pregnancy_outcome.index.difference(other_outcome)
+        child_status = self.new_children.empty(pop_data.index)
+        child_status.loc[live_or_still_birth] = self.new_children(live_or_still_birth)
+
+        low, high = DURATIONS.DETECTION, DURATIONS.PARTIAL_TERM
+        draw = self.randomness.get_draw(pop_data.index, additional_key='pregnancy_duration')
+        pregnancy_duration = pd.to_timedelta(
+            7 * low + (high - low) * draw, unit='days'
         )
-        maternal_status['pregnancy_duration'] = pd.to_timedelta(
-            maternal_status['pregnancy_duration']
+        pregnancy_duration.loc[live_or_still_birth] = pd.to_timedelta(
+            7 * child_status.loc[live_or_still_birth, 'gestational_age'], unit='days'
         )
+        pregnancy_duration.loc[pop_data.index.difference(is_pregnant)] = pd.NaT
+
+        maternal_status = pd.DataFrame({
+            'pregnancy_status': pregnancy_status,
+            'pregnancy_outcome': pregnancy_outcome,
+            'pregnancy_duration': pregnancy_duration,
+            'pregnancy_state_change_date': pd.NaT,
+            'maternal_hemorrhage': models.NOT_MATERNAL_HEMORRHAGE_STATE,
+        })
+
         maternal_status.loc[:, 'pregnancy_state_change_date'] = (
             self._sample_initial_pregnancy_state_change_date(
                 pregnancy_status,
@@ -225,20 +231,34 @@ class Pregnancy:
         )
         newly_pregnant = pop.loc[not_pregnant.intersection(potentially_pregnant)].copy()
 
-        child_cols = self.new_children.columns_created
-        newly_pregnant.loc[:, child_cols] = self.new_children(newly_pregnant.index)
-
         newly_pregnant['pregnancy_status'] = models.PREGNANT_STATE
-
         p_outcome = self.outcome_probabilities(newly_pregnant.index)
-        newly_pregnant['pregnancy_outcome'] = self.randomness.choice(
+        pregnancy_outcome = self.randomness.choice(
             newly_pregnant.index,
             choices=p_outcome.columns.tolist(),
             p=p_outcome,
             additional_key='pregnancy_outcome',
         )
+        newly_pregnant['pregnancy_outcome'] = pregnancy_outcome
 
-        newly_pregnant['pregnancy_duration'] = 7 * newly_pregnant['gestational_age']
+        other_outcome = pregnancy_outcome[pregnancy_outcome == models.OTHER_OUTCOME].index
+        live_or_still_birth = pregnancy_outcome.index.difference(other_outcome)
+
+        child_cols = self.new_children.columns_created
+        newly_pregnant.loc[live_or_still_birth, child_cols] = (
+            self.new_children(live_or_still_birth)
+        )
+
+        low, high = DURATIONS.DETECTION, DURATIONS.PARTIAL_TERM
+        draw = self.randomness.get_draw(newly_pregnant.index, additional_key='pregnancy_duration')
+        pregnancy_duration = pd.to_timedelta(
+            7 * low + (high - low) * draw, unit='days'
+        )
+        pregnancy_duration.loc[live_or_still_birth] = pd.to_timedelta(
+            7 * newly_pregnant.loc[live_or_still_birth, 'gestational_age'], unit='days'
+        )
+        newly_pregnant['pregnancy_duration'] = pregnancy_duration
+
         newly_pregnant['pregnancy_state_change_date'] = event_time
         newly_pregnant['maternal_hemorrhage'] = models.NOT_MATERNAL_HEMORRHAGE_STATE
 
