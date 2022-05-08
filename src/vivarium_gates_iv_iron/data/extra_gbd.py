@@ -9,8 +9,8 @@ from vivarium_inputs import (
     utility_data,
 )
 
-from vivarium_gates_iv_iron.data import utilities
 from vivarium_gates_iv_iron.constants import data_keys
+from vivarium_gates_iv_iron.data import utilities
 
 
 GBD_2020_ROUND_ID = 7

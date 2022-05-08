@@ -14,14 +14,8 @@ for an example.
 
 """
 from functools import lru_cache
-from typing import Union
 
-from gbd_mapping import (
-    causes,
-    covariates,
-    risk_factors,
-    ModelableEntity,
-)
+
 import numpy as np
 import pandas as pd
 from vivarium.framework.artifact import EntityKey
@@ -45,6 +39,7 @@ from vivarium_gates_iv_iron.data import (
     extra_gbd,
     sampling,
 )
+from vivarium_gates_iv_iron.data.utilities import get_entity
 
 
 def get_data(lookup_key: str, location: str) -> pd.DataFrame:
@@ -105,17 +100,6 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
 ###############################
 # Generic loaders and helpers #
 ###############################
-
-def get_entity(key: Union[str, EntityKey]) -> ModelableEntity:
-    key = EntityKey(key)
-    # Map of entity types to their gbd mappings.
-    type_map = {
-        'cause': causes,
-        'covariate': covariates,
-        'risk_factor': risk_factors,
-    }
-    return type_map[key.type][key.name]
-
 
 @lru_cache
 def load_standard_data(key: str, location: str) -> pd.DataFrame:
