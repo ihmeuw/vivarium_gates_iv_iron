@@ -6,6 +6,8 @@ from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
 
 from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
+from vivarium_gates_iv_iron.components.mortality import MaternalMortality
+
 from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
     DURATIONS,
@@ -17,7 +19,8 @@ from vivarium_gates_iv_iron.components.utilities import (
 
 class Pregnancy:
     def __init__(self):
-        self.hemoglobin_distribution = Hemoglobin()
+        self.mortality = MaternalMortality()
+        # self.hemoglobin_distribution = Hemoglobin()
 
     @property
     def name(self):
@@ -25,7 +28,11 @@ class Pregnancy:
 
     @property
     def sub_components(self):
-        return [self.hemoglobin_distribution]
+        # return [self.hemoglobin_distribution]
+        return [
+            self.mortality,
+            # self.hemoglobin_distribution,
+        ]
 
     # noinspection PyAttributeOutsideInit
     def setup(self, builder: Builder):
@@ -34,14 +41,12 @@ class Pregnancy:
         self.randomness = builder.randomness.get_stream(self.name)
 
         self.columns_created = [
-            'pregnancy_status',  # not_pregnant, pregnant, postpartum
-            'pregnancy_outcome',  # livebirth, still birth, other
+            'pregnancy_status',
+            'pregnancy_outcome',
             'sex_of_child',
             'birth_weight',
             'pregnancy_state_change_date',
             'pregnancy_duration',
-            'cause_of_death',
-            'years_of_life_lost',
             'maternal_hemorrhage',
         ]
 
@@ -68,25 +73,6 @@ class Pregnancy:
             parameter_columns=['age', 'year'],
         )
 
-        self.life_expectancy = builder.lookup.build_table(
-            builder.data.load(data_keys.POPULATION.TMRLE),
-            parameter_columns=['age'],
-        )
-
-        self.background_mortality_rate = builder.value.register_rate_producer(
-            'background_mortality_rate',
-            source=builder.lookup.build_table(
-                self._get_background_mortality_rate(builder),
-                key_columns=['sex'],
-                parameter_columns=['age', 'year'],
-            ),
-        )
-
-        self.probability_fatal_maternal_disorder = builder.lookup.build_table(
-            builder.data.load(data_keys.MATERNAL_DISORDERS.PROBABILITY_FATAL),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
-        )
         self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(
             builder.data.load(data_keys.MATERNAL_DISORDERS.PROBABILITY_NONFATAL),
             key_columns=['sex'],
@@ -141,6 +127,7 @@ class Pregnancy:
         builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
+
         prevalence = self.prevalence(pop_data.index)
         pregnancy_status = self.randomness.choice(
             pop_data.index,
@@ -162,8 +149,6 @@ class Pregnancy:
             'pregnancy_outcome': models.INVALID_OUTCOME,
             'pregnancy_duration': pd.NaT,
             'pregnancy_state_change_date': pd.NaT,
-            'cause_of_death': "not_dead",
-            'years_of_life_lost': 0.,
             'maternal_hemorrhage': models.NOT_MATERNAL_HEMORRHAGE_STATE,
         })
 
@@ -243,24 +228,7 @@ class Pregnancy:
                 & (event.time - pop["pregnancy_state_change_date"] >= pd.Timedelta(days=7 * DURATIONS.POSTPARTUM))
         )
 
-        # Determine who dies
-        maternal_disorder_death_draw = self.randomness.get_draw(pop.index, additional_key="maternal_disorder_death")
-        would_die_due_to_maternal_disorders = maternal_disorder_death_draw < self.probability_maternal_deaths(pop.index)
-        died_due_to_maternal_disorders = pregnancy_ends_this_step & would_die_due_to_maternal_disorders
-        died_due_to_background_causes_index = self.randomness.filter_for_rate(pop.index,
-                                                                              rate=self.background_mortality_rate(
-                                                                                  pop.index),
-                                                                              additional_key="other_cause_death")
-        died_due_to_background_causes = pd.Series(False, index=pop.index)
-        died_due_to_background_causes.loc[died_due_to_background_causes_index] = True
-        died_due_to_background_causes.loc[died_due_to_maternal_disorders] = False
-        died_this_step = died_due_to_maternal_disorders | died_due_to_background_causes
 
-        pop.loc[died_this_step, "alive"] = "dead"
-        pop.loc[died_this_step, "exit_time"] = event.time
-        pop.loc[died_this_step, "years_of_life_lost"] = self.life_expectancy(pop.loc[died_this_step].index)
-        pop.loc[died_due_to_maternal_disorders, "cause_of_death"] = "maternal_disorders"
-        pop.loc[died_due_to_background_causes, "cause_of_death"] = "other_causes"
 
         # Update new pregnancies
         # TODO: If you want to be mutually exclusive from death make this
@@ -377,18 +345,4 @@ class Pregnancy:
         )
         return date
 
-    ########################
-    # Data loading helpers #
-    ########################
-
-    @staticmethod
-    def _get_background_mortality_rate(builder: Builder) -> pd.DataFrame:
-        all_cause_mortality_data = builder.data.load(data_keys.POPULATION.ACMR)
-        maternal_disorder_csmr = builder.data.load(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR)
-        idx = all_cause_mortality_data.columns.difference(['value']).tolist()
-        background_mortality_rate = (
-            all_cause_mortality_data.set_index(idx)
-            - maternal_disorder_csmr.set_index(idx)
-        ).reset_index()
-        return background_mortality_rate
 
