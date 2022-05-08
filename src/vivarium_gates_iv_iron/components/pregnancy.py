@@ -30,6 +30,7 @@ class Pregnancy:
     @property
     def sub_components(self):
         return [
+            Hemoglobin(),
             MaternalMortality(),
             MaternalDisability(),
             self.new_children,
@@ -205,10 +206,13 @@ class Pregnancy:
         return date
 
     def _sample_new_pregnant(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
-        pop = self.population_view.get(index, query="alive == 'alive'")
+        pop = self.population_view.get(index)
+        eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
 
         # Find the new mothers
-        not_pregnant = pop[pop['pregnancy_status'] == models.NOT_PREGNANT_STATE].index
+        not_pregnant = pop[
+            eligible & (pop['pregnancy_status'] == models.NOT_PREGNANT_STATE)
+        ].index
         potentially_pregnant = self.randomness.filter_for_rate(
             pop.index,
             self.conception_rate(pop.index),
@@ -237,14 +241,14 @@ class Pregnancy:
 
     def _sample_new_prepostpartum(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
         pop = self.population_view.get(index)
+        eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
 
         # Find the newly prepostpartum
-        eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
-        new_prepostpartum = pop.loc[(
+        new_prepostpartum = pop.loc[
             eligible
             & (pop['pregnancy_status'] == models.PREGNANT_STATE)
             & (event_time - pop["pregnancy_state_change_date"] >= pop["pregnancy_duration"])
-        )].copy()
+        ].copy()
 
         # Check for maternal disorders and update
         fatal_md = new_prepostpartum[
@@ -274,12 +278,14 @@ class Pregnancy:
 
     def _sample_new_postpartum(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
         pop = self.population_view.get(index)
+        eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
 
         prepostpartum_duration = pd.Timedelta(days=7 * DURATIONS.PREPOSTPARTUM)
-        new_postpartum = pop.loc[(
-            pop['pregnancy_status'].isin(models.PREPOSTPARTUM_STATES)
+        new_postpartum = pop.loc[
+            eligible
+            & pop['pregnancy_status'].isin(models.PREPOSTPARTUM_STATES)
             & (event_time - pop["pregnancy_state_change_date"] >= prepostpartum_duration)
-        )].copy()
+        ].copy()
 
         new_postpartum["pregnancy_status"] = models.POSTPARTUM_STATE
         new_postpartum["pregnancy_state_change_date"] = event_time
@@ -287,12 +293,14 @@ class Pregnancy:
 
     def _sample_new_not_pregnant(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
         pop = self.population_view.get(index)
+        eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
 
         postpartum_duration = pd.Timedelta(days=7 * DURATIONS.POSTPARTUM)
-        new_not_pregnant = pop.loc[(
-            (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
+        new_not_pregnant = pop.loc[
+            eligible
+            & (pop['pregnancy_status'] == models.POSTPARTUM_STATE)
             & (event_time - pop["pregnancy_state_change_date"] >= postpartum_duration)
-        )].copy()
+        ].copy()
         # Postpartum to Not pregnant
         new_not_pregnant["pregnancy_status"] = models.NOT_PREGNANT_STATE
         new_not_pregnant["pregnancy_outcome"] = models.INVALID_OUTCOME

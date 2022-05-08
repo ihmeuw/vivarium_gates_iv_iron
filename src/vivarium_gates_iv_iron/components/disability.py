@@ -56,5 +56,6 @@ class MaternalDisability:
         disability_weight = pd.Series(np.nan, index=index)
         for state, dw in dw_map.items():
             in_state = alive & (pop['pregnancy_status'] == state)
-            disability_weight[state] = dw.loc[in_state]
+            disability_weight[in_state] = dw.loc[in_state]
+
         return disability_weight

@@ -83,6 +83,12 @@ class Hemoglobin:
             requires_values=["hemoglobin.exposure"],
         )
 
+        builder.value.register_value_producer(
+            'anemia.disability_weight',
+            source=self.disability_weight,
+            requires_values=['hemoglobin.exposure']
+        )
+
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
             creates_columns=self.columns_created,
