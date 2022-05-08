@@ -10,6 +10,7 @@ components:
         - MortalityObserver()
         - PregnancyObserver()
         - AnemiaObserver()
+        - BirthRecorder()
 
 configuration:
     input_data:
@@ -39,6 +40,7 @@ configuration:
         age_end: 54
         include_sex: 'Female'
         pregnant_lactating_women: False
-
+    intervention:
+        scenario: 'baseline'
     observers:
         default: []

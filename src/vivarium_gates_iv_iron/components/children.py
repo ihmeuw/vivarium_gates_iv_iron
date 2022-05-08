@@ -1,8 +1,11 @@
+from pathlib import Path
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from vivarium.config_tree import ConfigurationKeyError
 from vivarium.framework.engine import Builder
+from vivarium.framework.event import Event
 
 from vivarium_gates_iv_iron.constants import (
     data_keys,
@@ -119,3 +122,84 @@ class LBWSGDistribution:
             float(val) for val in description.split("- [")[1].split(")")[0].split(", ")
         ]
         return *birth_weight, *gestational_age
+
+
+class BirthRecorder:
+
+    @property
+    def name(self):
+        return "birth_recorder"
+
+    #################
+    # Setup methods #
+    #################
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.output_path = self._build_output_path(builder)
+        self.randomness = builder.randomness.get_stream(self.name)
+
+        self.births = []
+
+        required_columns = [
+            'sex_of_child',
+            'birth_weight',
+            'gestational_age',
+
+            'pregnancy_status',
+            'pregnancy_outcome',
+            'pregnancy_state_change_date',
+        ]
+        self.population_view = builder.population.get_view(required_columns)
+
+        self.maternal_anemia = builder.value.get_value('anemia_levels')
+
+        builder.event.register_listener("collect_metrics", self.on_collect_metrics)
+        builder.event.register_listener("simulation_end", self.write_output)
+
+    def on_collect_metrics(self, event: Event):
+        pop = self.population_view.get(event.index)
+        new_birth_mask = (
+            pop['pregnancy_status'].isin(models.PREPOSTPARTUM_STATES)
+            & (pop['pregnancy_state_change_date'] == event.time)
+            & (pop['pregnancy_outcome'] == models.LIVE_BIRTH_OUTCOME)
+        )
+        birth_cols = ['sex_of_child', 'birth_weight', 'gestational_age']
+        new_births = (
+            pop.loc[new_birth_mask, birth_cols].rename(columns={'sex_of_child': 'sex'})
+        )
+
+        # Cheaper than trying to parse out conception times and gestational ages.
+        birthday_fuzz = self.randomness.get_draw(
+            new_births.index, additional_key='birthday_fuzz'
+        )
+        new_births['birth_date'] = event.time - event.step_size * birthday_fuzz
+        new_births['joint_bmi_anemia_category'] = 'cat1'
+        new_births['maternal_supplementation_coverage'] = 'uncovered'
+        new_births['maternal_antenatal_iv_iron_coverage'] = 'uncovered'
+        new_births['maternal_postpartum_iv_iron_coverage'] = 'uncovered'
+        self.births.append(new_births)
+
+    # noinspection PyUnusedLocal
+    def write_output(self, event: Event) -> None:
+        births_data = pd.concat(self.births)
+        # TODO:
+        #   births_data.to_hdf(self.output_path)
+
+    ###########
+    # Helpers #
+    ###########
+
+    @staticmethod
+    def _build_output_path(builder: Builder) -> Path:
+        try:
+            output_root = Path(builder.configuration.output_data.results_root) / 'child_data'
+        except ConfigurationKeyError:
+            output_root = Path('~/child_data')
+        # TODO:
+        #   mkdir(output_path, parents=True, exists_ok=True)
+        input_draw = builder.configuration.input_data.input_draw_number
+        seed = builder.configuration.randomness.random_seed
+        scenario = builder.configuration.intervention.scenario
+        output_path = output_root / f'scenario_{scenario}_draw_{input_draw}_seed_{seed}.hdf'
+        return output_path
