@@ -18,11 +18,6 @@ from loguru import logger
 import vivarium_cluster_tools as vct
 
 from vivarium_gates_iv_iron.constants import data_keys, metadata
-from vivarium_gates_iv_iron.utilities import (
-    sanitize_location,
-    delete_if_exists,
-    len_longest_location,
-)
 from vivarium_gates_iv_iron.tools.app_logging import add_logging_sink, decode_status
 
 
@@ -222,6 +217,24 @@ def build_single_location_artifact(
             builder.load_and_write_data(artifact, key, location)
 
     logger.info(f"**Done building -- {location}**")
+
+
+def sanitize_location(location: str):
+    """Cleans up location formatting for writing and reading from file names.
+
+    Parameters
+    ----------
+    location
+        The unsanitized location name.
+
+    Returns
+    -------
+        The sanitized location name (lower-case with white-space and
+        special characters removed.
+
+    """
+    # FIXME: Should make this a reversible transformation.
+    return location.replace(" ", "_").replace("'", "_").lower()
 
 
 if __name__ == "__main__":
