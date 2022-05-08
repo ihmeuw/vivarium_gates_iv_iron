@@ -14,7 +14,14 @@ for an example.
 
 """
 from functools import lru_cache
+from typing import Union
 
+from gbd_mapping import (
+    causes,
+    covariates,
+    risk_factors,
+    ModelableEntity,
+)
 import numpy as np
 import pandas as pd
 from vivarium.framework.artifact import EntityKey
@@ -23,6 +30,7 @@ from vivarium_gbd_access import gbd
 from vivarium_inputs import (
     globals as vi_globals,
     interface,
+    utilities as vi_utils,
     utility_data,
 )
 
@@ -36,11 +44,6 @@ from vivarium_gates_iv_iron.constants import (
 from vivarium_gates_iv_iron.data import (
     extra_gbd,
     sampling,
-    utilities,
-)
-from vivarium_gates_iv_iron.utilities import (
-    get_norm_from_quantiles,
-    get_truncnorm_from_quantiles,
 )
 
 
@@ -103,16 +106,27 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
 # Generic loaders and helpers #
 ###############################
 
+def get_entity(key: Union[str, EntityKey]) -> ModelableEntity:
+    key = EntityKey(key)
+    # Map of entity types to their gbd mappings.
+    type_map = {
+        'cause': causes,
+        'covariate': covariates,
+        'risk_factor': risk_factors,
+    }
+    return type_map[key.type][key.name]
+
+
 @lru_cache
 def load_standard_data(key: str, location: str) -> pd.DataFrame:
     key = EntityKey(key)
-    entity = utilities.get_entity(key)
+    entity = get_entity(key)
     return interface.get_measure(entity, key.measure, location).droplevel("location")
 
 
 def load_metadata(key: str, location: str):
     key = EntityKey(key)
-    entity = utilities.get_entity(key)
+    entity = get_entity(key)
     entity_metadata = entity[key.measure]
     if hasattr(entity_metadata, "to_dict"):
         entity_metadata = entity_metadata.to_dict()
@@ -178,7 +192,7 @@ def load_sbr(key: str, location: str):
         pass
 
     births_per_location_year, sbr = [], []
-    for child_loc in utilities.get_child_locs(location):
+    for child_loc in get_child_locs(location):
         child_pop = get_data(data_keys.POPULATION.STRUCTURE, child_loc)
         child_asfr = get_data(data_keys.PREGNANCY.ASFR, child_loc)
         child_asfr.index = child_pop.index  # Add location back
@@ -310,7 +324,7 @@ def load_child_outcome_probabilities(key: str, location: str):
 
 def load_pregnant_lactating_women_location_weights(key: str, location: str):
     weights = []
-    for child_loc in utilities.get_child_locs(location):
+    for child_loc in get_child_locs(location):
         child_pop = get_data(data_keys.POPULATION.STRUCTURE, child_loc)
         child_pregnancy_end_rate = _get_pregnancy_end_rate(location)
         child_pregnancy_end_rate.index = child_pop.index
@@ -329,7 +343,7 @@ def load_pregnant_lactating_women_location_weights(key: str, location: str):
 def load_women_reproductive_age_location_weights(key: str, location: str):
     pops = pd.concat([
         get_data(data_keys.POPULATION.STRUCTURE, child_loc)
-        for child_loc in utilities.get_child_locs(location)
+        for child_loc in get_child_locs(location)
     ])
     total_pop = (pops
                  .groupby([n for n in pops.index.names if n != 'location'])
@@ -349,7 +363,7 @@ def load_pregnancy_hemoglobin_correction(key: str, location: str):
 
         np.random.seed(get_hash(f'{key}_{sample_status}_{location}'))
         for param_name, param_set in zip(('mean', 'stddev'), params):
-            dist = get_norm_from_quantiles(*param_set)
+            dist = sampling.get_norm_from_quantiles(*param_set)
             samples = pd.DataFrame(
                 np.tile(dist.rvs(size=1000), (len(demography), 1)),
                 columns=vi_globals.DRAW_COLUMNS,
@@ -375,11 +389,11 @@ def load_maternal_disorders_ylds(key: str, location: str) -> pd.DataFrame:
 
     all_ylds = extra_gbd.get_maternal_disorder_ylds(location)
     all_ylds = all_ylds[groupby_cols + draw_cols]
-    all_ylds = utilities.reshape_to_vivarium_format(all_ylds, location)
+    all_ylds = reshape_to_vivarium_format(all_ylds, location)
 
     anemia_ylds = extra_gbd.get_anemia_ylds(location)
     anemia_ylds = anemia_ylds.groupby(groupby_cols)[draw_cols].sum().reset_index()
-    anemia_ylds = utilities.reshape_to_vivarium_format(anemia_ylds, location)
+    anemia_ylds = reshape_to_vivarium_format(anemia_ylds, location)
 
     acmr = get_data(data_keys.POPULATION.ACMR, location)
     csmr = get_data(data_keys.MATERNAL_DISORDERS.TOTAL_CSMR, location)
@@ -425,7 +439,7 @@ def load_probability_maternal_hemorrhage(key: str, location: str):
 
     p_any_hemorrhage = ((mh_inc - mh_csmr) / pregnancy_end_rate).fillna(0.)
 
-    p_moderate_distribution = get_truncnorm_from_quantiles(
+    p_moderate_distribution = sampling.get_truncnorm_from_quantiles(
         *data_values.PROBABILITY_MODERATE_MATERNAL_HEMORRHAGE
     )
     np.random.seed(get_hash(f'{key}_{location}'))
@@ -455,7 +469,7 @@ def load_probability_maternal_hemorrhage(key: str, location: str):
 ##############
 
 def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
-    entity = utilities.get_entity(data_keys.LBWSG.EXPOSURE)
+    entity = get_entity(data_keys.LBWSG.EXPOSURE)
     data = extra_gbd.load_lbwsg_exposure(location)
     # This category was a mistake in GBD 2019, so drop.
     extra_residual_category = vi_globals.EXTRA_RESIDUAL_CATEGORY[entity.name]
@@ -470,7 +484,7 @@ def load_lbwsg_exposure(key: str, location: str) -> pd.DataFrame:
     # normalize so all categories sum to 1
     total_exposure = data.groupby(['location_id', 'sex_id']).transform('sum')
     data = (data / total_exposure).reset_index()
-    data = utilities.reshape_to_vivarium_format(data, location)
+    data = reshape_to_vivarium_format(data, location)
     return data
 
 
@@ -485,10 +499,10 @@ def get_hemoglobin_data(key: str, location: str):
     }[key]
 
     country_dfs = []
-    for child_loc in utilities.get_child_locs(location):
+    for child_loc in get_child_locs(location):
         location_id = utility_data.get_location_id(child_loc)
         hemoglobin_data = gbd.get_modelable_entity_draws(me_id=me_id, location_id=location_id)
-        hemoglobin_data = utilities.reshape_to_vivarium_format(hemoglobin_data, child_loc)
+        hemoglobin_data = reshape_to_vivarium_format(hemoglobin_data, child_loc)
         hemoglobin_data = pd.concat([hemoglobin_data], keys=[child_loc], names=['location'])
         country_dfs.append(hemoglobin_data)
 
@@ -509,3 +523,28 @@ def get_hemoglobin_csv_data(key: str, location: str):
             .reset_index(level='age_end', drop=True)
             .reindex(demography.index, level='age_start', fill_value=0.))
     return data
+
+
+###########
+# Helpers #
+###########
+
+def get_child_locs(location):
+    parent_id = utility_data.get_location_id(location)
+    hierarchy = extra_gbd.get_gbd_hierarchy()
+
+    is_child_loc = hierarchy.path_to_top_parent.str.contains(f',{parent_id},')
+    is_country = hierarchy.location_type == "admin0"
+    child_locs = hierarchy.loc[is_child_loc & is_country, 'location_name'].tolist()
+
+    return child_locs
+
+
+def reshape_to_vivarium_format(df, location):
+    df = vi_utils.reshape(df, value_cols=vi_globals.DRAW_COLUMNS)
+    df = vi_utils.scrub_gbd_conventions(df, location)
+    df = vi_utils.split_interval(df, interval_column='age', split_column_prefix='age')
+    df = vi_utils.split_interval(df, interval_column='year', split_column_prefix='year')
+    df = vi_utils.sort_hierarchical_data(df)
+    df.index = df.index.droplevel("location")
+    return df
