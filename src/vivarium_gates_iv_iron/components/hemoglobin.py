@@ -199,17 +199,11 @@ class Hemoglobin:
         )
         return anemia_levels.map(ANEMIA_DISABILITY_WEIGHTS)
 
-    def _get_location_weights(self, builder: Builder):
-        pregnant_lactating_women = (
-            builder.configuration.population.pregnant_lactating_women
-        )
-        if pregnant_lactating_women:
-            location_weights = builder.data.load(
-                data_keys.POPULATION.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS
-            ).rename(columns={"location": "country"})
-        else:
-            location_weights = builder.data.load(
-                data_keys.POPULATION.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS
-            ).rename(columns={"location": "country"})
-
-        return location_weights
+    @staticmethod
+    def _get_location_weights(builder: Builder):
+        plw = builder.configuration.population.pregnant_lactating_women
+        key = {
+            True: data_keys.PREGNANCY.PREGNANT_LACTATING_WOMEN_LOCATION_WEIGHTS,
+            False: data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS,
+        }[plw]
+        return builder.data.load(key).rename(columns={"location": "country"})
