@@ -7,6 +7,7 @@ from vivarium.framework.population import SimulantData
 
 from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.components.mortality import MaternalMortality
+from vivarium_gates_iv_iron.components.disability import MaternalDisability
 
 from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
@@ -18,9 +19,6 @@ from vivarium_gates_iv_iron.components.utilities import (
 
 
 class Pregnancy:
-    def __init__(self):
-        self.mortality = MaternalMortality()
-        # self.hemoglobin_distribution = Hemoglobin()
 
     @property
     def name(self):
@@ -28,10 +26,9 @@ class Pregnancy:
 
     @property
     def sub_components(self):
-        # return [self.hemoglobin_distribution]
         return [
-            self.mortality,
-            # self.hemoglobin_distribution,
+            MaternalMortality(),
+            MaternalDisability(),
         ]
 
     # noinspection PyAttributeOutsideInit
@@ -86,17 +83,6 @@ class Pregnancy:
             ),
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
-        )
-
-        self.ylds_per_maternal_disorder = builder.lookup.build_table(
-            builder.data.load(data_keys.MATERNAL_DISORDERS.YLDS),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
-        )
-        builder.value.register_value_modifier(
-            "disability_weight",
-            self.accrue_disability,
-            requires_columns=["alive", "pregnancy_status"],
         )
 
         self.correction_factors = builder.lookup.build_table(
@@ -275,24 +261,6 @@ class Pregnancy:
         pop.loc[postpartum_ends_this_step, "maternal_hemorrhage"] = models.NOT_MATERNAL_HEMORRHAGE_STATE
 
         self.population_view.update(pop)
-
-    def accrue_disability(self, index: pd.Index):
-        anemia_disability_weight = self.hemoglobin_distribution.disability_weight(index)
-        maternal_disorder_ylds = self.ylds_per_maternal_disorder(index)
-        maternal_disorder_disability_weight = maternal_disorder_ylds * 365 / self.step_size().days
-        disability_weight = pd.Series(np.nan, index=index)
-
-        pop = self.population_view.get(index)
-        alive = pop["alive"] == "alive"
-        pregnant_or_not_pregnant = alive & pop["pregnancy_status"].isin([models.PREGNANT_STATE, models.NOT_PREGNANT_STATE])
-        maternal_disorders = alive & (pop["pregnancy_status"] == models.MATERNAL_DISORDER_STATE)
-        no_maternal_disorders = alive & (pop["pregnancy_status"] == models.NO_MATERNAL_DISORDER_STATE)
-        postpartum = alive & (pop["pregnancy_status"] == models.POSTPARTUM_STATE)
-        disability_weight.loc[pregnant_or_not_pregnant] = anemia_disability_weight.loc[pregnant_or_not_pregnant]
-        disability_weight.loc[maternal_disorders] = maternal_disorder_disability_weight.loc[maternal_disorders]
-        disability_weight.loc[no_maternal_disorders] = 0.
-        disability_weight.loc[postpartum] = 6/5 * anemia_disability_weight.loc[postpartum]
-        return disability_weight
 
     def hemoglobin_pregnancy_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
         return df * self.correction_factors(index)
