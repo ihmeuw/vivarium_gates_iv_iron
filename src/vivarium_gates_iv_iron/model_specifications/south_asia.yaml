@@ -15,7 +15,7 @@ configuration:
     input_data:
         input_draw_number: 0
         location: 'South Asia'
-        artifact_path: '/home/collijk/south_asia.hdf'
+        artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf' 
     interpolation:
         order: 0
         extrapolate: True
