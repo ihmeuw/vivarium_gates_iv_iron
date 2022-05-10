@@ -30,26 +30,24 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-STATE_PERSON_TIME_COLUMN_TEMPLATE = "{STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
-TRANSITION_COUNT_COLUMN_TEMPLATE = "{TRANSITION}_event_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
-PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
+DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
+YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_age_{AGE_GROUP}"
+PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}_age_{AGE_GROUP}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
     "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 )
 PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE = (
-    "{PREGNANCY_TRANSITION}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{PREGNANCY_TRANSITION}_count_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_maternal_disorders_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "incident_cases_of_maternal_disorders_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "maternal_hemorrhage_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "maternal_hemorrhage_person_time_in_{YEAR}_age_{AGE_GROUP}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
     "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
@@ -63,8 +61,6 @@ COLUMN_TEMPLATES = {
     "deaths": DEATH_COLUMN_TEMPLATE,
     "ylls": YLLS_COLUMN_TEMPLATE,
     "ylds": YLDS_COLUMN_TEMPLATE,
-    "state_person_time": STATE_PERSON_TIME_COLUMN_TEMPLATE,
-    "transition_count": TRANSITION_COUNT_COLUMN_TEMPLATE,
     "pregnancy_outcome_counts": PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE,
     "pregnancy_state_person_time": PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE,
     "pregnancy_transition_counts": PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE,
