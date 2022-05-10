@@ -30,7 +30,6 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-PERSON_TIME_COLUMN_TEMPLATE = "person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
 DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
 YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
@@ -61,7 +60,6 @@ ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
 
 COLUMN_TEMPLATES = {
     "population": TOTAL_POPULATION_COLUMN_TEMPLATE,
-    "person_time": PERSON_TIME_COLUMN_TEMPLATE,
     "deaths": DEATH_COLUMN_TEMPLATE,
     "ylls": YLLS_COLUMN_TEMPLATE,
     "ylds": YLDS_COLUMN_TEMPLATE,
