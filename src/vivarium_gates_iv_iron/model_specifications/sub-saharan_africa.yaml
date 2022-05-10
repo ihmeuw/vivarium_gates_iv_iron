@@ -41,4 +41,6 @@ configuration:
         pregnant_lactating_women: False
 
     observers:
-        default: []
+        default:
+            - "year"
+            - "age"
