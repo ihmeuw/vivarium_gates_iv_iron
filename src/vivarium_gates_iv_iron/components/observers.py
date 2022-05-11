@@ -33,6 +33,12 @@ class DisabilityObserver(DisabilityObserver_):
 
     def setup(self, builder: Builder) -> None:
         super().setup(builder)
+        self.disability_pipelines['maternal_disorders'] = builder.value.get_value(
+            'maternal_disorders.disability_weight'
+        )
+        self.disability_pipelines['anemia'] = builder.value.get_value(
+            'real_anemia.disability_weight'
+        )
 
 
 class PregnancyObserver:

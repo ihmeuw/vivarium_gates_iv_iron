@@ -24,13 +24,36 @@ class MaternalDisability:
         )
 
         self.anemia_disability = builder.value.get_value('anemia.disability_weight')
-        builder.value.register_value_modifier(
-            "disability_weight",
-            self.accrue_disability,
+        self.maternal_disability = builder.value.register_value_producer(
+            'maternal_disorders.disability_weight',
+            source=self.accrue_disability,
             requires_columns=["alive", "pregnancy_status"],
         )
 
+        builder.value.register_value_modifier(
+            "disability_weight",
+            self.maternal_disorders_disability,
+        )
+        builder.value.register_value_producer(
+            "real_anemia.disability_weight",
+            source=self.anemia_disability,
+        )
+
         self.population_view = builder.population.get_view(['alive', 'pregnancy_status'])
+
+    def maternal_disorders_disability(self, index: pd.Index):
+        pop = self.population_view.get(index)
+        in_maternal_disorder = pop.pregnancy_status == models.MATERNAL_DISORDER_STATE
+        dw = self.accrue_disability(index)
+        dw[~in_maternal_disorder] = 0
+        return dw
+
+    def anemia_disability(self, index: pd.Index):
+        pop = self.population_view.get(index)
+        in_maternal_disorder = pop.pregnancy_status == models.MATERNAL_DISORDER_STATE
+        dw = self.accrue_disability(index)
+        dw[in_maternal_disorder] = 0
+        return dw
 
     def accrue_disability(self, index: pd.Index):
         anemia_disability_weight = self.anemia_disability(index)
