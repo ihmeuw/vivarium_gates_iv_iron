@@ -33,6 +33,12 @@ class DisabilityObserver(DisabilityObserver_):
 
     def setup(self, builder: Builder) -> None:
         super().setup(builder)
+        self.disability_pipelines['maternal_disorders'] = builder.value.get_value(
+            'maternal_disorders.disability_weight'
+        )
+        self.disability_pipelines['anemia'] = builder.value.get_value(
+            'real_anemia.disability_weight'
+        )
 
 
 class PregnancyObserver:
@@ -242,7 +248,7 @@ class AnemiaObserver:
         for label, group_mask in groups:
             group = pop[group_mask]
             for anemia_level, pregnancy_status, hemorrhage_state in anemia_measures:
-                key = f"{anemia_level}_anemia_person_time_among_{pregnancy_status}_with_{hemorrhage_state}"
+                key = f"{anemia_level}_anemia_person_time_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
                 sub_group = group.query(
                     f'anemia_level == "{anemia_level}" '
                     f'and pregnancy_status == "{pregnancy_status}" '
@@ -266,7 +272,7 @@ class AnemiaObserver:
         for label, group_mask in groups:
             group = pop[group_mask]
             for pregnancy_status, hemorrhage_state in pregnancy_measures:
-                key = f"hemoglobin_exposure_sum_among_{pregnancy_status}_with_{hemorrhage_state}"
+                key = f"hemoglobin_exposure_sum_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
                 sub_group = group.query(
                     f'pregnancy_status == "{pregnancy_status}" '
                     f'and maternal_hemorrhage == "{hemorrhage_state}"'
