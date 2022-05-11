@@ -50,10 +50,10 @@ MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
     "maternal_hemorrhage_person_time_year_{YEAR}_age_{AGE_GROUP}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 
 COLUMN_TEMPLATES = {
