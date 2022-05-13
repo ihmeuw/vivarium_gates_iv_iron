@@ -44,3 +44,5 @@ configuration:
         default:
             - "year"
             - "age"
+        disability:
+            include: ['pregnancy_status']
