@@ -11,6 +11,7 @@ from vivarium_public_health.metrics import (
     MortalityObserver as MortalityObserver_,
     ResultsStratifier as ResultsStratifier_,
 )
+from vivarium_public_health.metrics.stratification import Source, SourceType
 from vivarium_public_health.utilities import to_years
 
 from vivarium_gates_iv_iron.constants import data_values, models
@@ -20,6 +21,12 @@ class ResultsStratifier(ResultsStratifier_):
 
     def register_stratifications(self, builder: Builder) -> None:
         super().register_stratifications(builder)
+        self.setup_stratification(
+            builder,
+            name='pregnancy_status',
+            sources=[Source('pregnancy_status', SourceType.COLUMN)],
+            categories=models.PREGNANCY_MODEL_STATES,
+        )
 
 
 class MortalityObserver(MortalityObserver_):
