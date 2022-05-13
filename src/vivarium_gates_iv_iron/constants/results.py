@@ -32,7 +32,7 @@ THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
 DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
 YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
-YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_age_{AGE_GROUP}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
 PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}_age_{AGE_GROUP}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
     "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}_age_{AGE_GROUP}"
@@ -92,7 +92,7 @@ CAUSES_OF_DEATH = (
     "other_causes",
     "maternal_disorders",
 )
-CAUSES_OF_DISABILITY = ("maternal_disorders",)
+CAUSES_OF_DISABILITY = ("maternal_disorders", "anemia")
 
 TEMPLATE_FIELD_MAP = {
     "POP_STATE": POP_STATES,
