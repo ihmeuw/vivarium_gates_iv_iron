@@ -27,7 +27,6 @@ RENAME_COLUMNS = {
 def make_measure_data(data):
     measure_data = MeasureData(
         population=get_population_data(data),
-        person_time=get_measure_data(data, "person_time"),
         ylls=get_by_cause_measure_data(data, "ylls"),
         ylds=get_by_cause_measure_data(data, "ylds"),
         deaths=get_by_cause_measure_data(data, "deaths"),
@@ -59,7 +58,6 @@ def make_measure_data(data):
 
 class MeasureData(NamedTuple):
     population: pd.DataFrame
-    person_time: pd.DataFrame
     ylls: pd.DataFrame
     ylds: pd.DataFrame
     deaths: pd.DataFrame

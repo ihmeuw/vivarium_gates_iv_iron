@@ -37,7 +37,14 @@ from vivarium_gates_iv_iron.tools import (
     is_flag=True,
     help="Append to the artifact instead of overwriting.",
 )
+@click.option(
+    "-y",
+    "autoconfirm",
+    is_flag=True,
+    help="Skip prompt when overwriting artifacts."
+)
 @click.option("-v", "verbose", count=True, help="Configure logging verbosity.")
+
 @click.option(
     "--pdb",
     "with_debugger",
@@ -45,11 +52,16 @@ from vivarium_gates_iv_iron.tools import (
     help="Drop into python debugger if an error occurs.",
 )
 def make_artifacts(
-    location: str, output_dir: str, append: bool, verbose: int, with_debugger: bool
+    location: str,
+    output_dir: str,
+    append: bool,
+    autoconfirm: bool,
+    verbose: int,
+    with_debugger: bool
 ) -> None:
     configure_logging_to_terminal(verbose)
     main = handle_exceptions(build_artifacts, logger, with_debugger=with_debugger)
-    main(location, output_dir, append, verbose)
+    main(location, output_dir, append, verbose, autoconfirm)
 
 
 @click.command()

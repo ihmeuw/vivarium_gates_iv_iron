@@ -5,19 +5,17 @@ components:
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
+        - ResultsStratifier()
         - DisabilityObserver()
         - MortalityObserver()
         - PregnancyObserver()
-        - MaternalDisordersObserver()
-        - MaternalHemorrhageObserver()
-        - HemoglobinObserver()
         - AnemiaObserver()
 
 configuration:
     input_data:
         input_draw_number: 0
         location: 'Sub-Saharan Africa'
-        artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/sub-saharan_africa.hdf'
+        artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/sub-saharan_africa.hdf' 
     interpolation:
         order: 0
         extrapolate: True
@@ -39,34 +37,12 @@ configuration:
         population_size: 10_000
         age_start: 7
         age_end: 54
+        include_sex: 'Female'
         pregnant_lactating_women: False
 
-    metrics:
+    observers:
+        default:
+            - "year"
+            - "age"
         disability:
-            by_age: True
-            by_sex: False
-            by_year: True
-        mortality:
-            by_age: True
-            by_sex: False
-            by_year: True
-        pregnancy:
-            by_age: True
-            by_sex: False
-            by_year: True
-        maternal_disorders:
-            by_age: True
-            by_sex: False
-            by_year: True
-        maternal_hemorrhage:
-            by_age: True
-            by_sex: False
-            by_year: True
-        hemoglobin:
-            by_age: True
-            by_sex: False
-            by_year: True
-        anemia:
-            by_age: True
-            by_sex: False
-            by_year: True
+            include: ['pregnancy_status']

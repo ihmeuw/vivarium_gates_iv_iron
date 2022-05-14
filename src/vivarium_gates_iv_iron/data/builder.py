@@ -68,6 +68,8 @@ def load_and_write_data(artifact: Artifact, key: str, location: str):
         logger.debug(f"Loading data for {key} for location {location}.")
         data = loader.get_data(key, location)
         logger.debug(f"Writing data for {key} to artifact.")
+        if isinstance(data, pd.DataFrame):
+            assert data.notnull().all().all()
         artifact.write(key, data)
     return artifact.load(key)
 
