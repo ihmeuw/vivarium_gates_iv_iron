@@ -11,6 +11,7 @@ from vivarium_public_health.metrics import (
     MortalityObserver as MortalityObserver_,
     ResultsStratifier as ResultsStratifier_,
 )
+from vivarium_public_health.metrics.stratification import Source, SourceType
 from vivarium_public_health.utilities import to_years
 
 from vivarium_gates_iv_iron.constants import data_values, models
@@ -20,6 +21,12 @@ class ResultsStratifier(ResultsStratifier_):
 
     def register_stratifications(self, builder: Builder) -> None:
         super().register_stratifications(builder)
+        self.setup_stratification(
+            builder,
+            name='pregnancy_status',
+            sources=[Source('pregnancy_status', SourceType.COLUMN)],
+            categories=models.PREGNANCY_MODEL_STATES,
+        )
 
 
 class MortalityObserver(MortalityObserver_):
@@ -114,12 +121,6 @@ class PregnancyObserver:
         for label, group_mask in groups:
             group = pop[group_mask]
             for hemorrhage_type in models.MATERNAL_HEMORRHAGE_STATES:
-                key = f'maternal_hemorrhage_person_time_{label}'
-                sub_group = group.query(
-                    f'maternal_hemorrhage == "{hemorrhage_type}"'
-                )
-                new_person_time[key] = len(sub_group) * step_size
-
                 for state, outcome in pregnancy_measures:
                     key = f"{state}_with_{outcome}_with_{hemorrhage_type}_person_time_{label}"
                     sub_group = group.query(
