@@ -195,13 +195,13 @@ class Pregnancy:
         is_postpartum = index[pregnancy_status == models.POSTPARTUM_STATE]
 
         draw = self.randomness.get_draw(index, additional_key='days_until_postpartum_ends')
-        days_until_postpartum_ends = pd.to_timedelta(7 * DURATIONS.POSTPARTUM * draw)
+        days_until_postpartum_ends = pd.to_timedelta(7 * (DURATIONS.POSTPARTUM * 52) * draw, unit="days")
         postpartum_start_date = creation_time - days_until_postpartum_ends
         date.loc[is_postpartum] = postpartum_start_date.loc[is_postpartum]
 
         is_prepostpartum = index[pregnancy_status == models.NO_MATERNAL_DISORDER_STATE]
         date.loc[is_prepostpartum] = (
-            creation_time - pd.Timedelta(days=7 * DURATIONS.PREPOSTPARTUM)
+            creation_time - pd.Timedelta(days=7 * (DURATIONS.PREPOSTPARTUM * 52))
         )
         return date
 
@@ -280,7 +280,7 @@ class Pregnancy:
         pop = self.population_view.get(index)
         eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
 
-        prepostpartum_duration = pd.Timedelta(days=7 * DURATIONS.PREPOSTPARTUM)
+        prepostpartum_duration = pd.Timedelta(days=7 * (DURATIONS.PREPOSTPARTUM * 52))
         new_postpartum = pop.loc[
             eligible
             & pop['pregnancy_status'].isin(models.PREPOSTPARTUM_STATES)
@@ -295,7 +295,7 @@ class Pregnancy:
         pop = self.population_view.get(index)
         eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
 
-        postpartum_duration = pd.Timedelta(days=7 * DURATIONS.POSTPARTUM)
+        postpartum_duration = pd.Timedelta(days=7 * (DURATIONS.POSTPARTUM * 52))
         new_not_pregnant = pop.loc[
             eligible
             & (pop['pregnancy_status'] == models.POSTPARTUM_STATE)

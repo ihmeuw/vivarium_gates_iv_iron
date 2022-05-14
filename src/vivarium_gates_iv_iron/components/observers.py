@@ -121,12 +121,6 @@ class PregnancyObserver:
         for label, group_mask in groups:
             group = pop[group_mask]
             for hemorrhage_type in models.MATERNAL_HEMORRHAGE_STATES:
-                key = f'maternal_hemorrhage_person_time_{label}'
-                sub_group = group.query(
-                    f'maternal_hemorrhage == "{hemorrhage_type}"'
-                )
-                new_person_time[key] = len(sub_group) * step_size
-
                 for state, outcome in pregnancy_measures:
                     key = f"{state}_with_{outcome}_with_{hemorrhage_type}_person_time_{label}"
                     sub_group = group.query(
