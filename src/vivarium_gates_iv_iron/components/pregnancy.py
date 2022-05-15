@@ -257,15 +257,14 @@ class Pregnancy:
         ].index
         child_status.loc[no_child_status] = self.new_children.empty(no_child_status)
 
-        maternal_status = pd.DataFrame({
-            'pregnancy_status': models.PREGNANT_STATE,
-            'pregnancy_outcome': outcome,
-            'pregnancy_duration': duration,
-            'pregnancy_state_change_date': event_time,
-            'maternal_hemorrhage': models.NOT_MATERNAL_HEMORRHAGE_STATE,
-        })
+        newly_pregnant = pop.loc[newly_pregnant]
+        newly_pregnant['pregnancy_status'] = models.PREGNANT_STATE
+        newly_pregnant['pregnancy_outcome'] = outcome
+        newly_pregnant['pregnancy_duration'] = duration
+        newly_pregnant['pregnancy_state_change_date'] = event_time
+        newly_pregnant['maternal_hemorrhage'] = event_time
+        newly_pregnant.loc[:, self.new_children.columns_created] = child_status
 
-        newly_pregnant = pd.concat([maternal_status, child_status], axis=1)
         return newly_pregnant
 
     def _sample_new_prepostpartum(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
