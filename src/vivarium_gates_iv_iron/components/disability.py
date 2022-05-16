@@ -23,17 +23,44 @@ class MaternalDisability:
             parameter_columns=['age', 'year'],
         )
 
-        self.anemia_disability = builder.value.get_value('anemia.disability_weight')
+        self.raw_anemia_disability = builder.value.get_value('anemia.disability_weight')
+
+        builder.value.register_value_producer(
+            'maternal_disorders.disability_weight',
+            source=self.maternal_disorders_disability,
+            requires_columns=["alive", "pregnancy_status"],
+            requires_values=['anemia.disability_weight'],
+        )
+        builder.value.register_value_producer(
+            "real_anemia.disability_weight",
+            source=self.anemia_disability,
+            requires_columns=["alive", "pregnancy_status"],
+            requires_values=['anemia.disability_weight'],
+        )
+
         builder.value.register_value_modifier(
             "disability_weight",
             self.accrue_disability,
-            requires_columns=["alive", "pregnancy_status"],
         )
 
         self.population_view = builder.population.get_view(['alive', 'pregnancy_status'])
 
+    def maternal_disorders_disability(self, index: pd.Index):
+        pop = self.population_view.get(index)
+        in_maternal_disorder = pop.pregnancy_status == models.MATERNAL_DISORDER_STATE
+        dw = self.accrue_disability(index)
+        dw[~in_maternal_disorder] = 0
+        return dw
+
+    def anemia_disability(self, index: pd.Index):
+        pop = self.population_view.get(index)
+        in_maternal_disorder = pop.pregnancy_status == models.MATERNAL_DISORDER_STATE
+        dw = self.accrue_disability(index)
+        dw[in_maternal_disorder] = 0
+        return dw
+
     def accrue_disability(self, index: pd.Index):
-        anemia_disability_weight = self.anemia_disability(index)
+        anemia_disability_weight = self.raw_anemia_disability(index)
         maternal_disorder_ylds = self.ylds_per_maternal_disorder(index)
         maternal_disorder_disability_weight = (
             maternal_disorder_ylds * 365 / self.step_size().days

@@ -30,33 +30,27 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-PERSON_TIME_COLUMN_TEMPLATE = "person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
-DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-STATE_PERSON_TIME_COLUMN_TEMPLATE = "{STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
-TRANSITION_COUNT_COLUMN_TEMPLATE = "{TRANSITION}_event_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
-PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
+DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
+YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}_age_{AGE_GROUP}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}_age_{AGE_GROUP}"
 )
 PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE = (
-    "{PREGNANCY_TRANSITION}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{PREGNANCY_TRANSITION}_count_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_maternal_disorders_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "incident_cases_of_maternal_disorders_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "maternal_hemorrhage_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
     "bmi_category_{BMI_CATEGORY}_person_time_among_{PREGNANCY_STATE}_among_{PREGNANT_ANEMIA_CATEGORY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
@@ -64,12 +58,9 @@ MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
 
 COLUMN_TEMPLATES = {
     "population": TOTAL_POPULATION_COLUMN_TEMPLATE,
-    "person_time": PERSON_TIME_COLUMN_TEMPLATE,
     "deaths": DEATH_COLUMN_TEMPLATE,
     "ylls": YLLS_COLUMN_TEMPLATE,
     "ylds": YLDS_COLUMN_TEMPLATE,
-    "state_person_time": STATE_PERSON_TIME_COLUMN_TEMPLATE,
-    "transition_count": TRANSITION_COUNT_COLUMN_TEMPLATE,
     "pregnancy_outcome_counts": PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE,
     "pregnancy_state_person_time": PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE,
     "pregnancy_transition_counts": PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE,
@@ -102,7 +93,7 @@ CAUSES_OF_DEATH = (
     "other_causes",
     "maternal_disorders",
 )
-CAUSES_OF_DISABILITY = ("maternal_disorders",)
+CAUSES_OF_DISABILITY = ("maternal_disorders", "anemia")
 
 TEMPLATE_FIELD_MAP = {
     "POP_STATE": POP_STATES,

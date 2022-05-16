@@ -6,6 +6,7 @@ import pandas as pd
 from vivarium.config_tree import ConfigurationKeyError
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
+from vivarium_cluster_tools.utilities import mkdir
 
 from vivarium_gates_iv_iron.constants import (
     data_keys,
@@ -183,8 +184,7 @@ class BirthRecorder:
     # noinspection PyUnusedLocal
     def write_output(self, event: Event) -> None:
         births_data = pd.concat(self.births)
-        # TODO:
-        #   births_data.to_hdf(self.output_path)
+        births_data.to_hdf(self.output_path, key='data')
 
     ###########
     # Helpers #
@@ -192,14 +192,14 @@ class BirthRecorder:
 
     @staticmethod
     def _build_output_path(builder: Builder) -> Path:
-        try:
-            output_root = Path(builder.configuration.output_data.results_root) / 'child_data'
-        except ConfigurationKeyError:
-            output_root = Path('~/child_data')
-        # TODO:
-        #   mkdir(output_path, parents=True, exists_ok=True)
+        results_root = builder.configuration.output_data.results_directory
+        output_root = Path(results_root) / 'child_data'
+
+        mkdir(output_root, exists_ok=True)
+
         input_draw = builder.configuration.input_data.input_draw_number
         seed = builder.configuration.randomness.random_seed
         scenario = builder.configuration.intervention.scenario
         output_path = output_root / f'scenario_{scenario}_draw_{input_draw}_seed_{seed}.hdf'
+
         return output_path
