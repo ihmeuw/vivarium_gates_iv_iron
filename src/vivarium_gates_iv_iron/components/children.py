@@ -184,7 +184,7 @@ class BirthRecorder:
     # noinspection PyUnusedLocal
     def write_output(self, event: Event) -> None:
         births_data = pd.concat(self.births)
-        births_data.to_csv(self.output_path, index=False)
+        births_data.to_hdf(self.output_path, key='data')
 
     ###########
     # Helpers #
@@ -200,6 +200,6 @@ class BirthRecorder:
         input_draw = builder.configuration.input_data.input_draw_number
         seed = builder.configuration.randomness.random_seed
         scenario = builder.configuration.intervention.scenario
-        output_path = output_root / f'scenario_{scenario}_draw_{input_draw}_seed_{seed}.csv'
+        output_path = output_root / f'scenario_{scenario}_draw_{input_draw}_seed_{seed}.hdf'
 
         return output_path
