@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 from vivarium.framework.engine import Builder
@@ -8,6 +7,7 @@ from vivarium.framework.population import SimulantData
 from vivarium_gates_iv_iron.components.hemoglobin import Hemoglobin
 from vivarium_gates_iv_iron.components.mortality import MaternalMortality
 from vivarium_gates_iv_iron.components.disability import MaternalDisability
+from vivarium_gates_iv_iron.components.children import NewChildren
 
 from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
@@ -123,29 +123,28 @@ class Pregnancy:
             p=prevalence,
             additional_key='pregnancy_status',
         )
+        not_pregnant = pop_data.index[pregnancy_status == models.NOT_PREGNANT_STATE]
+        is_pregnant = pop_data.index.difference(not_pregnant)
 
-        is_pregnant = pop_data.index[pregnancy_status != models.NOT_PREGNANT_STATE]
+        child_status = self.new_children(pop_data.index)
+        outcome, duration = self._sample_pregnancy_outcome_and_duration(
+            is_pregnant, child_status['gestational_age'],
+        )
+        outcome = outcome.reindex(pop_data.index, fill_value=models.INVALID_OUTCOME)
+        duration = duration.reindex(pop_data.index, fill_value=pd.NaT)
 
-        child_status = self.new_children.empty(pop_data.index)
-        child_status.loc[is_pregnant] = self.new_children(is_pregnant)
+        no_child_status = outcome[
+            outcome.isin([models.INVALID_OUTCOME, models.OTHER_OUTCOME])
+        ].index
+        child_status.loc[no_child_status] = self.new_children.empty(no_child_status)
 
         maternal_status = pd.DataFrame({
             'pregnancy_status': pregnancy_status,
-            'pregnancy_outcome': models.INVALID_OUTCOME,
-            'pregnancy_duration': pd.NaT,
+            'pregnancy_outcome': outcome,
+            'pregnancy_duration': duration,
             'pregnancy_state_change_date': pd.NaT,
             'maternal_hemorrhage': models.NOT_MATERNAL_HEMORRHAGE_STATE,
         })
-
-        p_outcome = self.outcome_probabilities(is_pregnant)
-        maternal_status.loc[is_pregnant, 'pregnancy_outcome'] = self.randomness.choice(
-            is_pregnant,
-            choices=p_outcome.columns.tolist(),
-            p=p_outcome,
-            additional_key='pregnancy_outcome',
-        )
-
-        maternal_status.loc[is_pregnant, 'pregnancy_duration'] = pd.Timedelta(days=9 * 28)
         maternal_status.loc[:, 'pregnancy_state_change_date'] = (
             self._sample_initial_pregnancy_state_change_date(
                 pregnancy_status,
@@ -205,6 +204,33 @@ class Pregnancy:
         )
         return date
 
+    def _sample_pregnancy_outcome_and_duration(
+        self,
+        is_pregnant: pd.Index,
+        gestational_ages: pd.Series
+    ):
+        p_outcome = self.outcome_probabilities(is_pregnant)
+        pregnancy_outcome = self.randomness.choice(
+            is_pregnant,
+            choices=p_outcome.columns.tolist(),
+            p=p_outcome,
+            additional_key='pregnancy_outcome',
+        )
+        other_outcome = pregnancy_outcome[pregnancy_outcome == models.OTHER_OUTCOME].index
+        live_or_still_birth = pregnancy_outcome.index.difference(other_outcome)
+
+        low, high = DURATIONS.DETECTION, DURATIONS.PARTIAL_TERM
+        draw = self.randomness.get_draw(is_pregnant, additional_key='pregnancy_duration')
+        # Other outcomes, durations are in years
+        pregnancy_duration = pd.to_timedelta(
+            7 * 52 * (low + (high - low) * draw), unit='days'
+        )
+        # Gestational age in weeks
+        pregnancy_duration.loc[live_or_still_birth] = pd.to_timedelta(
+            7 * gestational_ages.loc[live_or_still_birth], unit='days'
+        )
+        return pregnancy_outcome, pregnancy_duration
+
     def _sample_new_pregnant(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
         pop = self.population_view.get(index)
         eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
@@ -218,31 +244,32 @@ class Pregnancy:
             self.conception_rate(pop.index),
             additional_key='new_pregnancy'
         )
-        newly_pregnant = pop.loc[not_pregnant.intersection(potentially_pregnant)].copy()
+        newly_pregnant = not_pregnant.intersection(potentially_pregnant)
 
-        newly_pregnant['pregnancy_status'] = models.PREGNANT_STATE
-
-        p_outcome = self.outcome_probabilities(newly_pregnant.index)
-        newly_pregnant['pregnancy_outcome'] = self.randomness.choice(
-            newly_pregnant.index,
-            choices=p_outcome.columns.tolist(),
-            p=p_outcome,
-            additional_key='pregnancy_outcome',
+        child_status = self.new_children(newly_pregnant)
+        outcome, duration = self._sample_pregnancy_outcome_and_duration(
+            newly_pregnant,
+            child_status['gestational_age'],
         )
 
-        newly_pregnant['pregnancy_duration'] = pd.Timedelta(days=9 * 28)
+        no_child_status = outcome[
+            outcome.isin([models.INVALID_OUTCOME, models.OTHER_OUTCOME])
+        ].index
+        child_status.loc[no_child_status] = self.new_children.empty(no_child_status)
+
+        newly_pregnant = pop.loc[newly_pregnant]
+        newly_pregnant['pregnancy_status'] = models.PREGNANT_STATE
+        newly_pregnant['pregnancy_outcome'] = outcome
+        newly_pregnant['pregnancy_duration'] = duration
         newly_pregnant['pregnancy_state_change_date'] = event_time
         newly_pregnant['maternal_hemorrhage'] = models.NOT_MATERNAL_HEMORRHAGE_STATE
-
-        child_cols = self.new_children.columns_created
-        newly_pregnant.loc[:, child_cols] = self.new_children(newly_pregnant.index)
+        newly_pregnant.loc[:, self.new_children.columns_created] = child_status
 
         return newly_pregnant
 
     def _sample_new_prepostpartum(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
         pop = self.population_view.get(index)
         eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
-
         # Find the newly prepostpartum
         new_prepostpartum = pop.loc[
             eligible
@@ -312,38 +339,3 @@ class Pregnancy:
             self.new_children.empty(new_not_pregnant.index)
         )
         return new_not_pregnant
-
-
-class NewChildren:
-
-    @property
-    def name(self):
-        return 'child_status'
-
-    @property
-    def columns_created(self):
-        return ['sex_of_child', 'birth_weight']
-
-    def setup(self, builder: Builder):
-        self.randomness = builder.randomness.get_stream(self.name)
-
-    def empty(self, index: pd.Index):
-        return pd.DataFrame({
-            'sex_of_child': models.INVALID_OUTCOME,
-            'birth_weight': np.nan,
-        }, index=index)
-
-    def __call__(self, index: pd.Index):
-        sex_of_child = self.randomness.choice(
-            index,
-            choices=['Male', 'Female'],
-            additional_key='sex_of_child',
-        )
-        # TODO implement LBWSG on next line for sampling
-        draw = self.randomness.get_draw(index, additional_key='birth_weight')
-        birth_weight = 1500. * (1 + draw)
-
-        return pd.DataFrame({
-            'sex_of_child': sex_of_child,
-            'birth_weight': birth_weight,
-        }, index=index)
