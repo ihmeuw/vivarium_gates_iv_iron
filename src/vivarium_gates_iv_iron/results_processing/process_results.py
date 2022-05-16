@@ -45,13 +45,7 @@ def make_measure_data(data):
         ),
         hemoglobin_exposure_sum=get_measure_data(data, "hemoglobin_exposure_sum"),
         anemia_state_person_time=get_measure_data(data, "anemia_state_person_time"),
-        # TODO duplicate for each model
-        #     disease_state_person_time=get_state_person_time_measure_data(
-        #         data, "disease_state_person_time"
-        #     ),
-        #     disease_transition_count=get_transition_count_measure_data(
-        #         data, "disease_transition_count"
-        #     ),
+        maternal_bmi_person_time=get_measure_data(data, "maternal_bmi_person_time"),
     )
     return measure_data
 
@@ -68,10 +62,7 @@ class MeasureData(NamedTuple):
     maternal_hemorrhage_incident_counts: pd.DataFrame
     hemoglobin_exposure_sum: pd.DataFrame
     anemia_state_person_time: pd.DataFrame
-
-    # TODO duplicate for each model
-    # disease_state_person_time: pd.DataFrame
-    # disease_transition_count: pd.DataFrame
+    maternal_bmi_person_time: pd.DataFrame
 
     def dump(self, output_dir: Path):
         for key, df in self._asdict().items():

@@ -286,3 +286,54 @@ class AnemiaObserver:
         metrics.update(self.person_time)
         metrics.update(self.exposure)
         return metrics
+
+
+class MaternalBMIObserver:
+
+    configuration_defaults = {
+        "observers": {
+            "maternal_bmi": {
+                "exclude": [],
+                "include": [],
+            }
+        }
+    }
+
+    @property
+    def name(self):
+        return "maternal_bmi_observer"
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.config = builder.configuration.observers.maternal_bmi
+        self.stratifier = builder.components.get_component(ResultsStratifier.name)
+        self.bmi_person_time = Counter()
+
+        columns_required = [
+            "alive",
+            "pregnancy_status",
+            "maternal_bmi_anemia_category",
+        ]
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener("time_step__prepare", self.on_time_step_prepare)
+        builder.value.register_value_modifier("metrics", self.metrics)
+
+    def on_time_step_prepare(self, event: Event):
+        pop = self.population_view.get(event.index, query='alive == "alive"')
+        step_size = to_years(event.step_size)
+
+        new_person_time = {}
+        groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
+        for label, group_mask in groups:
+            group = pop[group_mask]
+            for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
+                key = f"bmi_person_time_{bmi_cat}_{label}"
+                sub_group = group.query(f'maternal_bmi_anemia_category == "{bmi_cat}"')
+                new_person_time[key] = len(sub_group) * step_size
+
+        self.bmi_person_time.update(new_person_time)
+
+    def metrics(self, index: pd.Index, metrics: Dict):
+        metrics.update(self.bmi_person_time)
+        return metrics

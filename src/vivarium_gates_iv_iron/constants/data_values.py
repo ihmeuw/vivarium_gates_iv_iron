@@ -55,6 +55,10 @@ for key, states in _hemoglobin_state_map.items():
         for row in _hemoglobin_threshold_data[key]:
             _htd.append((state, "Female", *row))
 
-HEMOGLOBIN_THRESHOLD_DATA = pd.DataFrame(_htd,
-                                         columns=["pregnancy_status", "sex", "age_start", "age_end", "severe",
-                                                  "moderate", "mild"])
+HEMOGLOBIN_THRESHOLD_DATA = pd.DataFrame(
+    _htd,
+    columns=["pregnancy_status", "sex", "age_start", "age_end", "severe", "moderate", "mild"]
+)
+
+
+MATERNAL_BMI_ANEMIA_THRESHOLD = 100.0  # g/L, units of hemoglobin exposure distribution
