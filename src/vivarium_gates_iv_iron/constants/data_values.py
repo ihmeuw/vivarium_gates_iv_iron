@@ -61,10 +61,4 @@ HEMOGLOBIN_THRESHOLD_DATA = pd.DataFrame(
 )
 
 
-class _MaternalBMI(NamedTuple):
-    ANEMIA_THRESHOLD = 10.0
-    PROBABILITY_LOW_BMI_ANEMIC = (0.34, 0.31, 0.38)
-    PROBABILITY_LOW_BMI_NON_ANEMIC = (0.17, 0.15, 0.18)
-
-
-MATERNAL_BMI = _MaternalBMI()
+MATERNAL_BMI_ANEMIA_THRESHOLD = 100.0  # g/L, units of hemoglobin exposure distribution

@@ -5,13 +5,17 @@ components:
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
+        - MaternalBMIExposure()
         - ResultsStratifier()
+
         - DisabilityObserver()
         - MortalityObserver()
         - PregnancyObserver()
         - AnemiaObserver()
+        - MaternalBMIObserver()
+
         - BirthRecorder()
-        - MaternalBMIExposure()
+
 
 configuration:
     input_data:
@@ -48,4 +52,6 @@ configuration:
             - "year"
             - "age"
         disability:
+            include: ['pregnancy_status']
+        maternal_bmi:
             include: ['pregnancy_status']
