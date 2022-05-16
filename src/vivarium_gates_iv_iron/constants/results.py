@@ -53,7 +53,7 @@ ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
     "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
-    "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_age_group_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+    "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
 )
 
 COLUMN_TEMPLATES = {
