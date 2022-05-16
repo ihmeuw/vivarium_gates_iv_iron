@@ -100,9 +100,9 @@ HEMOGLOBIN = _Hemoglobin()
 
 class __LowBirthWeightShortGestation(NamedTuple):
     # Keys that will be loaded into the artifact. must have a colon type declaration
-    EXPOSURE: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.exposure'
-    DISTRIBUTION: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.distribution'
-    CATEGORIES: TargetString = 'risk_factor.low_birth_weight_and_short_gestation.categories'
+    EXPOSURE: str = 'risk_factor.low_birth_weight_and_short_gestation.exposure'
+    DISTRIBUTION: str = 'risk_factor.low_birth_weight_and_short_gestation.distribution'
+    CATEGORIES: str = 'risk_factor.low_birth_weight_and_short_gestation.categories'
 
     @property
     def name(self):
@@ -116,10 +116,27 @@ class __LowBirthWeightShortGestation(NamedTuple):
 LBWSG = __LowBirthWeightShortGestation()
 
 
+class __MaternalBMI(NamedTuple):
+    PREVALENCE_LOW_BMI_ANEMIC: str = 'maternal_bmi.prevalance_low_bmi_anemic'
+    PREVALENCE_LOW_BMI_NON_ANEMIC: str = 'maternal_bmi.prevalence_low_bmi_non_anemic'
+
+    @property
+    def name(self):
+        return 'maternal_bmi'
+
+    @property
+    def log_name(self):
+        return 'maternal BMI'
+
+
+MATERNAL_BMI = __MaternalBMI()
+
+
 MAKE_ARTIFACT_KEY_GROUPS = [
-    POPULATION,
-    PREGNANCY,
-    MATERNAL_DISORDERS,
-    LBWSG,
-    HEMOGLOBIN,
+    # POPULATION,
+    # PREGNANCY,
+    # MATERNAL_DISORDERS,
+    # LBWSG,
+    # HEMOGLOBIN,
+    MATERNAL_BMI,
 ]
