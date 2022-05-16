@@ -63,7 +63,7 @@ class MaternalMortality:
         self.population_view.update(pop_update)
 
     def on_time_step(self, event: Event):
-        pop = self.population_view.get(event.index)
+        pop = self.population_view.get(event.index, query='alive == "alive"')
 
         pregnancy_ends_this_step = (
             (pop['pregnancy_status'] == models.PREGNANT_STATE)

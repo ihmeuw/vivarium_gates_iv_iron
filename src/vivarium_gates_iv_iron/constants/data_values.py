@@ -6,8 +6,9 @@ from vivarium_gates_iv_iron.constants import models
 
 
 class _Durations(NamedTuple):
-    FULL_TERM: float = 40 / 52
+    DETECTION: float = 6 / 52
     PARTIAL_TERM: float = 24 / 52
+    FULL_TERM: float = 40 / 52
     PREPOSTPARTUM: float = 1 / 52
     POSTPARTUM: float = 5 / 52
 
