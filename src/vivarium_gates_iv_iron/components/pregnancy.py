@@ -262,7 +262,7 @@ class Pregnancy:
         newly_pregnant['pregnancy_outcome'] = outcome
         newly_pregnant['pregnancy_duration'] = duration
         newly_pregnant['pregnancy_state_change_date'] = event_time
-        newly_pregnant['maternal_hemorrhage'] = event_time
+        newly_pregnant['maternal_hemorrhage'] = models.NOT_MATERNAL_HEMORRHAGE_STATE
         newly_pregnant.loc[:, self.new_children.columns_created] = child_status
 
         return newly_pregnant
@@ -270,7 +270,6 @@ class Pregnancy:
     def _sample_new_prepostpartum(self, index: pd.Index, event_time: pd.Timestamp) -> pd.DataFrame:
         pop = self.population_view.get(index)
         eligible = (pop.alive == 'alive') | (pop.exit_time == event_time)
-
         # Find the newly prepostpartum
         new_prepostpartum = pop.loc[
             eligible
