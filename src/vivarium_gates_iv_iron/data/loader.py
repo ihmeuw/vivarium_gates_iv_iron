@@ -557,13 +557,15 @@ def load_intervention_coverage(key: str, location: str) -> pd.DataFrame:
     df = df.set_index(['location_id', 'year', 'intervention', 'draw']).loc[location_id]
 
     dfs = []
-    for scenario in ['baseline', 'oral_iron', 'antenatal_iv_iron', 'postpartum_iv_iron',
+    for scenario in ['baseline',
+                     'oral_iron',
+                     'antenatal_iv_iron',
+                     'postpartum_iv_iron',
                      'antenatal_and_postpartum_iv_iron']:
         data = df[df[f'{scenario}_scenario'] == 1].value.unstack()
         data.columns.name = None
         data['scenario'] = scenario
-        data = data.reset_index().set_index(
-            ['location_id', 'scenario', 'year', 'intervention'])
+        data = data.reset_index().set_index(['scenario', 'year', 'intervention'])
         dfs.append(data)
     df = pd.concat(dfs).sort_index().reset_index()
     return df
