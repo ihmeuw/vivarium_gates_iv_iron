@@ -551,17 +551,12 @@ def load_bmi_prevalence(key: str, location: str):
 def load_intervention_coverage(key: str, location: str) -> pd.DataFrame:
     location_id = utility_data.get_location_id(location)
 
-    df = pd.read_csv(
-        'src/vivarium_gates_iv_iron/data/raw_data/simulation_intervention_coverage.csv')
+    df = pd.read_csv(paths.MATERNAL_INTERVENTION_COVERAGE_CSV)
     df = df.drop(columns=['Unnamed: 0', 'scale_up'])
     df = df.set_index(['location_id', 'year', 'intervention', 'draw']).loc[location_id]
 
     dfs = []
-    for scenario in ['baseline',
-                     'oral_iron',
-                     'antenatal_iv_iron',
-                     'postpartum_iv_iron',
-                     'antenatal_and_postpartum_iv_iron']:
+    for scenario in metadata.SCENARIOS:
         data = df[df[f'{scenario}_scenario'] == 1].value.unstack()
         data.columns.name = None
         data['scenario'] = scenario

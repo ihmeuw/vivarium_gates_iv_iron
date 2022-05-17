@@ -30,10 +30,11 @@ LOCATIONS = [
 
 
 class __Scenarios(NamedTuple):
-    baseline: str = "baseline"
-    # TODO - add scenarios here
+    baseline: str
+    oral_iron: str
+    antenatal_iv_iron: str
+    postpartum_iv_iron: str
+    antenatal_and_postpartum_iv_iron: str
 
 
-SCENARIOS = __Scenarios()
-
-
+SCENARIOS = __Scenarios(*__Scenarios._fields)
