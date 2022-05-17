@@ -562,7 +562,7 @@ def load_intervention_coverage(key: str, location: str) -> pd.DataFrame:
         data['scenario'] = scenario
         data = data.reset_index().set_index(['scenario', 'year', 'intervention'])
         dfs.append(data)
-    df = pd.concat(dfs).sort_index().reset_index()
+    df = pd.concat(dfs).sort_index()
     return df
 
 

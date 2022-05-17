@@ -20,7 +20,33 @@ from vivarium_gates_iv_iron.constants import data_values, models
 class ResultsStratifier(ResultsStratifier_):
 
     def register_stratifications(self, builder: Builder) -> None:
-        super().register_stratifications(builder)
+        start_year = builder.configuration.time.start.year
+        end_year = builder.configuration.time.end.year
+
+        self.setup_stratification(
+            builder,
+            name=ResultsStratifier.YEAR,
+            sources=[ResultsStratifier.YEAR_SOURCE],
+            categories={str(year) for year in range(start_year, end_year + 1)},
+            mapper=self.year_stratification_mapper,
+            current_category_getter=self.year_current_categories_getter,
+        )
+
+        # self.setup_stratification(
+        #     builder,
+        #     name=ResultsStratifier.SEX,
+        #     sources=[ResultsStratifier.SEX_SOURCE],
+        #     categories=ResultsStratifier.SEX_CATEGORIES,
+        # )
+
+        # self.setup_stratification(
+        #     builder,
+        #     name=ResultsStratifier.AGE,
+        #     sources=[ResultsStratifier.AGE_SOURCE],
+        #     categories={age_bin for age_bin in self.age_bins["age_group_name"]},
+        #     mapper=self.age_stratification_mapper,
+        # )
+
         self.setup_stratification(
             builder,
             name='pregnancy_status',
@@ -336,4 +362,69 @@ class MaternalBMIObserver:
 
     def metrics(self, index: pd.Index, metrics: Dict):
         metrics.update(self.bmi_person_time)
+        return metrics
+
+
+class InterventionObserver:
+
+    configuration_defaults = {
+        "observers": {
+            "intervention": {
+                "exclude": [],
+                "include": [],
+            }
+        }
+    }
+
+    @property
+    def name(self):
+        return "intervention_observer"
+
+    # noinspection PyAttributeOutsideInit
+    def setup(self, builder: Builder) -> None:
+        self.config = builder.configuration.observers.intervention
+        self.stratifier = builder.components.get_component(ResultsStratifier.name)
+        self.person_time = Counter()
+
+        columns_required = [
+            "alive",
+            "pregnancy_status",
+            "maternal_bmi_anemia_category",
+            "maternal_supplementation",
+            "antenatal_iv_iron",
+            "postpartum_iv_iron",
+        ]
+        self.population_view = builder.population.get_view(columns_required)
+
+        builder.event.register_listener("time_step__prepare", self.on_time_step_prepare)
+        builder.value.register_value_modifier("metrics", self.metrics)
+
+    def on_time_step_prepare(self, event: Event):
+        pop = self.population_view.get(event.index, query='alive == "alive"')
+        step_size = to_years(event.step_size)
+
+        new_person_time = {}
+        groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
+
+        for label, group_mask in groups:
+            group = pop[group_mask]
+            for treatment in ['antenatal_iv_iron', 'postpartum_iv_iron']:
+                for treatment_status in models.IV_IRON_TREATMENT_STATUSES:
+                    key = f"person_time_{treatment}_{treatment_status}_{label }"
+                    sub_group = group.query(f'{treatment} == "{treatment_status}" ')
+                    new_person_time[key] = len(sub_group) * step_size
+
+            for treatment_status in models.SUPPLEMENTATION_CATEGORIES:
+                for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
+                    key = f"person_time_maternal_supplementation_{treatment_status}_bmi_{bmi_cat}_{label}"
+                    group = pop.query(
+                        f'maternal_supplementation == "{treatment_status}" '                        
+                        f'and maternal_bmi_anemia_category == "{bmi_cat}"'
+                    )
+                    new_person_time[key] = len(group) * step_size
+
+        self.person_time.update(new_person_time)
+
+    def metrics(self, index: pd.Index, metrics: Dict):
+        metrics.update(self.person_time)
         return metrics
