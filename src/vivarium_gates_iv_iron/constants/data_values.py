@@ -62,3 +62,7 @@ HEMOGLOBIN_THRESHOLD_DATA = pd.DataFrame(
 
 
 MATERNAL_BMI_ANEMIA_THRESHOLD = 100.0  # g/L, units of hemoglobin exposure distribution
+
+IV_IRON_THRESHOLD = 100.0  # g/L
+IV_IRON_EFFECT_SIZE = (23, 14)  # (mean, sd) g/L
+IFA_EFFECT_SIZE = (7.8, 4.08, 11.52)  # (mean, upper, lower) g/L
