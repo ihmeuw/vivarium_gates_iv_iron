@@ -56,7 +56,7 @@ MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
     "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
 )
 INTERVENTION_PERSON_TIME_COLUMN_TEMPLATE = (
-    "person_time_{INTERVENTION_CATEGORY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
+    "person_time_{INTERVENTION_CATEGORY}_bmi_{BMI_CATEGORY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
 )
 
 COLUMN_TEMPLATES = {
