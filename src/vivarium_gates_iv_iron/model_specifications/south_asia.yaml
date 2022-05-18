@@ -7,16 +7,16 @@ components:
         - Pregnancy()
         - MaternalBMIExposure()
         - MaternalInterventions()
-        - InterventionObserver()
 
         - ResultsStratifier()
-#        - DisabilityObserver()
-#        - MortalityObserver()
-#        - PregnancyObserver()
-#        - AnemiaObserver()
-#        - MaternalBMIObserver()
+        - DisabilityObserver()
+        - MortalityObserver()
+        - PregnancyObserver()
+        - AnemiaObserver()
+        - MaternalBMIObserver()
+        - InterventionObserver()
 
-#        - BirthRecorder()
+        - BirthRecorder()
 
 
 configuration:

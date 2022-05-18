@@ -52,6 +52,11 @@ class MaternalInterventions:
             requires_columns=self.columns_required,
             requires_streams=[self.name]
         )
+        builder.event.register_listener(
+            'time_step',
+            self.on_time_step,
+            priority=8,  # After pregnancy state changes
+        )
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pregnant, postpartum, in_treatment_window = self._get_indicators(
@@ -82,7 +87,7 @@ class MaternalInterventions:
         self.population_view.update(pop_update)
 
     def on_time_step(self, event: Event) -> None:
-        propensity = self.population_view.get(event.index)['treatment_propensity']
+        pop = self.population_view.get(event.index)
         pregnant, postpartum, in_treatment_window = self._get_indicators(
             event.index, self.clock(), event.step_size,
         )
@@ -104,8 +109,18 @@ class MaternalInterventions:
                 self._sample_iv_iron_status),
         }
         pop_update = self._sample_intervention_status(
-            propensity, event.time, sampling_map,
+            pop['treatment_propensity'], event.time, sampling_map,
         )
+
+        intervention_over = (
+            (pop['pregnancy_status'] == models.NOT_PREGNANT_STATE)
+            & (pop['pregnancy_state_change_date'] == event.time)
+        )
+        for intervention in ['maternal_supplementation',
+                             'antenatal_iv_iron',
+                             'postpartum_iv_iron']:
+            pop_update.loc[intervention_over, intervention] = models.INVALID_TREATMENT
+
         self.population_view.update(pop_update)
 
     def _sample_intervention_status(
@@ -161,7 +176,7 @@ class MaternalInterventions:
         self,
         index: pd.Index,
         time: pd.Timestamp,
-        step_size: pd.Timedelta = pd.Timedelta(days=3000),
+        step_size: pd.Timedelta = None,
     ):
         cols = ['pregnancy_status', 'pregnancy_state_change_date']
         pop = self.population_view.subview(cols).get(index)
@@ -172,13 +187,20 @@ class MaternalInterventions:
             models.POSTPARTUM_STATE,
         ])
         days_since_event = (time - pop['pregnancy_state_change_date']).dt.days
-        days_to_next_event = (time + step_size - pop['pregnancy_state_change_date']).dt.days
 
-        def in_window(time_to_treat: int):
-            return (
-                (days_since_event <= time_to_treat)
-                & (time_to_treat < days_to_next_event)
-            )
+        if step_size is not None:
+            # On time step. Check time to treat is within the current step.
+            days_to_next_event = (
+                time + step_size - pop['pregnancy_state_change_date']
+            ).dt.days
+
+            def in_window(time_to_treat: int):
+                return ((days_since_event <= time_to_treat)
+                        & (time_to_treat < days_to_next_event))
+        else:
+            # On initialize sims.  Check time to treat is in the past.
+            def in_window(time_to_treat: int):
+                return time_to_treat < days_since_event
 
         return pregnant, postpartum, in_window
 
