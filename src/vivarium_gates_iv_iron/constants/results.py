@@ -30,30 +30,33 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
-YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}"
-YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
-PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}_age_{AGE_GROUP}"
+DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}"
+YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
+PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}_age_{AGE_GROUP}"
+    "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}"
 )
 PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE = (
-    "{PREGNANCY_TRANSITION}_count_year_{YEAR}_age_{AGE_GROUP}"
+    "{PREGNANCY_TRANSITION}_count_year_{YEAR}"
 )
 MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_maternal_disorders_year_{YEAR}_age_{AGE_GROUP}"
+    "incident_cases_of_maternal_disorders_year_{YEAR}"
 )
 MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
+    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
+    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
 )
 ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
+    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
 )
 MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
-    "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+    "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
+)
+INTERVENTION_PERSON_TIME_COLUMN_TEMPLATE = (
+    "person_time_{INTERVENTION_CATEGORY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
 )
 
 COLUMN_TEMPLATES = {
@@ -69,6 +72,7 @@ COLUMN_TEMPLATES = {
     "hemoglobin_exposure_sum": HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE,
     "anemia_state_person_time": ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE,
     "maternal_bmi_person_time": MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE,
+    "intervention_person_time": INTERVENTION_PERSON_TIME_COLUMN_TEMPLATE,
 }
 
 NON_COUNT_TEMPLATES = []
@@ -94,6 +98,11 @@ CAUSES_OF_DEATH = (
     "maternal_disorders",
 )
 CAUSES_OF_DISABILITY = ("maternal_disorders", "anemia")
+INTERVENTION_CATEGORIES = tuple(
+    *[f'antenatal_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
+    *[f'postpartum_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
+    *[f'maternal_supplementation_{s}' for s in models.SUPPLEMENTATION_CATEGORIES],
+)
 
 TEMPLATE_FIELD_MAP = {
     "POP_STATE": POP_STATES,
@@ -109,6 +118,7 @@ TEMPLATE_FIELD_MAP = {
     "WITH_MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES[:-1],
     "ANEMIA_LEVEL": data_values.ANEMIA_DISABILITY_WEIGHTS.keys(),
     "BMI_CATEGORY": models.BMI_ANEMIA_CATEGORIES,
+    "INTERVENTION_CATEGORY": INTERVENTION_CATEGORIES
 }
 
 
