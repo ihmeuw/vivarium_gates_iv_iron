@@ -410,13 +410,14 @@ class InterventionObserver:
             group = pop[group_mask]
             for treatment in ['antenatal_iv_iron', 'postpartum_iv_iron']:
                 for treatment_status in models.IV_IRON_TREATMENT_STATUSES:
-                    key = f"person_time_{treatment}_{treatment_status}_{label}"
-                    sub_group = group.query(f'{treatment} == "{treatment_status}" ')
-                    new_person_time[key] = len(sub_group) * step_size
+                    for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
+                        key = f"person_time_{treatment}_{treatment_status}_bmi_{bmi_cat}_{label}"
+                        sub_group = group.query(f'{treatment} == "{treatment_status}" ')
+                        new_person_time[key] = len(sub_group) * step_size
 
             for treatment_status in models.SUPPLEMENTATION_CATEGORIES:
                 for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
-                    key = f"person_time_maternal_supplementation_{treatment_status}_bmi_{label}"
+                    key = f"person_time_maternal_supplementation_{treatment_status}_bmi_{bmi_cat}_{label}"
                     sub_group = group.query(
                         f'maternal_supplementation == "{treatment_status}"'
                         f'and maternal_bmi_anemia_category == "{bmi_cat}"'
