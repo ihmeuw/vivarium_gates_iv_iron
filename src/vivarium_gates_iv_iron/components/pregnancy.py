@@ -78,14 +78,17 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
-        self.probability_maternal_hemorrhage = builder.lookup.build_table(
-            load_and_unstack(
-                builder,
-                data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE,
-                'hemorrhage_status'
-            ),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
+        self.probability_maternal_hemorrhage = builder.value.register_rate_producer(
+            "probability_maternal_hemorrhage",
+            source=builder.lookup.build_table(
+                load_and_unstack(
+                    builder,
+                    data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE,
+                    'hemorrhage_status'
+                ),
+                key_columns=['sex'],
+                parameter_columns=['age', 'year'],
+            )
         )
 
         self.correction_factors = builder.lookup.build_table(
