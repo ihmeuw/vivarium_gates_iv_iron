@@ -468,15 +468,15 @@ def load_hemoglobin_rr(key: str, location: str) -> pd.DataFrame:
     dist = sampling.get_lognorm_from_quantiles(*data_values.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN)
     values = [sampling.get_random_variable(dist, s, "rr_maternal_hemorrhage_attributable_to_hemoglobin") for s in seeds]
     data.loc[:, seeds] = values
-    return data.set_index(metadata.ARTIFACT_INDEX_COLUMNS)
+    return data.set_index(metadata.ARTIFACT_INDEX_COLUMNS).drop('location', axis=1)
 
 
 def load_hemoglobin_paf(key: str, location: str) -> pd.DataFrame:
     if key != data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN:
         raise ValueError(f"Unrecognized key {key}")
 
-    rr = get_data(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN, location).drop('location', axis=1, level=1)
-    proportion = get_data(data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70, location).drop('location', axis=1, level=1)
+    rr = get_data(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN, location)
+    proportion = get_data(data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70, location)
 
     return (
         (rr * proportion + (1 - proportion) - 1)
