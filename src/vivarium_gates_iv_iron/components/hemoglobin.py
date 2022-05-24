@@ -234,10 +234,12 @@ class Hemoglobin:
         return builder.data.load(key).rename(columns={"location": "country"})
 
     def adjust_maternal_hemorrhage_probability(self, index, probability):
+        paf = self.hemorrhage_paf(index)["value"]
+        rr = self.hemorrhage_rr(index)["value"]
         p_maternal_hemorrhage = probability["moderate_maternal_hemorrhage"] + probability["severe_maternal_hemorrhage"]
         severe_ratio = probability["severe_maternal_hemorrhage"] / p_maternal_hemorrhage
-        p_maternal_hemorrhage_nonanemic = p_maternal_hemorrhage * (1 - self.hemorrhage_paf(index))
-        p_maternal_hemorrhage_anemic = p_maternal_hemorrhage_nonanemic * self.hemorrhage_rr(index)
+        p_maternal_hemorrhage_nonanemic = p_maternal_hemorrhage * (1 - paf)
+        p_maternal_hemorrhage_anemic = p_maternal_hemorrhage_nonanemic * rr
         hemoglobin = self.hemoglobin(index)
         anemic = hemoglobin <= 70
         probability["severe_maternal_hemorrhage"] = severe_ratio * p_maternal_hemorrhage_nonanemic
