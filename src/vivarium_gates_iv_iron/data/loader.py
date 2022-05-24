@@ -167,7 +167,7 @@ def load_asfr(key: str, location: str):
     asfr = load_standard_data(key, location)
     asfr = asfr.reset_index()
     asfr_pivot = asfr.pivot(
-        index=metadata.ARTIFACT_INDEX_COLUMNS,
+        index=[col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"],
         columns='parameter',
         values='value'
     )
@@ -468,7 +468,7 @@ def load_hemoglobin_rr(key: str, location: str) -> pd.DataFrame:
     dist = sampling.get_lognorm_from_quantiles(*data_values.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN)
     values = [sampling.get_random_variable(dist, s, "rr_maternal_hemorrhage_attributable_to_hemoglobin") for s in seeds]
     data.loc[:, seeds] = values
-    return data.set_index(metadata.ARTIFACT_INDEX_COLUMNS).drop('location', axis=1)
+    return data.set_index(metadata.ARTIFACT_INDEX_COLUMNS)
 
 
 def load_hemoglobin_paf(key: str, location: str) -> pd.DataFrame:
@@ -541,7 +541,7 @@ def get_hemoglobin_csv_data(key: str, location: str):
     data = (data
             .reset_index(level='age_end', drop=True)
             .reindex(demography.index, level='age_start', fill_value=0.))
-    return data.drop('location', axis=1, level=1)
+    return data
 
 
 ################
