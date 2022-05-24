@@ -9,4 +9,3 @@ from vivarium_gates_iv_iron.components.observers import (
 from vivarium_gates_iv_iron.components.pregnancy import Pregnancy
 from vivarium_gates_iv_iron.components.children import BirthRecorder
 from vivarium_gates_iv_iron.components.maternal_bmi import MaternalBMIExposure
-from vivarium_gates_iv_iron.components.risk_effects import HemoglobinRiskEffects

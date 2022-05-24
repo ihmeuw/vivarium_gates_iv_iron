@@ -6,7 +6,6 @@ components:
     vivarium_gates_iv_iron.components:
         - Pregnancy()
         - MaternalBMIExposure()
-        - HemoglobinRiskEffects()
         - ResultsStratifier()
 
         - DisabilityObserver()
