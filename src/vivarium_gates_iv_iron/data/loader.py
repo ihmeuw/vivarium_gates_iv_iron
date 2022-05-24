@@ -167,7 +167,7 @@ def load_asfr(key: str, location: str):
     asfr = load_standard_data(key, location)
     asfr = asfr.reset_index()
     asfr_pivot = asfr.pivot(
-        index=[col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"],
+        index=metadata.ARTIFACT_INDEX_COLUMNS,
         columns='parameter',
         values='value'
     )
@@ -475,8 +475,8 @@ def load_hemoglobin_paf(key: str, location: str) -> pd.DataFrame:
     if key != data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN:
         raise ValueError(f"Unrecognized key {key}")
 
-    rr = get_data(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN, location)
-    proportion = get_data(data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70, location)
+    rr = get_data(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN, location).drop('location', axis=1, level=1)
+    proportion = get_data(data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70, location).drop('location', axis=1, level=1)
 
     return (
         (rr * proportion + (1 - proportion) - 1)
@@ -541,7 +541,7 @@ def get_hemoglobin_csv_data(key: str, location: str):
     data = (data
             .reset_index(level='age_end', drop=True)
             .reindex(demography.index, level='age_start', fill_value=0.))
-    return data
+    return data.drop('location', axis=1, level=1)
 
 
 ################

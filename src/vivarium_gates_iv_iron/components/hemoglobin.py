@@ -91,9 +91,16 @@ class Hemoglobin:
         )
 
         self.hemorrhage_rr = builder.lookup.build_table(
-            3.54
-        )
-        self.hemorrhage_paf = builder.lookup.build_table(0.0483)
+                builder.data.load(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        self.hemorrhage_paf = builder.lookup.build_table(
+                builder.data.load(data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
 
         builder.value.register_value_modifier(
             "probability_maternal_hemorrhage",
