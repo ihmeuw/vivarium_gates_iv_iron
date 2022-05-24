@@ -468,7 +468,7 @@ def load_hemoglobin_rr(key: str, location: str) -> pd.DataFrame:
     dist = sampling.get_lognorm_from_quantiles(*data_values.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN)
     values = [sampling.get_random_variable(dist, s, "rr_maternal_hemorrhage_attributable_to_hemoglobin") for s in seeds]
     data.loc[:, seeds] = values
-    return data.set_index([col for col in metadata.ARTIFACT_INDEX_COLUMNS if col != "location"])
+    return data.set_index(metadata.ARTIFACT_INDEX_COLUMNS)
 
 
 def load_hemoglobin_paf(key: str, location: str) -> pd.DataFrame:
