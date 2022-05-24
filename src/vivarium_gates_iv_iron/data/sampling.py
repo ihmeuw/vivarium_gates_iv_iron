@@ -6,6 +6,12 @@ from scipy import stats
 from vivarium.framework.randomness import get_hash
 
 
+def get_random_variable(distribution, seed: str, key=""):
+    """Get a random variable from a scipy.stats distribution"""
+    np.random.seed(get_hash(f"{key}_{seed}"))
+    return distribution.rvs()
+
+
 def get_norm_from_quantiles(mean: float, lower: float, upper: float,
                             quantiles: Tuple[float, float] = (0.025, 0.975)) -> stats.norm:
     stdnorm_quantiles = stats.norm.ppf(quantiles)

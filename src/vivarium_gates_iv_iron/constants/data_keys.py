@@ -67,6 +67,8 @@ class __MaternalDisorders(NamedTuple):
     PROBABILITY_FATAL: str = 'covariate.probability_fatal_maternal_disorder.estimate'
     PROBABILITY_NONFATAL: str = 'covariate.probability_nonfatal_maternal_disorder.estimate'
     PROBABILITY_HEMORRHAGE: str = "covariate.probability_maternal_hemorrhage.estimate"
+    RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: str = 'risk_factor.hemoglobin.maternal_hemorrhage.relative_risk'
+    PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: str = 'risk_factor.hemoglobin.maternal_hemorrhage.paf'
 
     @property
     def name(self):
