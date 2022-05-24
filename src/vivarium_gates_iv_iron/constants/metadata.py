@@ -5,6 +5,7 @@ from typing import NamedTuple
 ####################
 
 ARTIFACT_INDEX_COLUMNS = [
+    'location',
     'sex',
     'age_start',
     'age_end',
