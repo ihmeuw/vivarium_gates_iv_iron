@@ -15,7 +15,7 @@ TOTAL_YLLS_COLUMN = "years_of_life_lost"
 # Columns from parallel runs
 INPUT_DRAW_COLUMN = "input_draw"
 RANDOM_SEED_COLUMN = "random_seed"
-OUTPUT_SCENARIO_COLUMN = "placeholder_branch_name.scenario"
+OUTPUT_SCENARIO_COLUMN = "intervention.scenario"
 
 # Add due to make_results bug
 OUTPUT_INPUT_DRAW_COLUMN = "input_data.input_draw_number"
@@ -79,7 +79,7 @@ NON_COUNT_TEMPLATES = []
 
 POP_STATES = ("living", "dead", "tracked", "untracked")
 SEXES = ("female",)
-YEARS = tuple(range(2022, 2025))
+YEARS = tuple(range(2022, 2028))
 AGE_GROUPS = (
     "5_to_9",
     "10_to_14",
@@ -98,11 +98,11 @@ CAUSES_OF_DEATH = (
     "maternal_disorders",
 )
 CAUSES_OF_DISABILITY = ("maternal_disorders", "anemia")
-INTERVENTION_CATEGORIES = tuple(
+INTERVENTION_CATEGORIES = tuple([
     *[f'antenatal_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
     *[f'postpartum_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
     *[f'maternal_supplementation_{s}' for s in models.SUPPLEMENTATION_CATEGORIES],
-)
+])
 
 TEMPLATE_FIELD_MAP = {
     "POP_STATE": POP_STATES,
