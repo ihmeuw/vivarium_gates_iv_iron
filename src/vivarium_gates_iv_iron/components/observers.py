@@ -54,6 +54,27 @@ class ResultsStratifier(ResultsStratifier_):
             categories=models.PREGNANCY_MODEL_STATES,
         )
 
+        self.setup_stratification(
+            builder,
+            name='maternal_supplementation',
+            sources=[Source('maternal_supplementation', SourceType.COLUMN)],
+            categories=models.SUPPLEMENTATION_CATEGORIES,
+        )
+
+        self.setup_stratification(
+            builder,
+            name='antenatal_iv_iron',
+            sources=[Source('antenatal_iv_iron', SourceType.COLUMN)],
+            categories=models.IV_IRON_TREATMENT_STATUSES,
+        )
+
+        self.setup_stratification(
+            builder,
+            name='postpartum_iv_iron',
+            sources=[Source('postpartum_iv_iron', SourceType.COLUMN)],
+            categories=models.IV_IRON_TREATMENT_STATUSES,
+        )
+
 
 class MortalityObserver(MortalityObserver_):
 
@@ -72,6 +93,23 @@ class DisabilityObserver(DisabilityObserver_):
         self.disability_pipelines['anemia'] = builder.value.get_value(
             'real_anemia.disability_weight'
         )
+
+    def on_time_step_prepare(self, event: Event) -> None:
+        step_size_in_years = to_years(event.step_size)
+        pop = self.population_view.get(
+            event.index, query='tracked == True and alive == "alive"'
+        )
+        groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
+        for cause, disability_weight in self.disability_pipelines.items():
+            disability_weight = disability_weight(pop.index)
+            for label, group_mask in groups:
+                new_observations = {
+                    f"ylds_due_to_{cause}_{label}": disability_weight[group_mask].sum() * step_size_in_years,
+                }
+                self.counts.update(new_observations)
+
+        pop.loc[:, self.ylds_column_name] += self.disability_weight(pop.index)
+        self.population_view.update(pop)
 
 
 class PregnancyObserver:

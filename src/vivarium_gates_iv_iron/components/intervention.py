@@ -2,6 +2,7 @@ from typing import Dict
 
 import numpy as np
 import pandas as pd
+import scipy.stats
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
 from vivarium.framework.population import SimulantData
@@ -32,6 +33,18 @@ class MaternalInterventions:
         self.coverage = self._load_intervention_coverage(builder)
         self.hemoglobin = builder.value.get_value('hemoglobin.exposure')
 
+        self.effect_sizes = pd.DataFrame()
+
+        builder.value.register_value_modifier(
+            'hemoglobin.exposure',
+            self.update_exposure,
+            requires_columns=[
+                'maternal_supplementation',
+                'antenatal_iv_iron',
+                'postpartum_iv_iron',
+            ],
+        )
+
         self.columns_required = [
             'pregnancy_status',
             'pregnancy_state_change_date',
@@ -39,6 +52,7 @@ class MaternalInterventions:
         ]
         self.columns_created = [
             'treatment_propensity',
+            'baseline_ifa',
             'maternal_supplementation',
             'antenatal_iv_iron',
             'postpartum_iv_iron',
@@ -51,7 +65,6 @@ class MaternalInterventions:
             creates_columns=self.columns_created,
             requires_columns=self.columns_required,
             requires_streams=[self.name],
-            requires_values=['hemoglobin.exposure']
         )
         builder.event.register_listener(
             'time_step',
@@ -60,6 +73,10 @@ class MaternalInterventions:
         )
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
+        self.effect_sizes = pd.concat([
+            self.effect_sizes,
+            self._sample_effect_sizes(pop_data.index),
+        ])
         pregnant, postpartum, anemic, in_treatment_window = self._get_indicators(
             pop_data.index, pop_data.creation_time,
         )
@@ -70,6 +87,11 @@ class MaternalInterventions:
                 ['ifa', 'other'],
                 self._sample_oral_iron_status
              ),
+            'baseline_ifa': (
+                (pregnant & in_treatment_window(7 * 8)) | postpartum,
+                'ifa',
+                self._sample_baseline_oral_iron_status
+            ),
             'antenatal_iv_iron': (
                 anemic & ((pregnant & in_treatment_window(7 * 15)) | postpartum),
                 'antenatal_iv_iron',
@@ -101,6 +123,11 @@ class MaternalInterventions:
                 ['ifa', 'other'],
                 self._sample_oral_iron_status
             ),
+            'baseline_ifa': (
+                pregnant & in_treatment_window(7 * 8),
+                'ifa',
+                self._sample_baseline_oral_iron_status
+            ),
             'antenatal_iv_iron': (
                 anemic & pregnant & in_treatment_window(7 * 15),
                 'antenatal_iv_iron',
@@ -125,6 +152,19 @@ class MaternalInterventions:
             pop_update.loc[intervention_over, intervention] = models.INVALID_TREATMENT
 
         self.population_view.update(pop_update)
+
+    def update_exposure(self, index, exposure):
+        pop = self.population_view.get(index)
+        effect_sizes = self.effect_sizes.loc[index]
+
+        baseline_ifa = (pop['baseline_ifa'] == models.TREATMENT).rename(None)
+        exposure.loc[baseline_ifa] -= effect_sizes.loc[baseline_ifa, 'maternal_supplementation']
+        for treatment in effect_sizes:
+            on_treatment = ~pop[treatment].isin(
+                [models.INVALID_TREATMENT, models.NO_TREATMENT]
+            ).rename(None)
+            exposure.loc[on_treatment] += effect_sizes.loc[on_treatment, treatment]
+        return exposure
 
     def _sample_intervention_status(
         self,
@@ -162,6 +202,16 @@ class MaternalInterventions:
         supplementation.loc[other & ~underweight] = models.MMS_SUPPLEMENTATION
         return supplementation
 
+    def _sample_baseline_oral_iron_status(
+        self,
+        propensity: pd.Series,
+        coverage: pd.Series,
+    ) -> pd.Series:
+        return pd.Series(
+            np.where(propensity < coverage, models.TREATMENT, models.NO_TREATMENT),
+            index=propensity.index,
+        )
+
     def _sample_iv_iron_status(
         self,
         propensity: pd.Series,
@@ -186,12 +236,13 @@ class MaternalInterventions:
             models.NO_MATERNAL_DISORDER_STATE,
             models.POSTPARTUM_STATE,
         ])
-        hemoglobin = self.hemoglobin(index)
-        anemic = hemoglobin < data_values.IV_IRON_THRESHOLD
         days_since_event = (time - pop['pregnancy_state_change_date']).dt.days
 
         if step_size is not None:
             # On time step. Check time to treat is within the current step.
+            hemoglobin = self.hemoglobin(index)
+            anemic = hemoglobin < data_values.IV_IRON_THRESHOLD
+
             days_to_next_event = (
                 time + step_size - pop['pregnancy_state_change_date']
             ).dt.days
@@ -200,6 +251,8 @@ class MaternalInterventions:
                 return ((days_since_event <= time_to_treat)
                         & (time_to_treat < days_to_next_event))
         else:
+            hemoglobin = self.hemoglobin.source(index)
+            anemic = hemoglobin < data_values.IV_IRON_THRESHOLD
             # On initialize sims.  Check time to treat is in the past.
             def in_window(time_to_treat: int):
                 return time_to_treat < days_since_event
@@ -240,3 +293,18 @@ class MaternalInterventions:
         ], axis=1)
 
         return coverage
+
+    def _sample_effect_sizes(self, index: pd.Index) -> pd.DataFrame:
+        loc, scale = data_values.IFA_EFFECT_SIZE
+        supp_rvs = self.randomness.get_draw(index, 'maternal_supplementation_effect')
+        maternal_supplementation = scipy.stats.norm.ppf(supp_rvs, loc=loc, scale=scale)
+
+        loc, scale = data_values.IV_IRON_EFFECT_SIZE
+        iv_rvs = self.randomness.get_draw(index, 'iv_iron_effect')
+        iv_iron = scipy.stats.norm.ppf(iv_rvs, loc=loc, scale=scale)
+        return pd.DataFrame({
+            'maternal_supplementation': maternal_supplementation,
+            'antenatal_iv_iron': iv_iron,
+            'postpartum_iv_iron': iv_iron,
+        }, index=index)
+
