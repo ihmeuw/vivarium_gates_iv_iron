@@ -78,13 +78,17 @@ class MaternalInterventions:
                 self._sample_iv_iron_status
             ),
         }
+        pop_update = pd.DataFrame({
+            'treatment_propensity': propensity,
+            **{k: models.INVALID_TREATMENT for k in sampling_map}
+        }, index=pop_data.index)
         pop_update = self._sample_intervention_status(
-            propensity, pop_data.creation_time, sampling_map
+            pop_update, pop_data.creation_time, sampling_map
         )
         self.population_view.update(pop_update)
 
     def on_time_step(self, event: Event) -> None:
-        pop = self.population_view.get(event.index)
+        pop = self.population_view.get(event.index).copy()
         pregnant, postpartum, in_treatment_window = self._get_indicators(
             event.index, self.clock(), event.step_size,
         )
@@ -104,8 +108,9 @@ class MaternalInterventions:
                 'postpartum_iv_iron',
                 self._sample_iv_iron_status),
         }
+
         pop_update = self._sample_intervention_status(
-            pop['treatment_propensity'], event.time, sampling_map,
+            pop, event.time, sampling_map,
         )
         intervention_over = (
             (pop['pregnancy_status'] == models.NOT_PREGNANT_STATE)
@@ -120,21 +125,18 @@ class MaternalInterventions:
 
     def _sample_intervention_status(
         self,
-        propensity: pd.Series,
+        pop_update: pd.DataFrame,
         time: pd.Timestamp,
         sampling_map: Dict
     ):
-        index = propensity.index
+        index = pop_update.index
         coverage = self._get_coverage(time)
-        pop_update = [propensity]
         for name, (eligibility_mask, coverage_columns, sampling_func) in sampling_map.items():
             eligible = index[eligibility_mask]
-            status = pd.Series(models.INVALID_TREATMENT, index=index, name=name)
-            status.loc[eligible] = sampling_func(
-                propensity.loc[eligible], coverage.loc[coverage_columns]
+            pop_update.loc[eligible, name] = sampling_func(
+                pop_update.loc[eligible, 'treatment_propensity'],
+                coverage.loc[coverage_columns],
             )
-            pop_update.append(status)
-        pop_update = pd.concat(pop_update, axis=1)
         return pop_update
 
     def _sample_oral_iron_status(
