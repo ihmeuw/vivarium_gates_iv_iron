@@ -8,8 +8,6 @@ from vivarium.framework.population import SimulantData
 
 from vivarium_gates_iv_iron.constants import (
     data_keys,
-    data_values,
-    metadata,
     models,
 )
 
@@ -63,7 +61,6 @@ class MaternalInterventions:
             pop_data.index, pop_data.creation_time,
         )
         propensity = self.randomness.get_draw(pop_data.index).rename('treatment_propensity')
-
         sampling_map = {
             'maternal_supplementation': (
                 (pregnant & in_treatment_window(7 * 8)) | postpartum,
@@ -91,7 +88,6 @@ class MaternalInterventions:
         pregnant, postpartum, in_treatment_window = self._get_indicators(
             event.index, self.clock(), event.step_size,
         )
-
         sampling_map = {
             'maternal_supplementation': (
                 pregnant & in_treatment_window(7 * 8),
@@ -111,7 +107,6 @@ class MaternalInterventions:
         pop_update = self._sample_intervention_status(
             pop['treatment_propensity'], event.time, sampling_map,
         )
-
         intervention_over = (
             (pop['pregnancy_status'] == models.NOT_PREGNANT_STATE)
             & (pop['pregnancy_state_change_date'] == event.time)
@@ -236,4 +231,5 @@ class MaternalInterventions:
             data.loc['baseline', 'ifa'].rename('baseline_ifa'),
             data.loc[scenario],
         ], axis=1)
+
         return coverage
