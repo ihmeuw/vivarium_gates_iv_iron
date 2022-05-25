@@ -8,6 +8,7 @@ from vivarium.framework.population import SimulantData
 
 from vivarium_gates_iv_iron.constants import (
     data_keys,
+    data_values,
     models,
 )
 
@@ -29,6 +30,7 @@ class MaternalInterventions:
         self.clock = builder.time.clock()
         self.randomness = builder.randomness.get_stream(self.name)
         self.coverage = self._load_intervention_coverage(builder)
+        self.hemoglobin = builder.value.get_value('hemoglobin.exposure')
 
         self.columns_required = [
             'pregnancy_status',
@@ -48,7 +50,8 @@ class MaternalInterventions:
             self.on_initialize_simulants,
             creates_columns=self.columns_created,
             requires_columns=self.columns_required,
-            requires_streams=[self.name]
+            requires_streams=[self.name],
+            requires_values=['hemoglobin.exposure']
         )
         builder.event.register_listener(
             'time_step',
@@ -57,7 +60,7 @@ class MaternalInterventions:
         )
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
-        pregnant, postpartum, in_treatment_window = self._get_indicators(
+        pregnant, postpartum, anemic, in_treatment_window = self._get_indicators(
             pop_data.index, pop_data.creation_time,
         )
         propensity = self.randomness.get_draw(pop_data.index).rename('treatment_propensity')
@@ -68,12 +71,12 @@ class MaternalInterventions:
                 self._sample_oral_iron_status
              ),
             'antenatal_iv_iron': (
-                (pregnant & in_treatment_window(7 * 15)) | postpartum,
+                anemic & ((pregnant & in_treatment_window(7 * 15)) | postpartum),
                 'antenatal_iv_iron',
                 self._sample_iv_iron_status
             ),
             'postpartum_iv_iron': (
-                postpartum,
+                anemic & postpartum,
                 'postpartum_iv_iron',
                 self._sample_iv_iron_status
             ),
@@ -89,7 +92,7 @@ class MaternalInterventions:
 
     def on_time_step(self, event: Event) -> None:
         pop = self.population_view.get(event.index).copy()
-        pregnant, postpartum, in_treatment_window = self._get_indicators(
+        pregnant, postpartum, anemic, in_treatment_window = self._get_indicators(
             event.index, self.clock(), event.step_size,
         )
         sampling_map = {
@@ -99,12 +102,12 @@ class MaternalInterventions:
                 self._sample_oral_iron_status
             ),
             'antenatal_iv_iron': (
-                pregnant & in_treatment_window(7 * 15),
+                anemic & pregnant & in_treatment_window(7 * 15),
                 'antenatal_iv_iron',
                 self._sample_iv_iron_status
             ),
             'postpartum_iv_iron': (
-                postpartum & in_treatment_window(7),
+                anemic & postpartum & in_treatment_window(7),
                 'postpartum_iv_iron',
                 self._sample_iv_iron_status),
         }
@@ -183,6 +186,8 @@ class MaternalInterventions:
             models.NO_MATERNAL_DISORDER_STATE,
             models.POSTPARTUM_STATE,
         ])
+        hemoglobin = self.hemoglobin(index)
+        anemic = hemoglobin < data_values.IV_IRON_THRESHOLD
         days_since_event = (time - pop['pregnancy_state_change_date']).dt.days
 
         if step_size is not None:
@@ -199,7 +204,7 @@ class MaternalInterventions:
             def in_window(time_to_treat: int):
                 return time_to_treat < days_since_event
 
-        return pregnant, postpartum, in_window
+        return pregnant, postpartum, anemic, in_window
 
     def _get_coverage(self, time: pd.Timestamp):
         if time < self.coverage.index.min():
