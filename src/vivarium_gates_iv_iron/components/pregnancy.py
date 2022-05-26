@@ -78,7 +78,7 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
-        self.probability_maternal_hemorrhage = builder.value.register_rate_producer(
+        self.probability_maternal_hemorrhage = builder.value.register_value_producer(
             "probability_maternal_hemorrhage",
             source=builder.lookup.build_table(
                 load_and_unstack(
