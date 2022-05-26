@@ -90,6 +90,24 @@ class Hemoglobin:
             requires_values=['hemoglobin.exposure']
         )
 
+        self.hemorrhage_rr = builder.lookup.build_table(
+                builder.data.load(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        self.hemorrhage_paf = builder.lookup.build_table(
+                builder.data.load(data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        builder.value.register_value_modifier(
+            "probability_maternal_hemorrhage",
+            self.adjust_maternal_hemorrhage_probability,
+            requires_values=["hemoglobin.exposure"]
+        )
+
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
             creates_columns=self.columns_created,
@@ -207,3 +225,19 @@ class Hemoglobin:
             False: data_keys.PREGNANCY.WOMEN_REPRODUCTIVE_AGE_LOCATION_WEIGHTS,
         }[plw]
         return builder.data.load(key).rename(columns={"location": "country"})
+
+    def adjust_maternal_hemorrhage_probability(self, index, probability):
+        paf = self.hemorrhage_paf(index)["value"]
+        rr = self.hemorrhage_rr(index)["value"]
+        p_maternal_hemorrhage = probability["moderate_maternal_hemorrhage"] + probability["severe_maternal_hemorrhage"]
+        severe_ratio = probability["severe_maternal_hemorrhage"] / p_maternal_hemorrhage
+        p_maternal_hemorrhage_nonanemic = p_maternal_hemorrhage * (1 - paf)
+        p_maternal_hemorrhage_anemic = p_maternal_hemorrhage_nonanemic * rr
+        hemoglobin = self.hemoglobin(index)
+        anemic = hemoglobin <= 70
+        probability["severe_maternal_hemorrhage"] = severe_ratio * p_maternal_hemorrhage_nonanemic
+        probability["moderate_maternal_hemorrhage"] = (1 - severe_ratio) * p_maternal_hemorrhage_nonanemic
+        probability.loc[anemic, "severe_maternal_hemorrhage"] = severe_ratio * p_maternal_hemorrhage_anemic
+        probability.loc[anemic, "moderate_maternal_hemorrhage"] = (1 - severe_ratio) * p_maternal_hemorrhage_anemic
+        probability["not_maternal_hemorrhage"] = (1 - probability["moderate_maternal_hemorrhage"] - probability["severe_maternal_hemorrhage"])
+        return probability

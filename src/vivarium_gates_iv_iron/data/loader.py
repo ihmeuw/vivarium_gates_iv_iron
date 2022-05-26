@@ -85,6 +85,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_DISORDERS.PROBABILITY_FATAL: load_probability_fatal_maternal_disorder,
         data_keys.MATERNAL_DISORDERS.PROBABILITY_NONFATAL: load_probability_nonfatal_maternal_disorder,
         data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE: load_probability_maternal_hemorrhage,
+        data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_rr,
+        data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_paf,
 
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
         data_keys.LBWSG.CATEGORIES: load_metadata,
@@ -452,6 +454,34 @@ def load_probability_maternal_hemorrhage(key: str, location: str):
 
     return probability
 
+
+def load_hemoglobin_rr(key: str, location: str) -> pd.DataFrame:
+    if key != data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN:
+        raise ValueError(f"Unrecognized key {key}")
+
+    # Get a DataFrame with the desired index
+    data = get_data(data_keys.POPULATION.STRUCTURE, location)
+    data = data.reset_index().drop(columns=["value"], axis=1)
+
+    # Sample from the distribution and set values for each draw and return
+    seeds = [f"draw_{i}" for i in range(0, 1000)]
+    dist = sampling.get_lognorm_from_quantiles(*data_values.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN)
+    values = [sampling.get_random_variable(dist, s, "rr_maternal_hemorrhage_attributable_to_hemoglobin") for s in seeds]
+    data.loc[:, seeds] = values
+    return data.set_index(metadata.ARTIFACT_INDEX_COLUMNS)
+
+
+def load_hemoglobin_paf(key: str, location: str) -> pd.DataFrame:
+    if key != data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN:
+        raise ValueError(f"Unrecognized key {key}")
+
+    rr = get_data(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN, location)
+    proportion = get_data(data_keys.HEMOGLOBIN.PREGNANT_PROPORTION_WITH_HEMOGLOBIN_BELOW_70, location)
+
+    return (
+        (rr * proportion + (1 - proportion) - 1)
+        / (rr * proportion + (1 - proportion))
+    )
 
 ##############
 # LBWSG Data #
