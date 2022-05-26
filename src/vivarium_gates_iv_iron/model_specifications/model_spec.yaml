@@ -55,9 +55,9 @@ configuration:
             - "year"
 #            - "age"
         mortality:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postnatal_iv_iron']
+            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
         disability:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postnatal_iv_iron']
+            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
         maternal_bmi:
             include: ['pregnancy_status']
         intervention:
