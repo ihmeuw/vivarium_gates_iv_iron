@@ -97,7 +97,6 @@ class Hemoglobin:
         )
 
         self.population_view = builder.population.get_view(self.columns_created)
-        builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
         pop_update = pd.DataFrame(
@@ -118,12 +117,6 @@ class Hemoglobin:
             index=pop_data.index,
         )
         self.population_view.update(pop_update)
-
-    def on_time_step(self, event):
-        self.distribution_parameters(event.index)
-        self.hemoglobin(event.index)
-        self.anemia_levels(event.index)
-        return
 
     def hemoglobin_source(self, idx: pd.Index) -> pd.Series:
         distribution_parameters = self.distribution_parameters(idx)
