@@ -1,6 +1,6 @@
 from collections import Counter
 import itertools
-from typing import Dict
+from typing import Dict, List, Iterable, Tuple
 
 import pandas as pd
 from vivarium.framework.engine import Builder
@@ -11,7 +11,7 @@ from vivarium_public_health.metrics import (
     MortalityObserver as MortalityObserver_,
     ResultsStratifier as ResultsStratifier_,
 )
-from vivarium_public_health.metrics.stratification import Source, SourceType
+from vivarium_public_health.metrics.stratification import Source, SourceType, StratificationLevel
 from vivarium_public_health.utilities import to_years
 
 from vivarium_gates_iv_iron.constants import data_values, models
@@ -75,6 +75,36 @@ class ResultsStratifier(ResultsStratifier_):
             categories=models.IV_IRON_TREATMENT_STATUSES,
         )
 
+    def _get_current_stratifications(
+        self, include: Iterable[str], exclude: Iterable[str]
+    ) -> List[Tuple[Tuple[StratificationLevel, str], ...]]:
+        """
+        Gets all stratification combinations. Returns a List of
+        Stratifications. Each Stratification is represented as a Tuple of
+        Levels. Each Level is represented as a Tuple of a StratificationLevel
+        object and string referring to the specific stratification category.
+
+        If no stratification levels are defined, returns a List with a single empty Tuple
+        """
+        include = set(include)
+        exclude = set(exclude)
+        level_names = (self.default_stratification_levels | include) - exclude
+
+        groups = []
+        for level_name in level_names:
+            try:
+                level = self.stratification_levels[level_name]
+            except KeyError:
+                raise KeyError(
+                    f"Stratification by {level_name} is not defined. "
+                    f"Available stratifications are {list(self.stratification_levels)}.")
+            groups.append(
+                [(level, category) for category in level.current_categories]
+            )
+
+        # Get product of all stratification combinations
+        return list(itertools.product(*groups))
+
 
 class MortalityObserver(MortalityObserver_):
 
@@ -99,14 +129,15 @@ class DisabilityObserver(DisabilityObserver_):
         pop = self.population_view.get(
             event.index, query='tracked == True and alive == "alive"'
         )
+
+        new_observations = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for cause, disability_weight in self.disability_pipelines.items():
-            disability_weight = disability_weight(pop.index)
+            cause_dw = disability_weight(pop.index)
             for label, group_mask in groups:
-                new_observations = {
-                    f"ylds_due_to_{cause}_{label}": disability_weight[group_mask].sum() * step_size_in_years,
-                }
-                self.counts.update(new_observations)
+                key = f"ylds_due_to_{cause}_{label}"
+                new_observations[key] = cause_dw[group_mask].sum() * step_size_in_years
+        self.counts.update(new_observations)
 
         pop.loc[:, self.ylds_column_name] += self.disability_weight(pop.index)
         self.population_view.update(pop)
