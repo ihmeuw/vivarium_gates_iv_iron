@@ -30,9 +30,9 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}"
-YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}"
-YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
+DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
+YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
 PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
     "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}"
@@ -98,11 +98,14 @@ CAUSES_OF_DEATH = (
     "maternal_disorders",
 )
 CAUSES_OF_DISABILITY = ("maternal_disorders", "anemia")
+SUPPLEMENTATION = tuple(models.SUPPLEMENTATION_CATEGORIES)
+IV_IRON = tuple(models.IV_IRON_TREATMENT_STATUSES)
 INTERVENTION_CATEGORIES = tuple([
     *[f'antenatal_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
     *[f'postpartum_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
     *[f'maternal_supplementation_{s}' for s in models.SUPPLEMENTATION_CATEGORIES],
 ])
+
 
 TEMPLATE_FIELD_MAP = {
     "POP_STATE": POP_STATES,
