@@ -73,6 +73,12 @@ def get_anemia_ylds(location: str):
 
 
 @gbd.memory.cache
+def get_hemoglobin_maternal_disorders_rr():
+    """Relative risk associated with one g/dL decrease in hemoglobin concentration below 12 g/dL"""
+    return vi_utils.get_draws(gbd_id_type="rei_id", gbd_id=95, gbd_round_id=6, year_id=2019, sex_id=2, source="rr",
+                              decomp_step="step4", status="best")
+
+@gbd.memory.cache
 def get_gbd_hierarchy():
     from db_queries import get_location_metadata
     # location_set_id 35 is for GBD model results
