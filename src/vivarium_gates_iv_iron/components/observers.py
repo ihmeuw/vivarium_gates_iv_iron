@@ -75,35 +75,41 @@ class ResultsStratifier(ResultsStratifier_):
             categories=models.IV_IRON_TREATMENT_STATUSES,
         )
 
-    def _get_current_stratifications(
-        self, include: Iterable[str], exclude: Iterable[str]
-    ) -> List[Tuple[Tuple[StratificationLevel, str], ...]]:
-        """
-        Gets all stratification combinations. Returns a List of
-        Stratifications. Each Stratification is represented as a Tuple of
-        Levels. Each Level is represented as a Tuple of a StratificationLevel
-        object and string referring to the specific stratification category.
+    # todo add caching of stratifications
+    def group(
+        self, index: pd.Index, include: Iterable[str], exclude: Iterable[str]
+    ) -> Iterable[Tuple[str, pd.Series]]:
+        """Takes a full population index and yields stratified subgroups.
 
-        If no stratification levels are defined, returns a List with a single empty Tuple
+        Parameters
+        ----------
+        index
+            The index of the population to stratify.
+        include
+            List of stratifications to add to the default stratifications
+        exclude
+            List of stratifications to remove from the default stratifications
+
+        Yields
+        ------
+        Tuple[str, pd.Series]
+            A tuple of stratification labels and the population subgroup
+            corresponding to those labels.
+
         """
-        include = set(include)
-        exclude = set(exclude)
-        level_names = (self.default_stratification_levels | include) - exclude
+        stratification_groups = self.stratification_groups.loc[index]
 
         groups = []
-        for level_name in level_names:
-            try:
-                level = self.stratification_levels[level_name]
-            except KeyError:
-                raise KeyError(
-                    f"Stratification by {level_name} is not defined. "
-                    f"Available stratifications are {list(self.stratification_levels)}.")
-            groups.append(
-                [(level, category) for category in level.current_categories]
-            )
+        for stratification in self._get_current_stratifications(include, exclude):
+            stratification_key = self._get_stratification_key(stratification)
 
-        # Get product of all stratification combinations
-        return list(itertools.product(*groups))
+            group_mask = pd.Series(True, index=index)
+            if not index.empty:
+                for level, category in stratification:
+                    group_mask &= stratification_groups[level.name] == category
+
+            groups.append((stratification_key, group_mask))
+        return groups
 
 
 class MortalityObserver(MortalityObserver_):
