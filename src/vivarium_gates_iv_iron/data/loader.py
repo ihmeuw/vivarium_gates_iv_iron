@@ -87,8 +87,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE: load_probability_maternal_hemorrhage,
         data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_rr,
         data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_paf,
-        data_keys.RR_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_maternal_disorders_rr,
-        data_keys.PAF_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_maternal_disorders_paf,
+        data_keys.MATERNAL_DISORDERS.RR_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_maternal_disorders_rr,
+        data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_maternal_disorders_paf,
 
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
         data_keys.LBWSG.CATEGORIES: load_metadata,
