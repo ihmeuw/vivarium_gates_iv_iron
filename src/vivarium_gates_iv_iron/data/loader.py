@@ -495,6 +495,7 @@ def load_hemoglobin_maternal_disorders_rr(key: str, location: str) -> pd.DataFra
     rr = extra_gbd.get_hemoglobin_maternal_disorders_rr()
     rr = rr.groupby(groupby_cols)[draw_cols].sum().reset_index()
     rr = reshape_to_vivarium_format(rr, location)
+    return rr
 
 
 def load_hemoglobin_maternal_disorders_paf(key: str, location: str) -> pd.DataFrame:
