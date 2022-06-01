@@ -498,7 +498,18 @@ def load_hemoglobin_maternal_disorders_rr(key: str, location: str) -> pd.DataFra
 
 
 def load_hemoglobin_maternal_disorders_paf(key: str, location: str) -> pd.DataFrame:
-    pass
+    location_id = utility_data.get_location_id(location)
+    demography = get_data(data_keys.POPULATION.DEMOGRAPHY, location)
+
+    data = pd.read_csv(paths.HEMOGLOBIN_MATERNAL_DISORDERS_PAF_CSV)
+    data = data.set_index('location_id').loc[location_id]
+    age_bins = utility_data.get_age_bins()
+    data = data.merge(age_bins, on="age_group_id")
+    data = data.pivot(index=["age_start", "age_end"], columns='draw', values='value')
+    data = (data
+            .reset_index(level='age_end', drop=True)
+            .reindex(demography.index, level='age_start', fill_value=0.))
+    return data
 
 
 ##############
