@@ -460,18 +460,23 @@ class InterventionObserver:
         self.config = builder.configuration.observers.intervention
         self.stratifier = builder.components.get_component(ResultsStratifier.name)
         self.person_time = Counter()
+        self.counts = Counter()
 
         columns_required = [
             "alive",
             "pregnancy_status",
             "maternal_bmi_anemia_category",
             "maternal_supplementation",
+            "maternal_supplementation_date",
             "antenatal_iv_iron",
+            "antenatal_iv_iron_date",
             "postpartum_iv_iron",
+            "postpartum_iv_iron_date",
         ]
         self.population_view = builder.population.get_view(columns_required)
 
         builder.event.register_listener("time_step__prepare", self.on_time_step_prepare)
+        builder.event.register_listener("collect_metrics", self.on_collect_metrics)
         builder.value.register_value_modifier("metrics", self.metrics)
 
     def on_time_step_prepare(self, event: Event):
@@ -485,13 +490,11 @@ class InterventionObserver:
             group = pop[group_mask]
             for treatment in ['antenatal_iv_iron', 'postpartum_iv_iron']:
                 for treatment_status in models.IV_IRON_TREATMENT_STATUSES:
-                    count = 0
                     for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
                         key = f"person_time_{treatment}_{treatment_status}_bmi_{bmi_cat}_{label}"
                         sub_group = group.query(f'{treatment} == "{treatment_status}" '
                                                 f'and maternal_bmi_anemia_category == "{bmi_cat}"')
                         new_person_time[key] = len(sub_group) * step_size
-                        count += len(sub_group)
 
             for treatment_status in models.SUPPLEMENTATION_CATEGORIES:
                 for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
@@ -504,6 +507,38 @@ class InterventionObserver:
 
         self.person_time.update(new_person_time)
 
+    def on_collect_metrics(self, event: Event):
+        pop = self.population_view.get(event.index, query='alive == "alive"')
+
+        new_counts = {}
+        groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
+
+        for label, group_mask in groups:
+            group = pop[group_mask]
+            for treatment in ['antenatal_iv_iron', 'postpartum_iv_iron']:
+                for treatment_status in models.IV_IRON_TREATMENT_STATUSES:
+                    for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
+                        key = f"count_of_{treatment}_{treatment_status}_bmi_{bmi_cat}_{label}"
+                        sub_group = (
+                            (group[treatment] == treatment_status)
+                            & (group[f'{treatment}_date'] == event.time)
+                            & (group['maternal_bmi_anemia_category'] == bmi_cat)
+                        )
+                        new_counts[key] = sub_group.sum()
+
+            for treatment_status in models.SUPPLEMENTATION_CATEGORIES:
+                for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
+                    key = f"count_of_maternal_supplementation_{treatment_status}_bmi_{bmi_cat}_{label}"
+                    sub_group = (
+                        (group['maternal_supplementation'] == treatment_status)
+                        & (group[f'maternal_supplementation_date'] == event.time)
+                        & (group['maternal_bmi_anemia_category'] == bmi_cat)
+                    )
+                    new_counts[key] = sub_group.sum()
+
+        self.counts.update(new_counts)
+
     def metrics(self, index: pd.Index, metrics: Dict):
         metrics.update(self.person_time)
+        metrics.update(self.counts)
         return metrics

@@ -53,7 +53,7 @@ configuration:
     observers:
         default:
             - "year"
-#            - "age"
+            - "age"
         mortality:
             include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
         disability:

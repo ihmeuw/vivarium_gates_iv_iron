@@ -53,9 +53,14 @@ class MaternalInterventions:
         self.columns_created = [
             'treatment_propensity',
             'baseline_ifa',
+            'baseline_ifa_date',
             'maternal_supplementation',
+            'maternal_supplementation_date',
             'antenatal_iv_iron',
+            'antenatal_iv_iron_date',
             'postpartum_iv_iron',
+            'postpartum_iv_iron_date',
+
         ]
         self.population_view = builder.population.get_view(
             self.columns_required + self.columns_created
@@ -105,7 +110,8 @@ class MaternalInterventions:
         }
         pop_update = pd.DataFrame({
             'treatment_propensity': propensity,
-            **{k: models.INVALID_TREATMENT for k in sampling_map}
+            **{k: models.INVALID_TREATMENT for k in sampling_map},
+            **{f"{k}_date": pd.NaT for k in sampling_map},
         }, index=pop_data.index)
         pop_update = self._sample_intervention_status(
             pop_update, pop_data.creation_time, sampling_map
@@ -150,6 +156,7 @@ class MaternalInterventions:
                              'antenatal_iv_iron',
                              'postpartum_iv_iron']:
             pop_update.loc[intervention_over, intervention] = models.INVALID_TREATMENT
+            pop_update.loc[intervention_over, f'{intervention}_date'] = pd.NaT
 
         self.population_view.update(pop_update)
 
@@ -180,6 +187,7 @@ class MaternalInterventions:
                 pop_update.loc[eligible, 'treatment_propensity'],
                 coverage.loc[coverage_columns],
             )
+            pop_update.loc[eligible, f'{name}_date'] = time
         return pop_update
 
     def _sample_oral_iron_status(
@@ -302,6 +310,7 @@ class MaternalInterventions:
         loc, scale = data_values.IV_IRON_EFFECT_SIZE
         iv_rvs = self.randomness.get_draw(index, 'iv_iron_effect')
         iv_iron = scipy.stats.norm.ppf(iv_rvs, loc=loc, scale=scale)
+        iv_iron[iv_iron < 0] = 0
         return pd.DataFrame({
             'maternal_supplementation': maternal_supplementation,
             'antenatal_iv_iron': iv_iron,
