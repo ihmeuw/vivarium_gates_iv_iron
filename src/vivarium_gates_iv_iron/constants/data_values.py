@@ -68,3 +68,6 @@ IFA_EFFECT_SIZE = (7.8, 4.08, 11.52)  # (mean, upper, lower) g/L
 RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN = (3.54, 1.2, 10.4)  # (median, lower, upper) 95% CI
 HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE = 0.9
 HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE = 0.833
+
+TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS = 120.0
+RR_SCALAR = 10.0  # Conversion factor between hemoglobin units (g/L) and relative risk units (g/dL)

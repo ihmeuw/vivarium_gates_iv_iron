@@ -115,6 +115,8 @@ class Pregnancy:
             requires_columns=["maternal_hemorrhage"]
         )
 
+        self.hemoglobin_maternal_disorders_risk_effect = builder.value.get_value("maternal_disorder_risk_effect")
+
         view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(
@@ -300,9 +302,12 @@ class Pregnancy:
         fatal_md = new_prepostpartum[
             new_prepostpartum['cause_of_death'] == 'maternal_disorders'
         ].index
+        probability_non_fatal_md = (self.probability_non_fatal_maternal_disorder(new_prepostpartum.index)
+                                    * self.hemoglobin_maternal_disorders_risk_effect(new_prepostpartum.index))
+        probability_non_fatal_md[probability_non_fatal_md > 1.0] = 1.0
         non_fatal_md = self.randomness.filter_for_probability(
             new_prepostpartum.index,
-            self.probability_non_fatal_maternal_disorder(new_prepostpartum.index),
+            probability_non_fatal_md,
             additional_key='maternal_disorder_incidence',
         )
         md = fatal_md.union(non_fatal_md)
