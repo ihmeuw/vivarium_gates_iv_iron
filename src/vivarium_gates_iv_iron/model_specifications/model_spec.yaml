@@ -54,6 +54,8 @@ configuration:
         default:
             - "year"
             - "age"
+        anemia:
+            include: ['maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
         mortality:
             include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
         disability:
