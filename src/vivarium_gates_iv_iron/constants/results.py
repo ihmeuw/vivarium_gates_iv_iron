@@ -47,10 +47,10 @@ MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
     "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
+    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
 )
 ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
+    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
 )
 MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
     "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
