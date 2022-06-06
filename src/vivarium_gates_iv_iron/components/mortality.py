@@ -74,7 +74,6 @@ class MaternalMortality:
         draw = self.randomness.get_draw(pop.index, additional_key="maternal_disorder_death")
         p_fatal_maternal_disorder = self.probability_fatal_maternal_disorder(pop.index)
         would_die_due_to_maternal_disorders = draw < p_fatal_maternal_disorder
-
         died_due_to_maternal_disorders = (
             pregnancy_ends_this_step & would_die_due_to_maternal_disorders
         )

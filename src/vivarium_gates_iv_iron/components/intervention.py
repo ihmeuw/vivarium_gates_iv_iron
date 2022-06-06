@@ -152,7 +152,8 @@ class MaternalInterventions:
             (pop['pregnancy_status'] == models.NOT_PREGNANT_STATE)
             & (pop['pregnancy_state_change_date'] == event.time)
         )
-        for intervention in ['maternal_supplementation',
+        for intervention in ['baseline_ifa',
+                             'maternal_supplementation',
                              'antenatal_iv_iron',
                              'postpartum_iv_iron']:
             pop_update.loc[intervention_over, intervention] = models.INVALID_TREATMENT
@@ -163,9 +164,13 @@ class MaternalInterventions:
     def update_exposure(self, index, exposure):
         pop = self.population_view.get(index)
         effect_sizes = self.effect_sizes.loc[index]
+        baseline_ifa_coverage = self._get_coverage(self.clock()).loc['baseline_ifa']
 
-        baseline_ifa = (pop['baseline_ifa'] == models.TREATMENT).rename(None)
-        exposure.loc[baseline_ifa] -= effect_sizes.loc[baseline_ifa, 'maternal_supplementation']
+        has_ifa_status = (pop['baseline_ifa'] != models.INVALID_TREATMENT).rename(None)
+        exposure.loc[has_ifa_status] -= (
+            baseline_ifa_coverage
+            * effect_sizes.loc[has_ifa_status, 'maternal_supplementation']
+        )
         for treatment in effect_sizes:
             on_treatment = ~pop[treatment].isin(
                 [models.INVALID_TREATMENT, models.NO_TREATMENT]
