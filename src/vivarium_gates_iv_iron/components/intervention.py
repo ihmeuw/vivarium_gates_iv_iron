@@ -121,7 +121,7 @@ class MaternalInterventions:
     def on_time_step(self, event: Event) -> None:
         pop = self.population_view.get(event.index).copy()
         pregnant, postpartum, anemic, in_treatment_window = self._get_indicators(
-            event.index, self.clock(), event.step_size,
+            event.index, event.time, event.step_size,
         )
         sampling_map = {
             'maternal_supplementation': (
