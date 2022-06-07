@@ -64,13 +64,13 @@ class ResultsStratifier(ResultsStratifier_):
         #     categories=ResultsStratifier.SEX_CATEGORIES,
         # )
 
-        self.setup_stratification(
-            builder,
-            name=ResultsStratifier.AGE,
-            sources=[ResultsStratifier.AGE_SOURCE],
-            categories={age_bin for age_bin in self.age_bins["age_group_name"]},
-            mapper=self.age_stratification_mapper,
-        )
+        # self.setup_stratification(
+        #     builder,
+        #     name=ResultsStratifier.AGE,
+        #     sources=[ResultsStratifier.AGE_SOURCE],
+        #     categories={age_bin for age_bin in self.age_bins["age_group_name"]},
+        #     mapper=self.age_stratification_mapper,
+        # )
 
         self.setup_stratification(
             builder,
