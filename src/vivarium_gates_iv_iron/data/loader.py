@@ -506,6 +506,7 @@ def load_hemoglobin_maternal_disorders_paf(key: str, location: str) -> pd.DataFr
     data = data.set_index('location_id').loc[location_id]
     age_bins = utility_data.get_age_bins()
     data = data.merge(age_bins, on="age_group_id")
+    data.draw = data.draw.apply(lambda d: f"draw_{d}")
     data = data.pivot(index=["age_start", "age_end"], columns='draw', values='paf')
     data = (data
             .reset_index(level='age_end', drop=True)
