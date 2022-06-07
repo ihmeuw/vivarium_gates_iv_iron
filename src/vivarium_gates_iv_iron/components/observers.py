@@ -377,24 +377,22 @@ class AnemiaObserver:
             data_values.ANEMIA_DISABILITY_WEIGHTS.keys(),
             models.PREGNANCY_MODEL_STATES,
             models.MATERNAL_HEMORRHAGE_STATES,
-            models.BMI_ANEMIA_CATEGORIES,
         ))
         anemia_masks = {}
-        for anemia_level, pregnancy_status, hemorrhage_state, bmi_cat in anemia_measures:
-            key = (anemia_level, pregnancy_status, hemorrhage_state, bmi_cat)
+        for anemia_level, pregnancy_status, hemorrhage_state in anemia_measures:
+            key = (anemia_level, pregnancy_status, hemorrhage_state)
             mask = (
                 (pop['anemia_level'] == anemia_level)
                 & (pop['pregnancy_status'] == pregnancy_status)
                 & (pop['maternal_hemorrhage'] == hemorrhage_state)
-                & (pop['maternal_bmi_anemia_category'] == bmi_cat)
             )
             anemia_masks[key] = mask
 
         new_person_time = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for label, group_mask in groups:
-            for (anemia_level, pregnancy_status, hemorrhage_state, bmi_cat), anemia_mask in anemia_masks.items():
-                key = f"{anemia_level}_anemia_person_time_among_{pregnancy_status}_with_{hemorrhage_state}_bmi_{bmi_cat}_{label}"
+            for (anemia_level, pregnancy_status, hemorrhage_state), anemia_mask in anemia_masks.items():
+                key = f"{anemia_level}_anemia_person_time_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
                 group = pop[group_mask & anemia_mask]
                 new_person_time[key] = len(group) * step_size
 
@@ -408,24 +406,22 @@ class AnemiaObserver:
         pregnancy_measures = list(itertools.product(
             models.PREGNANCY_MODEL_STATES,
             models.MATERNAL_HEMORRHAGE_STATES,
-            models.BMI_ANEMIA_CATEGORIES,
         ))
 
         anemia_masks = {}
-        for pregnancy_status, hemorrhage_state, bmi_cat in pregnancy_measures:
-            key = (pregnancy_status, hemorrhage_state, bmi_cat)
+        for pregnancy_status, hemorrhage_state in pregnancy_measures:
+            key = (pregnancy_status, hemorrhage_state)
             mask = (
                 (pop['pregnancy_status'] == pregnancy_status)
                 & (pop['maternal_hemorrhage'] == hemorrhage_state)
-                & (pop['maternal_bmi_anemia_category'] == bmi_cat)
             )
             anemia_masks[key] = mask
 
         new_exposures = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for label, group_mask in groups:
-            for (pregnancy_status, hemorrhage_state, bmi_cat), pregnancy_mask in anemia_masks.items():
-                key = f"hemoglobin_exposure_sum_among_{pregnancy_status}_with_{hemorrhage_state}_bmi_{bmi_cat}_{label}"
+            for (pregnancy_status, hemorrhage_state), pregnancy_mask in anemia_masks.items():
+                key = f"hemoglobin_exposure_sum_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
                 group = pop[group_mask & pregnancy_mask]
                 new_exposures[key] = group.hemoglobin.sum()
 
