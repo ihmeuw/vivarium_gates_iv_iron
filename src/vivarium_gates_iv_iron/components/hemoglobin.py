@@ -179,7 +179,7 @@ class Hemoglobin:
     def maternal_disorder_risk_effect(self, index: pd.Index) -> pd.Series:
         hemoglobin_level = self.hemoglobin(index)
         rr = self.maternal_disorder_rr(index)
-        paf = self.maternal_disorder_paf(index)
+        paf = self.maternal_disorder_paf(index)["value"]
         tmrel = TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS
         per_simulant_exposure = (tmrel - hemoglobin_level + abs(tmrel - hemoglobin_level)) / 2 / RR_SCALAR
         per_simulant_rr = per_simulant_exposure ** rr
