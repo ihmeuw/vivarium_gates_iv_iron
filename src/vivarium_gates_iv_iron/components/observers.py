@@ -327,6 +327,7 @@ class AnemiaObserver:
             "alive",
             "pregnancy_status",
             "maternal_hemorrhage",
+            "maternal_bmi_anemia_category",
         ]
         self.population_view = builder.population.get_view(columns_required)
 
@@ -343,18 +344,20 @@ class AnemiaObserver:
             data_values.ANEMIA_DISABILITY_WEIGHTS.keys(),
             models.PREGNANCY_MODEL_STATES,
             models.MATERNAL_HEMORRHAGE_STATES,
+            models.BMI_ANEMIA_CATEGORIES,
         ))
 
         new_person_time = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for label, group_mask in groups:
             group = pop[group_mask]
-            for anemia_level, pregnancy_status, hemorrhage_state in anemia_measures:
-                key = f"{anemia_level}_anemia_person_time_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
+            for anemia_level, pregnancy_status, hemorrhage_state, bmi_cat in anemia_measures:
+                key = f"{anemia_level}_anemia_person_time_among_{pregnancy_status}_with_{hemorrhage_state}_bmi_{bmi_cat}_{label}"
                 sub_group = group.query(
                     f'anemia_level == "{anemia_level}" '
                     f'and pregnancy_status == "{pregnancy_status}" '
                     f'and maternal_hemorrhage == "{hemorrhage_state}"'
+                    f'and maternal_bmi_anemia_category == "{bmi_cat}"'
                 )
                 new_person_time[key] = len(sub_group) * step_size
 
@@ -367,17 +370,19 @@ class AnemiaObserver:
         pregnancy_measures = list(itertools.product(
             models.PREGNANCY_MODEL_STATES,
             models.MATERNAL_HEMORRHAGE_STATES,
+            models.BMI_ANEMIA_CATEGORIES,
         ))
 
         new_exposures = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for label, group_mask in groups:
             group = pop[group_mask]
-            for pregnancy_status, hemorrhage_state in pregnancy_measures:
-                key = f"hemoglobin_exposure_sum_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
+            for pregnancy_status, hemorrhage_state, bmi_cat in pregnancy_measures:
+                key = f"hemoglobin_exposure_sum_among_{pregnancy_status}_with_{hemorrhage_state}_bmi_{bmi_cat}_{label}"
                 sub_group = group.query(
                     f'pregnancy_status == "{pregnancy_status}" '
                     f'and maternal_hemorrhage == "{hemorrhage_state}"'
+                    f'and maternal_bmi_anemia_category == "{bmi_cat}"'
                 )
                 new_exposures[key] = sub_group.hemoglobin.sum()
 
