@@ -182,7 +182,7 @@ class Hemoglobin:
         paf = self.maternal_disorder_paf(index)["value"]
         tmrel = TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS
         per_simulant_exposure = (tmrel - hemoglobin_level + abs(tmrel - hemoglobin_level)) / 2 / RR_SCALAR
-        per_simulant_rr = per_simulant_exposure ** rr
+        per_simulant_rr = rr ** per_simulant_exposure 
         return (1 - paf) * per_simulant_rr
 
 
