@@ -6,9 +6,11 @@ from vivarium.framework.engine import Builder
 from vivarium.framework.population import SimulantData
 
 from vivarium_gates_iv_iron.constants.data_values import (
+    ANEMIA_DISABILITY_WEIGHTS,
     HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
     HEMOGLOBIN_THRESHOLD_DATA,
-    ANEMIA_DISABILITY_WEIGHTS,
+    RR_SCALAR,
+    TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS
 )
 
 from vivarium_gates_iv_iron.constants import data_keys
@@ -84,6 +86,12 @@ class Hemoglobin:
             requires_values=["hemoglobin.exposure"],
         )
 
+        self.maternal_disorder_risk_effect = builder.value.register_value_producer(
+            "maternal_disorder_risk_effect",
+            source=self.maternal_disorder_risk_effect,
+            requires_values=["hemoglobin.exposure"],
+        )
+
         builder.value.register_value_producer(
             'anemia.disability_weight',
             source=self.disability_weight,
@@ -101,6 +109,18 @@ class Hemoglobin:
                 key_columns=["sex"],
                 parameter_columns=["age", "year"],
             )
+
+        self.maternal_disorder_rr = builder.lookup.build_table(
+            builder.data.load(data_keys.MATERNAL_DISORDERS.RR_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN),
+            key_columns=["sex"],
+            parameter_columns=["age", "year"],
+        )
+
+        self.maternal_disorder_paf = builder.lookup.build_table(
+            builder.data.load(data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN),
+            key_columns=["sex"],
+            parameter_columns=["age", "year"],
+        )
 
         builder.value.register_value_modifier(
             "probability_maternal_hemorrhage",
@@ -155,6 +175,16 @@ class Hemoglobin:
             index=index,
             name="anemia_levels",
         )
+
+    def maternal_disorder_risk_effect(self, index: pd.Index) -> pd.Series:
+        hemoglobin_level = self.hemoglobin(index)
+        rr = self.maternal_disorder_rr(index)
+        paf = self.maternal_disorder_paf(index)["value"]
+        tmrel = TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS
+        per_simulant_exposure = (tmrel - hemoglobin_level + abs(tmrel - hemoglobin_level)) / 2 / RR_SCALAR
+        per_simulant_rr = rr ** per_simulant_exposure 
+        return (1 - paf) * per_simulant_rr
+
 
     @staticmethod
     def _gamma_ppf(propensity, mean, sd):

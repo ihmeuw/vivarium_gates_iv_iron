@@ -87,6 +87,8 @@ def get_data(lookup_key: str, location: str) -> pd.DataFrame:
         data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE: load_probability_maternal_hemorrhage,
         data_keys.MATERNAL_DISORDERS.RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_rr,
         data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_paf,
+        data_keys.MATERNAL_DISORDERS.RR_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_maternal_disorders_rr,
+        data_keys.MATERNAL_DISORDERS.PAF_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: load_hemoglobin_maternal_disorders_paf,
 
         data_keys.LBWSG.DISTRIBUTION: load_metadata,
         data_keys.LBWSG.CATEGORIES: load_metadata,
@@ -482,6 +484,35 @@ def load_hemoglobin_paf(key: str, location: str) -> pd.DataFrame:
         (rr * proportion + (1 - proportion) - 1)
         / (rr * proportion + (1 - proportion))
     )
+
+
+def load_hemoglobin_maternal_disorders_rr(key: str, location: str) -> pd.DataFrame:
+    if key != data_keys.MATERNAL_DISORDERS.RR_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN:
+        raise ValueError(f"Unrecognized key {key}")
+
+    groupby_cols = ['age_group_id', 'sex_id', 'year_id']
+    draw_cols = [f"draw_{i}" for i in range(1000)]
+    rr = extra_gbd.get_hemoglobin_maternal_disorders_rr()
+    rr = rr.groupby(groupby_cols)[draw_cols].sum().reset_index()
+    rr = reshape_to_vivarium_format(rr, location)
+    return rr
+
+
+def load_hemoglobin_maternal_disorders_paf(key: str, location: str) -> pd.DataFrame:
+    location_id = utility_data.get_location_id(location)
+    demography = get_data(data_keys.POPULATION.DEMOGRAPHY, location)
+
+    data = pd.read_csv(paths.HEMOGLOBIN_MATERNAL_DISORDERS_PAF_CSV)
+    data = data.set_index('location_id').loc[location_id]
+    age_bins = utility_data.get_age_bins()
+    data = data.merge(age_bins, on="age_group_id")
+    data.draw = data.draw.apply(lambda d: f"draw_{d}")
+    data = data.pivot(index=["age_start", "age_end"], columns='draw', values='paf')
+    data = (data
+            .reset_index(level='age_end', drop=True)
+            .reindex(demography.index, level='age_start', fill_value=0.))
+    return data
+
 
 ##############
 # LBWSG Data #
