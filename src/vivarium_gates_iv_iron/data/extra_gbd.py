@@ -75,7 +75,7 @@ def get_anemia_ylds(location: str):
 @gbd.memory.cache
 def get_hemoglobin_maternal_disorders_rr():
     """Relative risk associated with one g/dL decrease in hemoglobin concentration below 12 g/dL"""
-    return vi_utils.get_draws(gbd_id_type="rei_id",
+    data = vi_utils.get_draws(gbd_id_type="rei_id",
                               gbd_id=95,
                               gbd_round_id=gbd_constants.ROUND_IDS.GBD_2019,
                               year_id=2019,
@@ -83,6 +83,10 @@ def get_hemoglobin_maternal_disorders_rr():
                               source="rr",
                               decomp_step="iterative",
                               status="best")
+    # Subset to a single sub-cause as the get_draws call returns values for 10 sub-causes within the
+    # maternal disorders parent cause
+    data = data[data["cause_id"] == 367]
+    return data
 
 @gbd.memory.cache
 def get_gbd_hierarchy():
