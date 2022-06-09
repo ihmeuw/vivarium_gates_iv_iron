@@ -35,6 +35,8 @@ class MaternalMortality:
             parameter_columns=['age', 'year'],
         )
 
+        self.hemoglobin_maternal_disorders_risk_effect = builder.value.get_value("maternal_disorder_risk_effect")
+
         columns_required = [
             'alive',
             'exit_time',
@@ -72,7 +74,9 @@ class MaternalMortality:
 
         # Determine who dies
         draw = self.randomness.get_draw(pop.index, additional_key="maternal_disorder_death")
-        p_fatal_maternal_disorder = self.probability_fatal_maternal_disorder(pop.index)
+        p_fatal_maternal_disorder = (self.probability_fatal_maternal_disorder(pop.index)
+                                     * self.hemoglobin_maternal_disorders_risk_effect(pop.index))
+        p_fatal_maternal_disorder[p_fatal_maternal_disorder > 1.0] = 1.0
         would_die_due_to_maternal_disorders = draw < p_fatal_maternal_disorder
         died_due_to_maternal_disorders = (
             pregnancy_ends_this_step & would_die_due_to_maternal_disorders

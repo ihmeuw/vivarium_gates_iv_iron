@@ -64,9 +64,16 @@ class __MaternalDisorders(NamedTuple):
     HEMORRHAGE_CSMR: str = "cause.maternal_hemorrhage.cause_specific_mortality_rate"
     HEMORRHAGE_INCIDENCE_RATE: str = "cause.maternal_hemorrhage.incidence_rate"
     YLDS: str = "cause.maternal_disorders.ylds"
+
     PROBABILITY_FATAL: str = 'covariate.probability_fatal_maternal_disorder.estimate'
     PROBABILITY_NONFATAL: str = 'covariate.probability_nonfatal_maternal_disorder.estimate'
     PROBABILITY_HEMORRHAGE: str = "covariate.probability_maternal_hemorrhage.estimate"
+
+    RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: str = 'risk_factor.hemoglobin_on_maternal_hemorrhage.relative_risk'
+    PAF_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN: str = 'risk_factor.hemoglobin_on_maternal_hemorrhage.paf'
+
+    RR_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: str = "risk_factor.hemoglobin_on_maternal_disorder.relative_risk"
+    PAF_MATERNAL_DISORDER_ATTRIBUTABLE_TO_HEMOGLOBIN: str = "risk_factor.hemoglobin_on_maternal_disorder.paf"
 
     @property
     def name(self):

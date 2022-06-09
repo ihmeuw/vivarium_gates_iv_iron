@@ -12,6 +12,8 @@ from vivarium_gates_iv_iron.components.children import NewChildren
 from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
     DURATIONS,
+    HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE,
+    HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE
 )
 from vivarium_gates_iv_iron.components.utilities import (
     load_and_unstack,
@@ -78,14 +80,17 @@ class Pregnancy:
             key_columns=['sex'],
             parameter_columns=['age', 'year'],
         )
-        self.probability_maternal_hemorrhage = builder.lookup.build_table(
-            load_and_unstack(
-                builder,
-                data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE,
-                'hemorrhage_status'
-            ),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
+        self.probability_maternal_hemorrhage = builder.value.register_value_producer(
+            "probability_maternal_hemorrhage",
+            source=builder.lookup.build_table(
+                load_and_unstack(
+                    builder,
+                    data_keys.MATERNAL_DISORDERS.PROBABILITY_HEMORRHAGE,
+                    'hemorrhage_status'
+                ),
+                key_columns=['sex'],
+                parameter_columns=['age', 'year'],
+            )
         )
 
         self.correction_factors = builder.lookup.build_table(
@@ -103,6 +108,14 @@ class Pregnancy:
             self.hemoglobin_pregnancy_adjustment,
             requires_columns=["pregnancy_status"]
         )
+
+        builder.value.register_value_modifier(
+            "hemoglobin.exposure",
+            self.hemoglobin_hemorrhage_adjustment,
+            requires_columns=["maternal_hemorrhage"]
+        )
+
+        self.hemoglobin_maternal_disorders_risk_effect = builder.value.get_value("maternal_disorder_risk_effect")
 
         view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
         self.population_view = builder.population.get_view(view_columns)
@@ -170,6 +183,14 @@ class Pregnancy:
 
     def hemoglobin_pregnancy_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
         return df * self.correction_factors(index)
+
+    def hemoglobin_hemorrhage_adjustment(self, index: pd.Index, df: pd.DataFrame) -> pd.DataFrame:
+        pop = self.population_view.get(index)
+        severe_mask = pop["maternal_hemorrhage"] == "severe_maternal_hemorrhage"
+        moderate_mask = pop["maternal_hemorrhage"] == "moderate_maternal_hemorrhage"
+        df[severe_mask] = df[severe_mask] * HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE
+        df[moderate_mask] = df[moderate_mask] * HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE
+        return df
 
     ####################
     # Sampling helpers #
@@ -281,9 +302,12 @@ class Pregnancy:
         fatal_md = new_prepostpartum[
             new_prepostpartum['cause_of_death'] == 'maternal_disorders'
         ].index
+        probability_non_fatal_md = (self.probability_non_fatal_maternal_disorder(new_prepostpartum.index)
+                                    * self.hemoglobin_maternal_disorders_risk_effect(new_prepostpartum.index))
+        probability_non_fatal_md[probability_non_fatal_md > 1.0] = 1.0
         non_fatal_md = self.randomness.filter_for_probability(
             new_prepostpartum.index,
-            self.probability_non_fatal_maternal_disorder(new_prepostpartum.index),
+            probability_non_fatal_md,
             additional_key='maternal_disorder_incidence',
         )
         md = fatal_md.union(non_fatal_md)
