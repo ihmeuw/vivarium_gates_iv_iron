@@ -30,9 +30,9 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
-YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
-YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{IV_IRON}_postpartum_iv_iron_{IV_IRON}"
+DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{ANTENATAL_IV_IRON}_postpartum_iv_iron_{POSTPARTUM_IV_IRON}"
+YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{ANTENATAL_IV_IRON}_postpartum_iv_iron_{POSTPARTUM_IV_IRON}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{ANTENATAL_IV_IRON}_postpartum_iv_iron_{POSTPARTUM_IV_IRON}"
 PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
     "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}"
@@ -47,10 +47,10 @@ MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
     "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
+    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{ANTENATAL_IV_IRON}_postpartum_iv_iron_{POSTPARTUM_IV_IRON}"
 )
 ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}"
+    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_maternal_supplementation_{SUPPLEMENTATION}_antenatal_iv_iron_{ANTENATAL_IV_IRON}_postpartum_iv_iron_{POSTPARTUM_IV_IRON}"
 )
 MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
     "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_pregnancy_status_{PREGNANCY_STATE}"
@@ -123,7 +123,8 @@ TEMPLATE_FIELD_MAP = {
     "WITH_MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES[:-1],
     "ANEMIA_LEVEL": data_values.ANEMIA_DISABILITY_WEIGHTS.keys(),
     "SUPPLEMENTATION": models.SUPPLEMENTATION_CATEGORIES,
-    "IV_IRON": models.IV_IRON_TREATMENT_STATUSES,
+    "ANTENATAL_IV_IRON": models.IV_IRON_TREATMENT_STATUSES,
+    "POSTPARTUM_IV_IRON": models.IV_IRON_TREATMENT_STATUSES,
     "BMI_CATEGORY": models.BMI_ANEMIA_CATEGORIES,
     "INTERVENTION_CATEGORY": INTERVENTION_CATEGORIES
 }

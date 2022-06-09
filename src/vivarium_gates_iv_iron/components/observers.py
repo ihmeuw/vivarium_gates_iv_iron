@@ -1,6 +1,7 @@
 from collections import Counter
 import itertools
-from typing import Dict, List, Iterable, Tuple
+
+from typing import Dict, Iterable, Tuple
 
 import pandas as pd
 from vivarium.framework.engine import Builder
@@ -11,10 +12,34 @@ from vivarium_public_health.metrics import (
     MortalityObserver as MortalityObserver_,
     ResultsStratifier as ResultsStratifier_,
 )
-from vivarium_public_health.metrics.stratification import Source, SourceType, StratificationLevel
+from vivarium_public_health.metrics.stratification import Source, SourceType
 from vivarium_public_health.utilities import to_years
 
 from vivarium_gates_iv_iron.constants import data_values, models
+
+
+import time
+import functools
+
+
+def timeit(name):
+
+    def _wrapper(func):
+
+        @functools.wraps(func)
+        def _wrapped(*args, **kwargs):
+            start = time.time()
+            result = func(*args, **kwargs)
+            print(name, time.time() - start, ' s')
+            return result
+
+        @functools.wraps(func)
+        def _wrapped_passthrough(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        return _wrapped_passthrough
+
+    return _wrapper
 
 
 class ResultsStratifier(ResultsStratifier_):
@@ -39,13 +64,13 @@ class ResultsStratifier(ResultsStratifier_):
         #     categories=ResultsStratifier.SEX_CATEGORIES,
         # )
 
-        # self.setup_stratification(
-        #     builder,
-        #     name=ResultsStratifier.AGE,
-        #     sources=[ResultsStratifier.AGE_SOURCE],
-        #     categories={age_bin for age_bin in self.age_bins["age_group_name"]},
-        #     mapper=self.age_stratification_mapper,
-        # )
+        self.setup_stratification(
+            builder,
+            name=ResultsStratifier.AGE,
+            sources=[ResultsStratifier.AGE_SOURCE],
+            categories={age_bin for age_bin in self.age_bins["age_group_name"]},
+            mapper=self.age_stratification_mapper,
+        )
 
         self.setup_stratification(
             builder,
@@ -111,6 +136,10 @@ class ResultsStratifier(ResultsStratifier_):
             groups.append((stratification_key, group_mask))
         return groups
 
+    @timeit('stratify')
+    def _set_stratification_groups(self, index: pd.Index) -> pd.DataFrame:
+        return super()._set_stratification_groups(index)
+
 
 class MortalityObserver(MortalityObserver_):
 
@@ -130,6 +159,7 @@ class DisabilityObserver(DisabilityObserver_):
             'real_anemia.disability_weight'
         )
 
+    @timeit('disability')
     def on_time_step_prepare(self, event: Event) -> None:
         step_size_in_years = to_years(event.step_size)
         pop = self.population_view.get(
@@ -208,6 +238,7 @@ class PregnancyObserver:
             pop.rename(columns={'pregnancy_status': 'previous_pregnancy_status'})
         )
 
+    @timeit('pregnancy_tsp')
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index, query='alive == "alive"')
         step_size = to_years(event.step_size)
@@ -237,6 +268,7 @@ class PregnancyObserver:
         pop['previous_pregnancy_status'] = pop["pregnancy_status"]
         self.population_view.update(pop)
 
+    @timeit('pregnancy_cm')
     def on_collect_metrics(self, event: Event):
         pop = self.population_view.get(event.index)
         # Might have some dead pops here, but they'll have died this time step.
@@ -327,6 +359,7 @@ class AnemiaObserver:
             "alive",
             "pregnancy_status",
             "maternal_hemorrhage",
+            "maternal_bmi_anemia_category",
         ]
         self.population_view = builder.population.get_view(columns_required)
 
@@ -334,6 +367,7 @@ class AnemiaObserver:
         builder.event.register_listener("collect_metrics", self.on_collect_metrics)
         builder.value.register_value_modifier("metrics", self.metrics)
 
+    @timeit('anemia_tsp')
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index, query='alive == "alive"')
         pop["anemia_level"] = self.anemia_levels(event.index)
@@ -344,22 +378,27 @@ class AnemiaObserver:
             models.PREGNANCY_MODEL_STATES,
             models.MATERNAL_HEMORRHAGE_STATES,
         ))
+        anemia_masks = {}
+        for anemia_level, pregnancy_status, hemorrhage_state in anemia_measures:
+            key = (anemia_level, pregnancy_status, hemorrhage_state)
+            mask = (
+                (pop['anemia_level'] == anemia_level)
+                & (pop['pregnancy_status'] == pregnancy_status)
+                & (pop['maternal_hemorrhage'] == hemorrhage_state)
+            )
+            anemia_masks[key] = mask
 
         new_person_time = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for label, group_mask in groups:
-            group = pop[group_mask]
-            for anemia_level, pregnancy_status, hemorrhage_state in anemia_measures:
+            for (anemia_level, pregnancy_status, hemorrhage_state), anemia_mask in anemia_masks.items():
                 key = f"{anemia_level}_anemia_person_time_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
-                sub_group = group.query(
-                    f'anemia_level == "{anemia_level}" '
-                    f'and pregnancy_status == "{pregnancy_status}" '
-                    f'and maternal_hemorrhage == "{hemorrhage_state}"'
-                )
-                new_person_time[key] = len(sub_group) * step_size
+                group = pop[group_mask & anemia_mask]
+                new_person_time[key] = len(group) * step_size
 
         self.person_time.update(new_person_time)
 
+    @timeit('anemia_cm')
     def on_collect_metrics(self, event: Event):
         pop = self.population_view.get(event.index, query='alive == "alive"')
         pop["hemoglobin"] = self.hemoglobin(event.index)
@@ -369,17 +408,22 @@ class AnemiaObserver:
             models.MATERNAL_HEMORRHAGE_STATES,
         ))
 
+        anemia_masks = {}
+        for pregnancy_status, hemorrhage_state in pregnancy_measures:
+            key = (pregnancy_status, hemorrhage_state)
+            mask = (
+                (pop['pregnancy_status'] == pregnancy_status)
+                & (pop['maternal_hemorrhage'] == hemorrhage_state)
+            )
+            anemia_masks[key] = mask
+
         new_exposures = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for label, group_mask in groups:
-            group = pop[group_mask]
-            for pregnancy_status, hemorrhage_state in pregnancy_measures:
+            for (pregnancy_status, hemorrhage_state), pregnancy_mask in anemia_masks.items():
                 key = f"hemoglobin_exposure_sum_among_{pregnancy_status}_with_{hemorrhage_state}_{label}"
-                sub_group = group.query(
-                    f'pregnancy_status == "{pregnancy_status}" '
-                    f'and maternal_hemorrhage == "{hemorrhage_state}"'
-                )
-                new_exposures[key] = sub_group.hemoglobin.sum()
+                group = pop[group_mask & pregnancy_mask]
+                new_exposures[key] = group.hemoglobin.sum()
 
         self.exposure.update(new_exposures)
 
@@ -420,6 +464,7 @@ class MaternalBMIObserver:
         builder.event.register_listener("time_step__prepare", self.on_time_step_prepare)
         builder.value.register_value_modifier("metrics", self.metrics)
 
+    @timeit('bmi')
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index, query='alive == "alive"')
         step_size = to_years(event.step_size)
@@ -479,6 +524,7 @@ class InterventionObserver:
         builder.event.register_listener("collect_metrics", self.on_collect_metrics)
         builder.value.register_value_modifier("metrics", self.metrics)
 
+    @timeit('intervention_tsp')
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index, query='alive == "alive"')
         step_size = to_years(event.step_size)
@@ -507,6 +553,7 @@ class InterventionObserver:
 
         self.person_time.update(new_person_time)
 
+    @timeit('intervention_cm')
     def on_collect_metrics(self, event: Event):
         pop = self.population_view.get(event.index, query='alive == "alive"')
 
