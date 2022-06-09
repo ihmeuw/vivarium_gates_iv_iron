@@ -62,7 +62,6 @@ MATERNAL_BMI_ANEMIA_THRESHOLD = 100.0  # g/L, units of hemoglobin exposure distr
 
 IV_IRON_THRESHOLD = 100.0  # g/L
 IV_IRON_EFFECT_SIZE = (23, 14)  # (mean, sd) g/L
-IFA_EFFECT_SIZE = (7.8, 4.08, 11.52)  # (mean, upper, lower) g/L
 
 # Risk Effects
 RR_MATERNAL_HEMORRHAGE_ATTRIBUTABLE_TO_HEMOGLOBIN = (3.54, 1.2, 10.4)  # (median, lower, upper) 95% CI
@@ -71,3 +70,8 @@ HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE = 0.833
 
 TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS = 120.0
 RR_SCALAR = 10.0  # Conversion factor between hemoglobin units (g/L) and relative risk units (g/dL)
+
+_IFA_EFFECT_SIZE_LOWER = 4.08
+_IFA_EFFECT_SIZE_UPPER = 11.52
+_IFA_EFFECT_SIZE_SD = (_IFA_EFFECT_SIZE_UPPER - _IFA_EFFECT_SIZE_LOWER) / (2 * 1.96)  # 95% CI
+IFA_EFFECT_SIZE = (7.8, _IFA_EFFECT_SIZE_SD)  # (mean, sd) g/L

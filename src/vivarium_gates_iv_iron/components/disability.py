@@ -67,8 +67,8 @@ class MaternalDisability:
         )
 
         postpartum_scalar = (
-            data_values.DURATIONS.POSTPARTUM
-            / (data_values.DURATIONS.POSTPARTUM + data_values.DURATIONS.PREPOSTPARTUM)
+            (data_values.DURATIONS.POSTPARTUM + data_values.DURATIONS.PREPOSTPARTUM)
+            / data_values.DURATIONS.POSTPARTUM
         )
         dw_map = {
             models.NOT_PREGNANT_STATE: anemia_disability_weight,

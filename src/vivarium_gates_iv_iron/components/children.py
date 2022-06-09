@@ -145,6 +145,10 @@ class BirthRecorder:
             'sex_of_child',
             'birth_weight',
             'gestational_age',
+            'maternal_bmi_anemia_category',
+            'maternal_supplementation',
+            'antenatal_iv_iron',
+            'postpartum_iv_iron',
 
             'pregnancy_status',
             'pregnancy_outcome',
@@ -164,20 +168,31 @@ class BirthRecorder:
             & (pop['pregnancy_state_change_date'] == event.time)
             & (pop['pregnancy_outcome'] == models.LIVE_BIRTH_OUTCOME)
         )
-        birth_cols = ['sex_of_child', 'birth_weight', 'gestational_age']
+        birth_cols = {
+            'sex_of_child': 'sex',
+            'birth_weight': 'birth_weight',
+            'gestational_age': 'gestational_age',
+            'maternal_bmi_anemia_category': 'joint_bmi_anemia_category',
+            'maternal_supplementation': 'maternal_supplementation_coverage',
+            'antenatal_iv_iron': 'maternal_antenatal_iv_iron_coverage',
+            'postpartum_iv_iron': 'maternal_postpartum_iv_iron_coverage'
+        }
         new_births = (
-            pop.loc[new_birth_mask, birth_cols].rename(columns={'sex_of_child': 'sex'})
+            pop.loc[new_birth_mask, list(birth_cols)].rename(columns=birth_cols)
         )
+        new_births['joint_bmi_anemia_category'] = new_births['joint_bmi_anemia_category'].map({
+            "low_bmi_anemic": "cat1",
+            "normal_bmi_anemic": "cat2",
+            "low_bmi_non_anemic": "cat3",
+            "normal_bmi_non_anemic": "cat4",
+        })
 
         # Cheaper than trying to parse out conception times and gestational ages.
         birthday_fuzz = self.randomness.get_draw(
             new_births.index, additional_key='birthday_fuzz'
         )
         new_births['birth_date'] = event.time - event.step_size * birthday_fuzz
-        new_births['joint_bmi_anemia_category'] = 'cat1'
-        new_births['maternal_supplementation_coverage'] = 'uncovered'
-        new_births['maternal_antenatal_iv_iron_coverage'] = 'uncovered'
-        new_births['maternal_postpartum_iv_iron_coverage'] = 'uncovered'
+
         self.births.append(new_births)
 
     # noinspection PyUnusedLocal

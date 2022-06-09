@@ -47,6 +47,7 @@ def make_measure_data(data):
         anemia_state_person_time=get_measure_data(data, "anemia_state_person_time"),
         maternal_bmi_person_time=get_measure_data(data, "maternal_bmi_person_time"),
         intervention_person_time=get_measure_data(data, "intervention_person_time"),
+        intervention_counts=get_measure_data(data, "intervention_counts"),
     )
     return measure_data
 
@@ -65,6 +66,7 @@ class MeasureData(NamedTuple):
     anemia_state_person_time: pd.DataFrame
     maternal_bmi_person_time: pd.DataFrame
     intervention_person_time: pd.DataFrame
+    intervention_counts: pd.DataFrame
 
     def dump(self, output_dir: Path):
         for key, df in self._asdict().items():
