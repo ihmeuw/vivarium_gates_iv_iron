@@ -41,6 +41,7 @@ class MaternalBMIExposure:
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
             requires_streams=[self.name],
+            requires_values=['raw_hemoglobin.exposure'],
             creates_columns=['maternal_bmi_propensity', 'maternal_bmi_anemia_category'],
         )
 
@@ -55,7 +56,7 @@ class MaternalBMIExposure:
         to_sample = pregnancy_status.loc[pregnancy_status != models.NOT_PREGNANT_STATE].index
 
         maternal_bmi = pd.Series(models.INVALID_BMI_ANEMIA, index=pop_data.index)
-        maternal_bmi.loc[to_sample] = self.sample_bmi(propensity.loc[to_sample])
+        maternal_bmi.loc[to_sample] = self.sample_bmi(propensity.loc[to_sample], init=True)
 
         pop_update = pd.concat([
             propensity.rename('maternal_bmi_propensity'),
@@ -81,12 +82,16 @@ class MaternalBMIExposure:
 
         self.population_view.update(bmi.rename('maternal_bmi_anemia_category'))
 
-    def sample_bmi(self, propensity: pd.Series) -> pd.Series:
+    def sample_bmi(self, propensity: pd.Series, init=False) -> pd.Series:
         index = propensity.index
         p_low_anemic = self.probability_low_given_anemic(index)
         p_low_non_anemic = self.probability_low_given_non_anemic(index)
 
-        hemoglobin = self.hemoglobin(index)
+        # Fix resource dependency cycle
+        if init:
+            hemoglobin = self.hemoglobin.source(index)
+        else:
+            hemoglobin = self.hemoglobin(index)
         anemic = index[hemoglobin < self.threshold]
         non_anemic = index.difference(anemic)
 

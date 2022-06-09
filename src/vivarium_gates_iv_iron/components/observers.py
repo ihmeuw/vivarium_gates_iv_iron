@@ -1,6 +1,6 @@
 from collections import Counter
 import itertools
-from typing import Dict
+from typing import Dict, List, Iterable, Tuple
 
 import pandas as pd
 from vivarium.framework.engine import Builder
@@ -11,7 +11,7 @@ from vivarium_public_health.metrics import (
     MortalityObserver as MortalityObserver_,
     ResultsStratifier as ResultsStratifier_,
 )
-from vivarium_public_health.metrics.stratification import Source, SourceType
+from vivarium_public_health.metrics.stratification import Source, SourceType, StratificationLevel
 from vivarium_public_health.utilities import to_years
 
 from vivarium_gates_iv_iron.constants import data_values, models
@@ -54,6 +54,63 @@ class ResultsStratifier(ResultsStratifier_):
             categories=models.PREGNANCY_MODEL_STATES,
         )
 
+        self.setup_stratification(
+            builder,
+            name='maternal_supplementation',
+            sources=[Source('maternal_supplementation', SourceType.COLUMN)],
+            categories=models.SUPPLEMENTATION_CATEGORIES,
+        )
+
+        self.setup_stratification(
+            builder,
+            name='antenatal_iv_iron',
+            sources=[Source('antenatal_iv_iron', SourceType.COLUMN)],
+            categories=models.IV_IRON_TREATMENT_STATUSES,
+        )
+
+        self.setup_stratification(
+            builder,
+            name='postpartum_iv_iron',
+            sources=[Source('postpartum_iv_iron', SourceType.COLUMN)],
+            categories=models.IV_IRON_TREATMENT_STATUSES,
+        )
+
+    # todo add caching of stratifications
+    def group(
+        self, index: pd.Index, include: Iterable[str], exclude: Iterable[str]
+    ) -> Iterable[Tuple[str, pd.Series]]:
+        """Takes a full population index and yields stratified subgroups.
+
+        Parameters
+        ----------
+        index
+            The index of the population to stratify.
+        include
+            List of stratifications to add to the default stratifications
+        exclude
+            List of stratifications to remove from the default stratifications
+
+        Yields
+        ------
+        Tuple[str, pd.Series]
+            A tuple of stratification labels and the population subgroup
+            corresponding to those labels.
+
+        """
+        stratification_groups = self.stratification_groups.loc[index]
+
+        groups = []
+        for stratification in self._get_current_stratifications(include, exclude):
+            stratification_key = self._get_stratification_key(stratification)
+
+            group_mask = pd.Series(True, index=index)
+            if not index.empty:
+                for level, category in stratification:
+                    group_mask &= stratification_groups[level.name] == category
+
+            groups.append((stratification_key, group_mask))
+        return groups
+
 
 class MortalityObserver(MortalityObserver_):
 
@@ -72,6 +129,24 @@ class DisabilityObserver(DisabilityObserver_):
         self.disability_pipelines['anemia'] = builder.value.get_value(
             'real_anemia.disability_weight'
         )
+
+    def on_time_step_prepare(self, event: Event) -> None:
+        step_size_in_years = to_years(event.step_size)
+        pop = self.population_view.get(
+            event.index, query='tracked == True and alive == "alive"'
+        )
+
+        new_observations = {}
+        groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
+        for cause, disability_weight in self.disability_pipelines.items():
+            cause_dw = disability_weight(pop.index)
+            for label, group_mask in groups:
+                key = f"ylds_due_to_{cause}_{label}"
+                new_observations[key] = cause_dw[group_mask].sum() * step_size_in_years
+        self.counts.update(new_observations)
+
+        pop.loc[:, self.ylds_column_name] += self.disability_weight(pop.index)
+        self.population_view.update(pop)
 
 
 class PregnancyObserver:
@@ -385,18 +460,23 @@ class InterventionObserver:
         self.config = builder.configuration.observers.intervention
         self.stratifier = builder.components.get_component(ResultsStratifier.name)
         self.person_time = Counter()
+        self.counts = Counter()
 
         columns_required = [
             "alive",
             "pregnancy_status",
             "maternal_bmi_anemia_category",
             "maternal_supplementation",
+            "maternal_supplementation_date",
             "antenatal_iv_iron",
+            "antenatal_iv_iron_date",
             "postpartum_iv_iron",
+            "postpartum_iv_iron_date",
         ]
         self.population_view = builder.population.get_view(columns_required)
 
         builder.event.register_listener("time_step__prepare", self.on_time_step_prepare)
+        builder.event.register_listener("collect_metrics", self.on_collect_metrics)
         builder.value.register_value_modifier("metrics", self.metrics)
 
     def on_time_step_prepare(self, event: Event):
@@ -410,13 +490,11 @@ class InterventionObserver:
             group = pop[group_mask]
             for treatment in ['antenatal_iv_iron', 'postpartum_iv_iron']:
                 for treatment_status in models.IV_IRON_TREATMENT_STATUSES:
-                    count = 0
                     for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
                         key = f"person_time_{treatment}_{treatment_status}_bmi_{bmi_cat}_{label}"
                         sub_group = group.query(f'{treatment} == "{treatment_status}" '
                                                 f'and maternal_bmi_anemia_category == "{bmi_cat}"')
                         new_person_time[key] = len(sub_group) * step_size
-                        count += len(sub_group)
 
             for treatment_status in models.SUPPLEMENTATION_CATEGORIES:
                 for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
@@ -429,6 +507,38 @@ class InterventionObserver:
 
         self.person_time.update(new_person_time)
 
+    def on_collect_metrics(self, event: Event):
+        pop = self.population_view.get(event.index, query='alive == "alive"')
+
+        new_counts = {}
+        groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
+
+        for label, group_mask in groups:
+            group = pop[group_mask]
+            for treatment in ['antenatal_iv_iron', 'postpartum_iv_iron']:
+                for treatment_status in models.IV_IRON_TREATMENT_STATUSES:
+                    for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
+                        key = f"count_of_{treatment}_{treatment_status}_bmi_{bmi_cat}_{label}"
+                        sub_group = (
+                            (group[treatment] == treatment_status)
+                            & (group[f'{treatment}_date'] == event.time)
+                            & (group['maternal_bmi_anemia_category'] == bmi_cat)
+                        )
+                        new_counts[key] = sub_group.sum()
+
+            for treatment_status in models.SUPPLEMENTATION_CATEGORIES:
+                for bmi_cat in models.BMI_ANEMIA_CATEGORIES:
+                    key = f"count_of_maternal_supplementation_{treatment_status}_bmi_{bmi_cat}_{label}"
+                    sub_group = (
+                        (group['maternal_supplementation'] == treatment_status)
+                        & (group[f'maternal_supplementation_date'] == event.time)
+                        & (group['maternal_bmi_anemia_category'] == bmi_cat)
+                    )
+                    new_counts[key] = sub_group.sum()
+
+        self.counts.update(new_counts)
+
     def metrics(self, index: pd.Index, metrics: Dict):
         metrics.update(self.person_time)
+        metrics.update(self.counts)
         return metrics

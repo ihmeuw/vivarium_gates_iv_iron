@@ -65,4 +65,7 @@ MATERNAL_BMI_ANEMIA_THRESHOLD = 100.0  # g/L, units of hemoglobin exposure distr
 
 IV_IRON_THRESHOLD = 100.0  # g/L
 IV_IRON_EFFECT_SIZE = (23, 14)  # (mean, sd) g/L
-IFA_EFFECT_SIZE = (7.8, 4.08, 11.52)  # (mean, upper, lower) g/L
+_IFA_EFFECT_SIZE_LOWER = 4.08
+_IFA_EFFECT_SIZE_UPPER = 11.52
+_IFA_EFFECT_SIZE_SD = (_IFA_EFFECT_SIZE_UPPER - _IFA_EFFECT_SIZE_LOWER) / (2 * 1.96)  # 95% CI
+IFA_EFFECT_SIZE = (7.8, _IFA_EFFECT_SIZE_SD)  # (mean, sd) g/L
