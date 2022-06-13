@@ -2,6 +2,7 @@ components:
     vivarium_public_health:
         population:
             - BasePopulation()
+            - FertilityCrudeBirthRate()
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
@@ -23,7 +24,12 @@ configuration:
     input_data:
         input_draw_number: 0
         location: 'South Asia'
-        artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf'
+        # TODO: switch this back before push
+        # artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf'
+        artifact_path: '/Users/mkappel/iv_iron/south_asia.hdf'
+    # TODO: remove output_data here
+    output_data:
+        results_directory: "/Users/mkappel/viv_out/"
     interpolation:
         order: 0
         extrapolate: True
@@ -37,13 +43,13 @@ configuration:
             month: 1
             day: 1
         end:
-            year:  2024 # 2028
+            year:  2032
             month: 1
             day: 1
         step_size: 7 # Days
     population:
         population_size: 10_000
-        age_start: 7
+        age_start: 0
         age_end: 54
         include_sex: 'Female'
         pregnant_lactating_women: False
