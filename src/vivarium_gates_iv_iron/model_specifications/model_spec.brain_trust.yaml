@@ -57,7 +57,7 @@ configuration:
         anemia:
             include: ['pregnancy_status']
         mortality:
-	    include: ['pregnancy_status']
-	disability:
+            include: ['pregnancy_status']
+	    disability:
             include: ['pregnancy_status']
     

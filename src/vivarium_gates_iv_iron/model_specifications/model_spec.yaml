@@ -24,12 +24,7 @@ configuration:
     input_data:
         input_draw_number: 0
         location: 'South Asia'
-        # TODO: switch this back before push
-        # artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf'
-        artifact_path: '/Users/mkappel/iv_iron/south_asia.hdf'
-    # TODO: remove output_data here
-    output_data:
-        results_directory: "/Users/mkappel/viv_out/"
+         artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf'
     interpolation:
         order: 0
         extrapolate: True
@@ -61,12 +56,18 @@ configuration:
             - "year"
             - "age"
         anemia:
-            include: ['maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+            include: ['pregnancy_status']
         mortality:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
-        disability:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
-        maternal_bmi:
             include: ['pregnancy_status']
-        intervention:
+	    disability:
             include: ['pregnancy_status']
+#        anemia:
+#            include: ['maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+#        mortality:
+#            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+#        disability:
+#            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+#        maternal_bmi:
+#            include: ['pregnancy_status']
+#        intervention:
+#            include: ['pregnancy_status']
