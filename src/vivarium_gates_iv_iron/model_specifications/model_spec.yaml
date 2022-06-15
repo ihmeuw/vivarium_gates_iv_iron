@@ -24,7 +24,7 @@ configuration:
     input_data:
         input_draw_number: 0
         location: 'South Asia'
-         artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf'
+        artifact_path: '/ihme/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf'
     interpolation:
         order: 0
         extrapolate: True
@@ -34,11 +34,11 @@ configuration:
         random_seed: 0
     time:
         start:
-            year: 2022
+            year: 2020
             month: 1
             day: 1
         end:
-            year:  2032
+            year:  2041
             month: 1
             day: 1
         step_size: 7 # Days
@@ -49,25 +49,19 @@ configuration:
         include_sex: 'Female'
         pregnant_lactating_women: False
     intervention:
-        start_year: 2023
+        start_year: 2025
         scenario: 'antenatal_and_postpartum_iv_iron'
     observers:
         default:
             - "year"
             - "age"
         anemia:
-            include: ['pregnancy_status']
+            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
         mortality:
+            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+        disability:
+            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+        maternal_bmi:
             include: ['pregnancy_status']
-	    disability:
+        intervention:
             include: ['pregnancy_status']
-#        anemia:
-#            include: ['maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
-#        mortality:
-#            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
-#        disability:
-#            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
-#        maternal_bmi:
-#            include: ['pregnancy_status']
-#        intervention:
-#            include: ['pregnancy_status']
