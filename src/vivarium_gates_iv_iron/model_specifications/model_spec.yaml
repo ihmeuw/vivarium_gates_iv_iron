@@ -14,7 +14,7 @@ components:
         - MortalityObserver()
         - PregnancyObserver()
         - AnemiaObserver()
-        - MaternalBMIObserver()
+        # - MaternalBMIObserver()
         - InterventionObserver()
 
         - BirthRecorder()
@@ -56,12 +56,9 @@ configuration:
             - "year"
             - "age"
         anemia:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+            include: ['pregnancy_status']
         mortality:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+            include: ['pregnancy_status']
         disability:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
-        maternal_bmi:
             include: ['pregnancy_status']
-        intervention:
-            include: ['pregnancy_status']
+
