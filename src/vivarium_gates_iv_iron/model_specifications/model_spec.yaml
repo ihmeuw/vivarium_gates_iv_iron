@@ -2,6 +2,7 @@ components:
     vivarium_public_health:
         population:
             - BasePopulation()
+            - FertilityCrudeBirthRate()
 
     vivarium_gates_iv_iron.components:
         - Pregnancy()
@@ -13,7 +14,7 @@ components:
         - MortalityObserver()
         - PregnancyObserver()
         - AnemiaObserver()
-        - MaternalBMIObserver()
+        # - MaternalBMIObserver()
         - InterventionObserver()
 
         - BirthRecorder()
@@ -33,34 +34,31 @@ configuration:
         random_seed: 0
     time:
         start:
-            year: 2022
+            year: 2020
             month: 1
             day: 1
         end:
-            year:  2024 # 2028
+            year:  2041
             month: 1
             day: 1
         step_size: 7 # Days
     population:
         population_size: 10_000
-        age_start: 7
+        age_start: 0
         age_end: 54
         include_sex: 'Female'
         pregnant_lactating_women: False
     intervention:
-        start_year: 2023
+        start_year: 2025
         scenario: 'antenatal_and_postpartum_iv_iron'
     observers:
         default:
             - "year"
             - "age"
         anemia:
-            include: ['maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+            include: ['pregnancy_status']
         mortality:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
+            include: ['pregnancy_status']
         disability:
-            include: ['pregnancy_status', 'maternal_supplementation', 'antenatal_iv_iron', 'postpartum_iv_iron']
-        maternal_bmi:
             include: ['pregnancy_status']
-        intervention:
-            include: ['pregnancy_status']
+

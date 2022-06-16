@@ -33,6 +33,7 @@ POPULATION = __Population()
 class __Pregnancy(NamedTuple):
     ASFR: str = 'covariate.age_specific_fertility_rate.estimate'
     SBR: str = 'covariate.stillbirth_to_live_birth_ratio.estimate'
+    LIVE_BIRTHS_BY_SEX: str = "covariate.live_births_by_sex.estimate"
     INCIDENCE_RATE_MISCARRIAGE: str = "cause.maternal_abortion_and_miscarriage.incidence_rate"
     INCIDENCE_RATE_ECTOPIC: str = "cause.ectopic_pregnancy.incidence_rate"
     PREVALENCE: str = "covariate.pregnancy_prevalence.estimate"
