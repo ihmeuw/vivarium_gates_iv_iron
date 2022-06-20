@@ -75,7 +75,7 @@ COLUMN_TEMPLATES = {
     "maternal_hemorrhage_incident_counts": MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE,
     "hemoglobin_exposure_sum": HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE,
     "anemia_state_person_time": ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE,
-    "maternal_bmi_person_time": MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE,
+    # "maternal_bmi_person_time": MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE,
     "intervention_person_time": INTERVENTION_PERSON_TIME_COLUMN_TEMPLATE,
     "intervention_counts": INTERVENTION_COUNT_COLUMN_TEMPLATE,
 }
