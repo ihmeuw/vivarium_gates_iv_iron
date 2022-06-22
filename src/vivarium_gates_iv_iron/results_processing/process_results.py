@@ -45,7 +45,7 @@ def make_measure_data(data):
         ),
         hemoglobin_exposure_sum=get_measure_data(data, "hemoglobin_exposure_sum"),
         anemia_state_person_time=get_measure_data(data, "anemia_state_person_time"),
-        maternal_bmi_person_time=get_measure_data(data, "maternal_bmi_person_time"),
+        # maternal_bmi_person_time=get_measure_data(data, "maternal_bmi_person_time"),
         intervention_person_time=get_measure_data(data, "intervention_person_time"),
         intervention_counts=get_measure_data(data, "intervention_counts"),
     )
@@ -64,7 +64,7 @@ class MeasureData(NamedTuple):
     maternal_hemorrhage_incident_counts: pd.DataFrame
     hemoglobin_exposure_sum: pd.DataFrame
     anemia_state_person_time: pd.DataFrame
-    maternal_bmi_person_time: pd.DataFrame
+    # maternal_bmi_person_time: pd.DataFrame
     intervention_person_time: pd.DataFrame
     intervention_counts: pd.DataFrame
 
