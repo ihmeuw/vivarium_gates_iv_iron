@@ -34,7 +34,7 @@ configuration:
         random_seed: 0
     time:
         start:
-            year: 2020
+            year: 2024
             month: 1
             day: 1
         end:
@@ -48,6 +48,7 @@ configuration:
         age_end: 54
         include_sex: 'Female'
         pregnant_lactating_women: False
+        # exit_age: 56
     intervention:
         start_year: 2025
         scenario: 'antenatal_and_postpartum_iv_iron'

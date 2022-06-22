@@ -267,6 +267,10 @@ class Pregnancy:
         )
         newly_pregnant = not_pregnant.intersection(potentially_pregnant)
 
+        # If there are no new pregancies, return
+        if len(newly_pregnant) == 0:
+            return
+
         child_status = self.new_children(newly_pregnant)
         outcome, duration = self._sample_pregnancy_outcome_and_duration(
             newly_pregnant,
