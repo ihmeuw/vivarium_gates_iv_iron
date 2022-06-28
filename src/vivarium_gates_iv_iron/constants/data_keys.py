@@ -46,6 +46,8 @@ class __Pregnancy(NamedTuple):
         "covariate.women_of_reproductive_age_location_weights.estimate"
     )
     HEMOGLOBIN_CORRECTION_FACTORS: str = 'covariate.hemoglobin_correction_factors.estimate'
+    PAF_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN: str = "risk_factor.hemoglobin_on_stillbirth.paf"
+    RR_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN: str = "risk_factor.hemoglobin_on_stillbirth.relative_risk"
 
     @property
     def name(self):
