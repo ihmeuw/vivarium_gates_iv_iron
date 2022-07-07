@@ -24,30 +24,30 @@ RENAME_COLUMNS = {
 }
 
 
-def make_measure_data(data):
+def make_measure_data(data: pd.DataFrame, disaggregate_seeds: bool) -> pd.DataFrame:
     measure_data = MeasureData(
-        population=get_population_data(data),
-        ylls=get_by_cause_measure_data(data, "ylls"),
-        ylds=get_by_cause_measure_data(data, "ylds"),
-        deaths=get_by_cause_measure_data(data, "deaths"),
+        population=get_population_data(data, disaggregate_seeds),
+        ylls=get_by_cause_measure_data(data, "ylls", disaggregate_seeds),
+        ylds=get_by_cause_measure_data(data, "ylds", disaggregate_seeds),
+        deaths=get_by_cause_measure_data(data, "deaths", disaggregate_seeds),
         pregnancy_state_person_time=get_measure_data(
-            data, "pregnancy_state_person_time"
+            data, "pregnancy_state_person_time", disaggregate_seeds
         ),
-        pregnancy_outcome_counts=get_measure_data(data, "pregnancy_outcome_counts"),
+        pregnancy_outcome_counts=get_measure_data(data, "pregnancy_outcome_counts", disaggregate_seeds),
         pregnancy_transition_counts=get_measure_data(
-            data, "pregnancy_transition_counts"
+            data, "pregnancy_transition_counts", disaggregate_seeds
         ),
         maternal_disorder_incident_counts=get_measure_data(
-            data, "maternal_disorder_incident_counts"
+            data, "maternal_disorder_incident_counts", disaggregate_seeds
         ),
         maternal_hemorrhage_incident_counts=get_measure_data(
-            data, "maternal_hemorrhage_incident_counts"
+            data, "maternal_hemorrhage_incident_counts", disaggregate_seeds
         ),
-        hemoglobin_exposure_sum=get_measure_data(data, "hemoglobin_exposure_sum"),
-        anemia_state_person_time=get_measure_data(data, "anemia_state_person_time"),
+        hemoglobin_exposure_sum=get_measure_data(data, "hemoglobin_exposure_sum", disaggregate_seeds),
+        anemia_state_person_time=get_measure_data(data, "anemia_state_person_time", disaggregate_seeds),
         # maternal_bmi_person_time=get_measure_data(data, "maternal_bmi_person_time"),
-        intervention_person_time=get_measure_data(data, "intervention_person_time"),
-        intervention_counts=get_measure_data(data, "intervention_counts"),
+        intervention_person_time=get_measure_data(data, "intervention_person_time", disaggregate_seeds),
+        intervention_counts=get_measure_data(data, "intervention_counts", disaggregate_seeds),
     )
     return measure_data
 
@@ -142,64 +142,78 @@ def aggregate_over_seed(data):
     ).reset_index()
 
 
-def pivot_data(data):
+def pivot_data(data: pd.DataFrame, disaggregate_seeds: bool):
+    if disaggregate_seeds:
+        groupby_cols = GROUPBY_COLUMNS + [results.RANDOM_SEED_COLUMN]
+    else:
+        groupby_cols = GROUPBY_COLUMNS
     return (
-        data.set_index(GROUPBY_COLUMNS)
+        data
+        .set_index(groupby_cols)
         .stack()
         .reset_index()
-        .rename(columns={f"level_{len(GROUPBY_COLUMNS)}": "key", 0: "value"})
+        .rename(columns={f'level_{len(groupby_cols)}': 'key', 0: 'value'})
     )
 
 
-def sort_data(data):
-    sort_order = [c for c in OUTPUT_COLUMN_SORT_ORDER if c in data.columns]
-    other_cols = [c for c in data.columns if c not in sort_order and c != "value"]
-    data = data[sort_order + other_cols + ["value"]].sort_values(sort_order)
+def sort_data(data: pd.DataFrame, disaggregate_seeds: bool):
+    if disaggregate_seeds:
+        output_cols_sort_order = OUTPUT_COLUMN_SORT_ORDER + [results.RANDOM_SEED_COLUMN]
+    else:
+        output_cols_sort_order = OUTPUT_COLUMN_SORT_ORDER
+    sort_order = [c for c in output_cols_sort_order if c in data.columns]
+    other_cols = [c for c in data.columns if c not in sort_order and c != 'value']
+    data = data[sort_order + other_cols + ['value']].sort_values(sort_order)
     return data.reset_index(drop=True)
 
 
-def apply_results_map(data, kind):
+def apply_results_map(data: pd.DataFrame, kind: str) -> pd.DataFrame:
     logger.info(f"Mapping {kind} data to stratifications.")
     map_df = results.RESULTS_MAP(kind)
-    data = data.set_index("key")
+    data = data.set_index('key')
     data = data.join(map_df).reset_index(drop=True)
     data = data.rename(columns=RENAME_COLUMNS)
     logger.info(f"Mapping {kind} complete.")
     return data
 
 
-def get_population_data(data):
-    total_pop = pivot_data(
-        data[
-            [results.TOTAL_POPULATION_COLUMN]
-            + results.RESULT_COLUMNS("population")
-            + GROUPBY_COLUMNS
-        ]
-    )
-    total_pop = total_pop.rename(columns={"key": "measure"})
-    return sort_data(total_pop)
+def get_population_data(data: pd.DataFrame, disaggregate_seeds: bool) -> pd.DataFrame:
+    if disaggregate_seeds:
+        groupby_cols = GROUPBY_COLUMNS + [results.RANDOM_SEED_COLUMN]
+    else:
+        groupby_cols = GROUPBY_COLUMNS
+
+    total_pop = pivot_data(data[[results.TOTAL_POPULATION_COLUMN]
+                                + results.RESULT_COLUMNS('population')
+                                + groupby_cols], disaggregate_seeds)
+    total_pop = total_pop.rename(columns={'key': 'measure'})
+    return sort_data(total_pop, disaggregate_seeds)
 
 
-def get_measure_data(data, measure):
-    data = pivot_data(data[results.RESULT_COLUMNS(measure) + GROUPBY_COLUMNS])
+def get_measure_data(data: pd.DataFrame, measure: str, disaggregate_seeds: bool) -> pd.DataFrame:
+    if disaggregate_seeds:
+        data = pivot_data(
+            data[results.RESULT_COLUMNS(measure) + GROUPBY_COLUMNS + [results.RANDOM_SEED_COLUMN]],
+            disaggregate_seeds
+        )
+    else:
+        data = pivot_data(data[results.RESULT_COLUMNS(measure) + GROUPBY_COLUMNS], disaggregate_seeds)
     data = apply_results_map(data, measure)
-    return sort_data(data)
+    return sort_data(data, disaggregate_seeds)
 
 
-def get_by_cause_measure_data(data, measure):
-    data = get_measure_data(data, measure)
-    return sort_data(data)
+def get_by_cause_measure_data(data: pd.DataFrame, measure: str, disaggregate_seeds: bool) -> pd.DataFrame:
+    data = get_measure_data(data, measure, disaggregate_seeds)
+    return sort_data(data, disaggregate_seeds)
 
 
-def get_state_person_time_measure_data(data, measure):
-    data = get_measure_data(data, measure)
-    return sort_data(data)
+def get_state_person_time_measure_data(data: pd.DataFrame, measure: str, disaggregate_seeds: bool) -> pd.DataFrame:
+    data = get_measure_data(data, measure, disaggregate_seeds)
+    return sort_data(data, disaggregate_seeds)
 
 
-def get_transition_count_measure_data(data, measure):
+def get_transition_count_measure_data(data: pd.DataFrame, measure: str, disaggregate_seeds: bool) -> pd.DataFrame:
     # Oops, edge case.
-    data = data.drop(
-        columns=[c for c in data.columns if "event_count" in c and "2041" in c]
-    )
-    data = get_measure_data(data, measure)
-    return sort_data(data)
+    data = data.drop(columns=[c for c in data.columns if 'event_count' in c and str(results.YEARS[-1]+1) in c])
+    data = get_measure_data(data, measure, disaggregate_seeds)
+    return sort_data(data, disaggregate_seeds)
