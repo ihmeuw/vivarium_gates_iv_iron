@@ -88,8 +88,8 @@ def make_artifacts(
     help="Results are from a single, non-parallel run.",
 )
 def make_results(
-    output_file: str, verbose: int, with_debugger: bool, single_run: bool, aggregate_seeds: bool
+    output_file: str, verbose: int, with_debugger: bool, single_run: bool, disaggregate_seeds: bool
 ) -> None:
     configure_logging_to_terminal(verbose)
     main = handle_exceptions(build_results, logger, with_debugger=with_debugger)
-    main(output_file, single_run, aggregate_seeds)
+    main(output_file, single_run, disaggregate_seeds)
