@@ -65,14 +65,18 @@ class Pregnancy:
                 parameter_columns=['age', 'year'],
             ),
         )
-        self.outcome_probabilities = builder.lookup.build_table(
-            load_and_unstack(
-                builder,
-                data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES,
-                'pregnancy_outcome'
-            ),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
+
+        self.outcome_probabilities = builder.value.register_value_producer(
+            "outcome_probabilities",
+            source=builder.lookup.build_table(
+                load_and_unstack(
+                    builder,
+                    data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES,
+                    'pregnancy_outcome'
+                ),
+                key_columns=['sex'],
+                parameter_columns=['age', 'year'],
+            )
         )
 
         self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(
@@ -116,6 +120,25 @@ class Pregnancy:
         )
 
         self.hemoglobin_maternal_disorders_risk_effect = builder.value.get_value("maternal_disorder_risk_effect")
+
+        self.hemoglobin = builder.value.get_value('hemoglobin.exposure')
+        self.stillbirth_rr = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.RR_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        self.stillbirth_paf = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.PAF_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        builder.value.register_value_modifier(
+            "outcome_probabilities",
+            self.adjust_outcome_probabilities,
+            requires_values=["hemoglobin.exposure"]
+        )
 
         view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
         self.population_view = builder.population.get_view(view_columns)
@@ -191,6 +214,18 @@ class Pregnancy:
         df[severe_mask] = df[severe_mask] * HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE
         df[moderate_mask] = df[moderate_mask] * HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE
         return df
+
+    def adjust_outcome_probabilities(self, index: pd.Index, probabilities: pd.DataFrame) -> pd.DataFrame:
+        paf = self.stillbirth_paf(index)["value"]
+        rr = self.stillbirth_rr(index)["value"]
+        hemoglobin = self.hemoglobin(index)
+        #anemic = hemoglobin <= 70
+        #anemic = probabilities.index.values % 2 == 0
+        probabilities.loc[anemic, 'stillbirth'] = probabilities.loc[anemic, 'stillbirth'] * (1 - paf) * rr
+        probabilities.loc[anemic, 'live_birth'] = 1 - probabilities.loc[anemic, 'stillbirth'] - probabilities.loc[anemic,'other']
+        probabilities.loc[~anemic, 'stillbirth'] = probabilities.loc[~anemic, 'stillbirth'] * (1 - paf)
+        probabilities.loc[~anemic, 'live_birth'] = 1 - probabilities.loc[~anemic, 'stillbirth'] - probabilities.loc[~anemic,'other']
+        return probabilities
 
     ####################
     # Sampling helpers #
