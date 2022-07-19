@@ -137,16 +137,17 @@ class Pregnancy:
         builder.value.register_value_modifier(
             "outcome_probabilities",
             self.adjust_outcome_probabilities,
-            requires_values=["hemoglobin.exposure"]
+            requires_values=["hemoglobin.exposure"],
+            requires_columns=["country"]
         )
 
-        view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
+        view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death', 'country']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
             creates_columns=self.columns_created,
             requires_streams=[self.name],
-            requires_columns=['age', 'sex'],
+            requires_columns=['age', 'sex', "country"],
         )
 
         builder.event.register_listener("time_step", self.on_time_step)
