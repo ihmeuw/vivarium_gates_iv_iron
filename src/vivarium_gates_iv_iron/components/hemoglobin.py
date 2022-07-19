@@ -128,10 +128,29 @@ class Hemoglobin:
             parameter_columns=["age", "year"],
         )
 
+        self.stillbirth_rr = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.RR_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        self.stillbirth_paf = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.PAF_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
         builder.value.register_value_modifier(
             "probability_maternal_hemorrhage",
             self.adjust_maternal_hemorrhage_probability,
             requires_values=["hemoglobin.exposure"]
+        )
+
+        builder.value.register_value_modifier(
+           "outcome_probabilities",
+           self.adjust_outcome_probabilities,
+           requires_values=["hemoglobin.exposure"],
+           requires_columns=["country"]
         )
 
         builder.population.initializes_simulants(
@@ -190,6 +209,18 @@ class Hemoglobin:
         per_simulant_exposure = (tmrel - hemoglobin_level + abs(tmrel - hemoglobin_level)) / 2 / RR_SCALAR
         per_simulant_rr = rr ** per_simulant_exposure 
         return (1 - paf) * per_simulant_rr
+
+    def adjust_outcome_probabilities(self, index: pd.Index, probabilities: pd.DataFrame) -> pd.DataFrame:
+        paf = self.stillbirth_paf(index)["value"]
+        rr = self.stillbirth_rr(index)["value"]
+        hemoglobin = self.hemoglobin(index)
+        anemic = hemoglobin <= 70
+        #anemic = probabilities.index.values % 2 == 0
+        probabilities.loc[anemic, 'stillbirth'] = probabilities.loc[anemic, 'stillbirth'] * (1 - paf) * rr
+        probabilities.loc[anemic, 'live_birth'] = 1 - probabilities.loc[anemic, 'stillbirth'] - probabilities.loc[anemic,'other']
+        probabilities.loc[~anemic, 'stillbirth'] = probabilities.loc[~anemic, 'stillbirth'] * (1 - paf)
+        probabilities.loc[~anemic, 'live_birth'] = 1 - probabilities.loc[~anemic, 'stillbirth'] - probabilities.loc[~anemic,'other']
+        return probabilities
 
 
     @staticmethod
