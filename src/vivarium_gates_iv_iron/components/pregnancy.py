@@ -146,7 +146,7 @@ class Pregnancy:
 
         child_status = self.new_children(pop_data.index)
         outcome, duration = self._sample_pregnancy_outcome_and_duration(
-            is_pregnant, child_status['gestational_age'],
+            is_pregnant, child_status['gestational_age'], init=True
         )
         outcome = outcome.reindex(pop_data.index, fill_value=models.INVALID_OUTCOME)
         duration = duration.reindex(pop_data.index, fill_value=pd.NaT)
@@ -233,13 +233,10 @@ class Pregnancy:
     def _sample_pregnancy_outcome_and_duration(
         self,
         is_pregnant: pd.Index,
-        gestational_ages: pd.Series
+        gestational_ages: pd.Series,
+        init: bool = False
     ):
-        try:
-            p_outcome = self.outcome_probabilities(is_pregnant)
-        except vivarium.framework.population.exceptions.PopulationError as e:
-            print(f"Caught exception, assuming we're initializing a population: {e}")
-            p_outcome = self.outcome_probabilities.source(is_pregnant)
+        p_outcome = self.outcome_probabilities.source(is_pregnant) if init else self.outcome_probabilities(is_pregnant)
         pregnancy_outcome = self.randomness.choice(
             is_pregnant,
             choices=p_outcome.columns.tolist(),
@@ -284,6 +281,7 @@ class Pregnancy:
         outcome, duration = self._sample_pregnancy_outcome_and_duration(
             newly_pregnant,
             child_status['gestational_age'],
+            init=False
         )
 
         no_child_status = outcome[
