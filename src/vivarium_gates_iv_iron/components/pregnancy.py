@@ -33,7 +33,7 @@ class Pregnancy:
     @property
     def sub_components(self):
         return [
-#            Hemoglobin(),
+            Hemoglobin(),
             MaternalMortality(),
             MaternalDisability(),
             self.new_children,
@@ -236,6 +236,7 @@ class Pregnancy:
         gestational_ages: pd.Series,
         init: bool = False
     ):
+        # prevent cyclic dependency
         p_outcome = self.outcome_probabilities.source(is_pregnant) if init else self.outcome_probabilities(is_pregnant)
         pregnancy_outcome = self.randomness.choice(
             is_pregnant,
