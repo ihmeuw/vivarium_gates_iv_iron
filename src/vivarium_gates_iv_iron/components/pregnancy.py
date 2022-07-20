@@ -1,4 +1,5 @@
 import pandas as pd
+import vivarium.framework.population.exceptions
 
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
@@ -234,7 +235,11 @@ class Pregnancy:
         is_pregnant: pd.Index,
         gestational_ages: pd.Series
     ):
-        p_outcome = self.outcome_probabilities(is_pregnant)
+        try:
+            p_outcome = self.outcome_probabilities(is_pregnant)
+        except vivarium.framework.population.exceptions.PopulationError as e:
+            print(f"Caught exception, assuming we're initializing a population: {e}")
+            p_outcome = self.outcome_probabilities.source(is_pregnant)
         pregnancy_outcome = self.randomness.choice(
             is_pregnant,
             choices=p_outcome.columns.tolist(),
