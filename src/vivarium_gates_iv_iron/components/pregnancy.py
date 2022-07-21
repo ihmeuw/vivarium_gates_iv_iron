@@ -1,4 +1,5 @@
 import pandas as pd
+import vivarium.framework.population.exceptions
 
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
@@ -65,14 +66,18 @@ class Pregnancy:
                 parameter_columns=['age', 'year'],
             ),
         )
-        self.outcome_probabilities = builder.lookup.build_table(
-            load_and_unstack(
-                builder,
-                data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES,
-                'pregnancy_outcome'
-            ),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
+
+        self.outcome_probabilities = builder.value.register_value_producer(
+            "outcome_probabilities",
+            source=builder.lookup.build_table(
+                load_and_unstack(
+                    builder,
+                    data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES,
+                    'pregnancy_outcome'
+                ),
+                key_columns=['sex'],
+                parameter_columns=['age', 'year'],
+            )
         )
 
         self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(
@@ -117,13 +122,13 @@ class Pregnancy:
 
         self.hemoglobin_maternal_disorders_risk_effect = builder.value.get_value("maternal_disorder_risk_effect")
 
-        view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
+        view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death', 'country']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
             creates_columns=self.columns_created,
             requires_streams=[self.name],
-            requires_columns=['age', 'sex'],
+            requires_columns=['age', 'sex', "country"],
         )
 
         builder.event.register_listener("time_step", self.on_time_step)
@@ -141,7 +146,7 @@ class Pregnancy:
 
         child_status = self.new_children(pop_data.index)
         outcome, duration = self._sample_pregnancy_outcome_and_duration(
-            is_pregnant, child_status['gestational_age'],
+            is_pregnant, child_status['gestational_age'], init=True
         )
         outcome = outcome.reindex(pop_data.index, fill_value=models.INVALID_OUTCOME)
         duration = duration.reindex(pop_data.index, fill_value=pd.NaT)
@@ -228,9 +233,11 @@ class Pregnancy:
     def _sample_pregnancy_outcome_and_duration(
         self,
         is_pregnant: pd.Index,
-        gestational_ages: pd.Series
+        gestational_ages: pd.Series,
+        init: bool = False
     ):
-        p_outcome = self.outcome_probabilities(is_pregnant)
+        # prevent cyclic dependency
+        p_outcome = self.outcome_probabilities.source(is_pregnant) if init else self.outcome_probabilities(is_pregnant)
         pregnancy_outcome = self.randomness.choice(
             is_pregnant,
             choices=p_outcome.columns.tolist(),
@@ -275,6 +282,7 @@ class Pregnancy:
         outcome, duration = self._sample_pregnancy_outcome_and_duration(
             newly_pregnant,
             child_status['gestational_age'],
+            init=False
         )
 
         no_child_status = outcome[
