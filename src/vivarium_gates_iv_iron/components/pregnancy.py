@@ -128,7 +128,7 @@ class Pregnancy:
             self.on_initialize_simulants,
             creates_columns=self.columns_created,
             requires_streams=[self.name],
-            requires_columns=['age', 'sex', "country"],
+            requires_columns=['age', 'sex'],
         )
 
         builder.event.register_listener("time_step", self.on_time_step)
