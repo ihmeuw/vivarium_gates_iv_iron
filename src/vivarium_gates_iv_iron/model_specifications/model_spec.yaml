@@ -9,13 +9,13 @@ components:
         - MaternalBMIExposure()
         - MaternalInterventions()
 
-#        - ResultsStratifier()
-#        - DisabilityObserver()
-#        - MortalityObserver()
-#        - PregnancyObserver()
-#        - AnemiaObserver()
-#        # - MaternalBMIObserver()
-#        - InterventionObserver()
+        - ResultsStratifier()
+        - DisabilityObserver()
+        - MortalityObserver()
+        - PregnancyObserver()
+        - AnemiaObserver()
+        # - MaternalBMIObserver()
+        - InterventionObserver()
 
         - BirthRecorder()
 
