@@ -656,6 +656,9 @@ def get_child_locs(location):
     is_country = hierarchy.location_type == "admin0"
     child_locs = hierarchy.loc[is_child_loc & is_country, 'location_name'].tolist()
 
+    # Return just location if location is admin 0 or more granular
+    if len(child_locs) == 0:
+        child_locs.append(location)
     return child_locs
 
 
