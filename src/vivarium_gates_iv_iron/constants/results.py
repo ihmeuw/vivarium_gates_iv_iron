@@ -15,7 +15,7 @@ TOTAL_YLLS_COLUMN = "years_of_life_lost"
 # Columns from parallel runs
 INPUT_DRAW_COLUMN = "input_draw"
 RANDOM_SEED_COLUMN = "random_seed"
-OUTPUT_SCENARIO_COLUMN = "placeholder_branch_name.scenario"
+OUTPUT_SCENARIO_COLUMN = "intervention.scenario"
 
 # Add due to make_results bug
 OUTPUT_INPUT_DRAW_COLUMN = "input_data.input_draw_number"
@@ -30,43 +30,44 @@ STANDARD_COLUMNS = {
 THROWAWAY_COLUMNS = [f"{state}_event_count" for state in models.STATES]
 
 TOTAL_POPULATION_COLUMN_TEMPLATE = "total_population_{POP_STATE}"
-PERSON_TIME_COLUMN_TEMPLATE = "person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
-DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-STATE_PERSON_TIME_COLUMN_TEMPLATE = "{STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
-TRANSITION_COUNT_COLUMN_TEMPLATE = "{TRANSITION}_event_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
-PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
+
+DEATH_COLUMN_TEMPLATE = "death_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}_age_{AGE_GROUP}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}_age_{AGE_GROUP}"
 )
 PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE = (
-    "{PREGNANCY_TRANSITION}_count_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{PREGNANCY_TRANSITION}_count_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_DISORDER_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_maternal_disorders_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "incident_cases_of_maternal_disorders_year_{YEAR}_age_{AGE_GROUP}"
 )
 MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE = (
-    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
-)
-MATERNAL_HEMORRHAGE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "maternal_hemorrhage_person_time_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "incident_cases_of_{WITH_MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}"
 )
 HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE = (
-    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "hemoglobin_exposure_sum_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
 )
 ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_in_{YEAR}_in_age_group_{AGE_GROUP}"
+    "{ANEMIA_LEVEL}_anemia_person_time_among_{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+)
+MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE = (
+    "bmi_person_time_{BMI_CATEGORY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
+)
+INTERVENTION_PERSON_TIME_COLUMN_TEMPLATE = (
+    "person_time_{INTERVENTION_CATEGORY}_bmi_{BMI_CATEGORY}_year_{YEAR}_age_{AGE_GROUP}"
+)
+INTERVENTION_COUNT_COLUMN_TEMPLATE = (
+    "count_of_{INTERVENTION_CATEGORY}_bmi_{BMI_CATEGORY}_year_{YEAR}_age_{AGE_GROUP}"
 )
 
 COLUMN_TEMPLATES = {
     "population": TOTAL_POPULATION_COLUMN_TEMPLATE,
-    "person_time": PERSON_TIME_COLUMN_TEMPLATE,
     "deaths": DEATH_COLUMN_TEMPLATE,
     "ylls": YLLS_COLUMN_TEMPLATE,
     "ylds": YLDS_COLUMN_TEMPLATE,
-    "state_person_time": STATE_PERSON_TIME_COLUMN_TEMPLATE,
-    "transition_count": TRANSITION_COUNT_COLUMN_TEMPLATE,
     "pregnancy_outcome_counts": PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE,
     "pregnancy_state_person_time": PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE,
     "pregnancy_transition_counts": PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE,
@@ -74,13 +75,16 @@ COLUMN_TEMPLATES = {
     "maternal_hemorrhage_incident_counts": MATERNAL_HEMORRHAGE_INCIDENT_COUNT_COLUMN_TEMPLATE,
     "hemoglobin_exposure_sum": HEMOGLOBIN_EXPOSURE_SUM_COLUMN_TEMPLATE,
     "anemia_state_person_time": ANEMIA_LEVEL_PERSON_TIME_COLUMN_TEMPLATE,
+    # "maternal_bmi_person_time": MATERNAL_BMI_PERSON_TIME_COLUMN_TEMPLATE,
+    "intervention_person_time": INTERVENTION_PERSON_TIME_COLUMN_TEMPLATE,
+    "intervention_counts": INTERVENTION_COUNT_COLUMN_TEMPLATE,
 }
 
 NON_COUNT_TEMPLATES = []
 
 POP_STATES = ("living", "dead", "tracked", "untracked")
 SEXES = ("female",)
-YEARS = tuple(range(2022, 2025))
+YEARS = tuple(range(2024, 2041))
 AGE_GROUPS = (
     "5_to_9",
     "10_to_14",
@@ -98,7 +102,13 @@ CAUSES_OF_DEATH = (
     "other_causes",
     "maternal_disorders",
 )
-CAUSES_OF_DISABILITY = ("maternal_disorders",)
+CAUSES_OF_DISABILITY = ("maternal_disorders", "anemia")
+INTERVENTION_CATEGORIES = tuple([
+    *[f'antenatal_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
+    *[f'postpartum_iv_iron_{s}' for s in models.IV_IRON_TREATMENT_STATUSES],
+    *[f'maternal_supplementation_{s}' for s in models.SUPPLEMENTATION_CATEGORIES],
+])
+
 
 TEMPLATE_FIELD_MAP = {
     "POP_STATE": POP_STATES,
@@ -113,6 +123,11 @@ TEMPLATE_FIELD_MAP = {
     "MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES,
     "WITH_MATERNAL_HEMORRHAGE_STATE": models.MATERNAL_HEMORRHAGE_STATES[:-1],
     "ANEMIA_LEVEL": data_values.ANEMIA_DISABILITY_WEIGHTS.keys(),
+    "SUPPLEMENTATION": models.SUPPLEMENTATION_CATEGORIES,
+    "ANTENATAL_IV_IRON": models.IV_IRON_TREATMENT_STATUSES,
+    "POSTPARTUM_IV_IRON": models.IV_IRON_TREATMENT_STATUSES,
+    "BMI_CATEGORY": models.BMI_ANEMIA_CATEGORIES,
+    "INTERVENTION_CATEGORY": INTERVENTION_CATEGORIES
 }
 
 

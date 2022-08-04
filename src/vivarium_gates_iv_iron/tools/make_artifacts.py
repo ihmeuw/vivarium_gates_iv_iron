@@ -18,11 +18,6 @@ from loguru import logger
 import vivarium_cluster_tools as vct
 
 from vivarium_gates_iv_iron.constants import data_keys, metadata
-from vivarium_gates_iv_iron.utilities import (
-    sanitize_location,
-    delete_if_exists,
-    len_longest_location,
-)
 from vivarium_gates_iv_iron.tools.app_logging import add_logging_sink, decode_status
 
 
@@ -35,7 +30,7 @@ def running_from_cluster() -> bool:
     return on_cluster
 
 
-def check_for_existing(output_dir: Path, location: str, append: bool):
+def check_for_existing(output_dir: Path, location: str, append: bool, autoconfirm: bool):
     existing_artifacts = set(
         [
             item.stem
@@ -49,10 +44,12 @@ def check_for_existing(output_dir: Path, location: str, append: bool):
     if existing and not append:
         if location != "all":
             existing = [sanitize_location(location)]
-        click.confirm(
-            f"Existing artifacts found for {existing}. Do you want to delete and rebuild?",
-            abort=True,
-        )
+        if not autoconfirm:
+            click.confirm(
+                f"Existing artifacts found for {existing}. "
+                f"Do you want to delete and rebuild?",
+                abort=True,
+            )
         for loc in existing:
             path = output_dir / f"{loc}.hdf"
             logger.info(f"Deleting artifact at {str(path)}.")
@@ -64,7 +61,13 @@ def build_single(location: str, output_dir: str, append: bool):
     build_single_location_artifact(path, location)
 
 
-def build_artifacts(location: str, output_dir: str, append: bool, verbose: int):
+def build_artifacts(
+    location: str,
+    output_dir: str,
+    append: bool,
+    verbose: int,
+    autoconfirm: bool
+):
     """Main application function for building artifacts.
     Parameters
     ----------
@@ -81,11 +84,14 @@ def build_artifacts(location: str, output_dir: str, append: bool, verbose: int):
         directory.  Has no effect if artifacts are not found.
     verbose
         How noisy the logger should be.
+    autoconfirm
+        Whether to skip the prompt when overwriting artifacts.
+
     """
     output_dir = Path(output_dir)
     vct.mkdir(output_dir, parents=True, exists_ok=True)
 
-    check_for_existing(output_dir, location, append)
+    check_for_existing(output_dir, location, append, autoconfirm)
 
     if location in metadata.LOCATIONS:
         build_single(location, output_dir, append)
@@ -211,6 +217,24 @@ def build_single_location_artifact(
             builder.load_and_write_data(artifact, key, location)
 
     logger.info(f"**Done building -- {location}**")
+
+
+def sanitize_location(location: str):
+    """Cleans up location formatting for writing and reading from file names.
+
+    Parameters
+    ----------
+    location
+        The unsanitized location name.
+
+    Returns
+    -------
+        The sanitized location name (lower-case with white-space and
+        special characters removed.
+
+    """
+    # FIXME: Should make this a reversible transformation.
+    return location.replace(" ", "_").replace("'", "_").lower()
 
 
 if __name__ == "__main__":
