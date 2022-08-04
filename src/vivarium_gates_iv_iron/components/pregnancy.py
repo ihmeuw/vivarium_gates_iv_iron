@@ -1,5 +1,4 @@
 import pandas as pd
-import vivarium.framework.population.exceptions
 
 from vivarium.framework.engine import Builder
 from vivarium.framework.event import Event
@@ -14,7 +13,8 @@ from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
     DURATIONS,
     HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE,
-    HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE
+    HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE,
+    SEVERE_ANEMIA_AMONG_PREGNANT_WOMEN_THRESHOLD,
 )
 from vivarium_gates_iv_iron.components.utilities import (
     load_and_unstack,
@@ -122,7 +122,26 @@ class Pregnancy:
 
         self.hemoglobin_maternal_disorders_risk_effect = builder.value.get_value("maternal_disorder_risk_effect")
 
-        view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death', 'country']
+        self.hemoglobin = builder.value.get_value('hemoglobin.exposure')
+        self.stillbirth_rr = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.RR_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        self.stillbirth_paf = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.PAF_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        builder.value.register_value_modifier(
+            "outcome_probabilities",
+            self.adjust_outcome_probabilities,
+            requires_values=["hemoglobin.exposure"]
+        )
+
+        view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
@@ -134,42 +153,19 @@ class Pregnancy:
         builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
-        prevalence = self.prevalence(pop_data.index)
-        pregnancy_status = self.randomness.choice(
-            pop_data.index,
-            choices=prevalence.columns.tolist(),
-            p=prevalence,
-            additional_key='pregnancy_status',
-        )
-        not_pregnant = pop_data.index[pregnancy_status == models.NOT_PREGNANT_STATE]
-        is_pregnant = pop_data.index.difference(not_pregnant)
+        child_status = self.new_children.empty(pop_data.index)
 
-        child_status = self.new_children(pop_data.index)
-        outcome, duration = self._sample_pregnancy_outcome_and_duration(
-            is_pregnant, child_status['gestational_age'], init=True
-        )
-        outcome = outcome.reindex(pop_data.index, fill_value=models.INVALID_OUTCOME)
-        duration = duration.reindex(pop_data.index, fill_value=pd.NaT)
-
-        no_child_status = outcome[
-            outcome.isin([models.INVALID_OUTCOME, models.OTHER_OUTCOME])
-        ].index
-        child_status.loc[no_child_status] = self.new_children.empty(no_child_status)
+        # Workaround to initialize with timedelta type but define as all nulls
+        pregnancy_duration = pd.Series(pd.Timedelta(0), index=pop_data.index)
+        pregnancy_duration.loc[:] = pd.NaT
 
         maternal_status = pd.DataFrame({
-            'pregnancy_status': pregnancy_status,
-            'pregnancy_outcome': outcome,
-            'pregnancy_duration': duration,
+            'pregnancy_status': 'not_pregnant',
+            'pregnancy_outcome': models.INVALID_OUTCOME,
+            'pregnancy_duration': pregnancy_duration,
             'pregnancy_state_change_date': pd.NaT,
             'maternal_hemorrhage': models.NOT_MATERNAL_HEMORRHAGE_STATE,
-        })
-        maternal_status.loc[:, 'pregnancy_state_change_date'] = (
-            self._sample_initial_pregnancy_state_change_date(
-                pregnancy_status,
-                maternal_status['pregnancy_duration'],
-                pop_data.creation_time
-            )
-        )
+        }, index=pop_data.index)
 
         pop_update = pd.concat([maternal_status, child_status], axis=1)
         self.population_view.update(pop_update)
@@ -196,6 +192,17 @@ class Pregnancy:
         df[severe_mask] = df[severe_mask] * HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE
         df[moderate_mask] = df[moderate_mask] * HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE
         return df
+
+    def adjust_outcome_probabilities(self, index: pd.Index, probabilities: pd.DataFrame) -> pd.DataFrame:
+        paf = self.stillbirth_paf(index)["value"]
+        rr = self.stillbirth_rr(index)["value"]
+        hemoglobin = self.hemoglobin(index)
+        anemic = hemoglobin <= SEVERE_ANEMIA_AMONG_PREGNANT_WOMEN_THRESHOLD
+        probabilities.loc[anemic, 'stillbirth'] = probabilities.loc[anemic, 'stillbirth'] * (1 - paf) * rr
+        probabilities.loc[anemic, 'live_birth'] = 1 - probabilities.loc[anemic, 'stillbirth'] - probabilities.loc[anemic,'other']
+        probabilities.loc[~anemic, 'stillbirth'] = probabilities.loc[~anemic, 'stillbirth'] * (1 - paf)
+        probabilities.loc[~anemic, 'live_birth'] = 1 - probabilities.loc[~anemic, 'stillbirth'] - probabilities.loc[~anemic,'other']
+        return probabilities
 
     ####################
     # Sampling helpers #
@@ -233,11 +240,9 @@ class Pregnancy:
     def _sample_pregnancy_outcome_and_duration(
         self,
         is_pregnant: pd.Index,
-        gestational_ages: pd.Series,
-        init: bool = False
+        gestational_ages: pd.Series
     ):
-        # prevent cyclic dependency
-        p_outcome = self.outcome_probabilities.source(is_pregnant) if init else self.outcome_probabilities(is_pregnant)
+        p_outcome = self.outcome_probabilities(is_pregnant)
         pregnancy_outcome = self.randomness.choice(
             is_pregnant,
             choices=p_outcome.columns.tolist(),
@@ -282,7 +287,6 @@ class Pregnancy:
         outcome, duration = self._sample_pregnancy_outcome_and_duration(
             newly_pregnant,
             child_status['gestational_age'],
-            init=False
         )
 
         no_child_status = outcome[
