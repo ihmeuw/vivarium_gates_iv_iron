@@ -21,8 +21,6 @@ components:
 
 
 configuration:
-    output_data:
-        results_directory: '/home/hjafari/viv_out'
     input_data:
         input_draw_number: 0
         location: 'South Asia'
