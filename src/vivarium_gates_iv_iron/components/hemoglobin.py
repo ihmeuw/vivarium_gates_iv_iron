@@ -10,7 +10,8 @@ from vivarium_gates_iv_iron.constants.data_values import (
     HEMOGLOBIN_DISTRIBUTION_PARAMETERS,
     HEMOGLOBIN_THRESHOLD_DATA,
     RR_SCALAR,
-    TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS
+    SEVERE_ANEMIA_AMONG_PREGNANT_WOMEN_THRESHOLD,
+    TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS,
 )
 
 from vivarium_gates_iv_iron.constants import data_keys
@@ -163,8 +164,8 @@ class Hemoglobin:
         self.population_view.update(pop_update)
 
     def hemoglobin_source(self, idx: pd.Index) -> pd.Series:
-        distribution_parameters = self.distribution_parameters(idx)
         pop = self.population_view.get(idx)
+        distribution_parameters = self.distribution_parameters(pop.index)
         return self.sample_from_hemoglobin_distribution(
             pop["hemoglobin_distribution_propensity"],
             pop["hemoglobin_percentile"],
@@ -188,7 +189,7 @@ class Hemoglobin:
         paf = self.maternal_disorder_paf(index)["value"]
         tmrel = TMREL_HEMOGLOBIN_ON_MATERNAL_DISORDERS
         per_simulant_exposure = (tmrel - hemoglobin_level + abs(tmrel - hemoglobin_level)) / 2 / RR_SCALAR
-        per_simulant_rr = rr ** per_simulant_exposure 
+        per_simulant_rr = rr ** per_simulant_exposure
         return (1 - paf) * per_simulant_rr
 
 
@@ -270,7 +271,7 @@ class Hemoglobin:
         p_maternal_hemorrhage_nonanemic = p_maternal_hemorrhage * (1 - paf)
         p_maternal_hemorrhage_anemic = p_maternal_hemorrhage_nonanemic * rr
         hemoglobin = self.hemoglobin(index)
-        anemic = hemoglobin <= 70
+        anemic = hemoglobin <= SEVERE_ANEMIA_AMONG_PREGNANT_WOMEN_THRESHOLD
         probability["severe_maternal_hemorrhage"] = severe_ratio * p_maternal_hemorrhage_nonanemic
         probability["moderate_maternal_hemorrhage"] = (1 - severe_ratio) * p_maternal_hemorrhage_nonanemic
         probability.loc[anemic, "severe_maternal_hemorrhage"] = severe_ratio * p_maternal_hemorrhage_anemic

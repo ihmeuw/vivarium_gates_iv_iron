@@ -370,7 +370,7 @@ class AnemiaObserver:
     @timeit('anemia_tsp')
     def on_time_step_prepare(self, event: Event):
         pop = self.population_view.get(event.index, query='alive == "alive"')
-        pop["anemia_level"] = self.anemia_levels(event.index)
+        pop["anemia_level"] = self.anemia_levels(pop.index)
         step_size = to_years(event.step_size)
 
         anemia_measures = list(itertools.product(

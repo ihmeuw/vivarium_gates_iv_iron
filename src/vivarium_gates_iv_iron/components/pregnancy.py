@@ -13,7 +13,8 @@ from vivarium_gates_iv_iron.constants import models, data_keys
 from vivarium_gates_iv_iron.constants.data_values import (
     DURATIONS,
     HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE,
-    HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE
+    HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE,
+    SEVERE_ANEMIA_AMONG_PREGNANT_WOMEN_THRESHOLD,
 )
 from vivarium_gates_iv_iron.components.utilities import (
     load_and_unstack,
@@ -65,14 +66,18 @@ class Pregnancy:
                 parameter_columns=['age', 'year'],
             ),
         )
-        self.outcome_probabilities = builder.lookup.build_table(
-            load_and_unstack(
-                builder,
-                data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES,
-                'pregnancy_outcome'
-            ),
-            key_columns=['sex'],
-            parameter_columns=['age', 'year'],
+
+        self.outcome_probabilities = builder.value.register_value_producer(
+            "outcome_probabilities",
+            source=builder.lookup.build_table(
+                load_and_unstack(
+                    builder,
+                    data_keys.PREGNANCY.CHILD_OUTCOME_PROBABILITIES,
+                    'pregnancy_outcome'
+                ),
+                key_columns=['sex'],
+                parameter_columns=['age', 'year'],
+            )
         )
 
         self.probability_non_fatal_maternal_disorder = builder.lookup.build_table(
@@ -117,6 +122,25 @@ class Pregnancy:
 
         self.hemoglobin_maternal_disorders_risk_effect = builder.value.get_value("maternal_disorder_risk_effect")
 
+        self.hemoglobin = builder.value.get_value('hemoglobin.exposure')
+        self.stillbirth_rr = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.RR_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        self.stillbirth_paf = builder.lookup.build_table(
+                builder.data.load(data_keys.PREGNANCY.PAF_STILLBIRTH_PROBABILITY_ATTRIBUTABLE_TO_HEMOGLOBIN),
+                key_columns=["sex"],
+                parameter_columns=["age", "year"],
+            )
+
+        builder.value.register_value_modifier(
+            "outcome_probabilities",
+            self.adjust_outcome_probabilities,
+            requires_values=["hemoglobin.exposure"]
+        )
+
         view_columns = self.columns_created + ['alive', 'exit_time', 'cause_of_death']
         self.population_view = builder.population.get_view(view_columns)
         builder.population.initializes_simulants(
@@ -129,42 +153,19 @@ class Pregnancy:
         builder.event.register_listener("time_step", self.on_time_step)
 
     def on_initialize_simulants(self, pop_data: SimulantData) -> None:
-        prevalence = self.prevalence(pop_data.index)
-        pregnancy_status = self.randomness.choice(
-            pop_data.index,
-            choices=prevalence.columns.tolist(),
-            p=prevalence,
-            additional_key='pregnancy_status',
-        )
-        not_pregnant = pop_data.index[pregnancy_status == models.NOT_PREGNANT_STATE]
-        is_pregnant = pop_data.index.difference(not_pregnant)
+        child_status = self.new_children.empty(pop_data.index)
 
-        child_status = self.new_children(pop_data.index)
-        outcome, duration = self._sample_pregnancy_outcome_and_duration(
-            is_pregnant, child_status['gestational_age'],
-        )
-        outcome = outcome.reindex(pop_data.index, fill_value=models.INVALID_OUTCOME)
-        duration = duration.reindex(pop_data.index, fill_value=pd.NaT)
-
-        no_child_status = outcome[
-            outcome.isin([models.INVALID_OUTCOME, models.OTHER_OUTCOME])
-        ].index
-        child_status.loc[no_child_status] = self.new_children.empty(no_child_status)
+        # Workaround to initialize with timedelta type but define as all nulls
+        pregnancy_duration = pd.Series(pd.Timedelta(0), index=pop_data.index)
+        pregnancy_duration.loc[:] = pd.NaT
 
         maternal_status = pd.DataFrame({
-            'pregnancy_status': pregnancy_status,
-            'pregnancy_outcome': outcome,
-            'pregnancy_duration': duration,
+            'pregnancy_status': 'not_pregnant',
+            'pregnancy_outcome': models.INVALID_OUTCOME,
+            'pregnancy_duration': pregnancy_duration,
             'pregnancy_state_change_date': pd.NaT,
             'maternal_hemorrhage': models.NOT_MATERNAL_HEMORRHAGE_STATE,
-        })
-        maternal_status.loc[:, 'pregnancy_state_change_date'] = (
-            self._sample_initial_pregnancy_state_change_date(
-                pregnancy_status,
-                maternal_status['pregnancy_duration'],
-                pop_data.creation_time
-            )
-        )
+        }, index=pop_data.index)
 
         pop_update = pd.concat([maternal_status, child_status], axis=1)
         self.population_view.update(pop_update)
@@ -191,6 +192,17 @@ class Pregnancy:
         df[severe_mask] = df[severe_mask] * HEMOGLOBIN_SCALE_FACTOR_SEVERE_HEMORRHAGE
         df[moderate_mask] = df[moderate_mask] * HEMOGLOBIN_SCALE_FACTOR_MODERATE_HEMORRHAGE
         return df
+
+    def adjust_outcome_probabilities(self, index: pd.Index, probabilities: pd.DataFrame) -> pd.DataFrame:
+        paf = self.stillbirth_paf(index)["value"]
+        rr = self.stillbirth_rr(index)["value"]
+        hemoglobin = self.hemoglobin(index)
+        anemic = hemoglobin <= SEVERE_ANEMIA_AMONG_PREGNANT_WOMEN_THRESHOLD
+        probabilities.loc[anemic, 'stillbirth'] = probabilities.loc[anemic, 'stillbirth'] * (1 - paf) * rr
+        probabilities.loc[anemic, 'live_birth'] = 1 - probabilities.loc[anemic, 'stillbirth'] - probabilities.loc[anemic,'other']
+        probabilities.loc[~anemic, 'stillbirth'] = probabilities.loc[~anemic, 'stillbirth'] * (1 - paf)
+        probabilities.loc[~anemic, 'live_birth'] = 1 - probabilities.loc[~anemic, 'stillbirth'] - probabilities.loc[~anemic,'other']
+        return probabilities
 
     ####################
     # Sampling helpers #
@@ -231,14 +243,18 @@ class Pregnancy:
         gestational_ages: pd.Series
     ):
         p_outcome = self.outcome_probabilities(is_pregnant)
+        # Convert outcomes to dischotomous term outcome (full-term or not full-term)
+        p_outcome[models.FULL_TERM_OUTCOME] = p_outcome[models.LIVE_BIRTH_OUTCOME] + p_outcome[models.STILLBIRTH_OUTCOME]
+        p_outcome[models.NOT_FULL_TERM_OUTCOME] = p_outcome[models.OTHER_OUTCOME]
+        p_outcome = p_outcome[[models.FULL_TERM_OUTCOME, models.NOT_FULL_TERM_OUTCOME]]
+
         pregnancy_outcome = self.randomness.choice(
             is_pregnant,
             choices=p_outcome.columns.tolist(),
             p=p_outcome,
             additional_key='pregnancy_outcome',
         )
-        other_outcome = pregnancy_outcome[pregnancy_outcome == models.OTHER_OUTCOME].index
-        live_or_still_birth = pregnancy_outcome.index.difference(other_outcome)
+        live_or_still_birth = pregnancy_outcome[pregnancy_outcome == models.FULL_TERM_OUTCOME].index
 
         low, high = DURATIONS.DETECTION, DURATIONS.PARTIAL_TERM
         draw = self.randomness.get_draw(is_pregnant, additional_key='pregnancy_duration')
@@ -326,6 +342,44 @@ class Pregnancy:
             p=p_hemorrhage,
             additional_key='maternal_hemorrhage'
         )
+
+        # Update outcome upon birth
+        p_outcome = self.outcome_probabilities(new_prepostpartum.index)
+        # Order matters when updating probabilities
+        p_outcome = p_outcome[[models.LIVE_BIRTH_OUTCOME, models.STILLBIRTH_OUTCOME, models.OTHER_OUTCOME, models.INVALID_OUTCOME]]
+
+        # Update outcome probabilities for short-term births to always be other
+        is_full_term_birth = new_prepostpartum['pregnancy_outcome'] == models.FULL_TERM_OUTCOME
+
+        not_full_term_births = new_prepostpartum[~is_full_term_birth]
+        not_full_term_probabilities = pd.DataFrame(
+            data={models.LIVE_BIRTH_OUTCOME: 0,
+                  models.STILLBIRTH_OUTCOME: 0,
+                  models.OTHER_OUTCOME: 1,
+                  models.INVALID_OUTCOME: 0},
+            index=not_full_term_births.index)
+        p_outcome[~is_full_term_birth] = not_full_term_probabilities
+
+        # Update outcome probabilities for full-term births to live birth or stillbirth
+        full_term_probabilities = p_outcome[is_full_term_birth]
+        full_term_probabilities[models.FULL_TERM_OUTCOME] = full_term_probabilities[models.LIVE_BIRTH_OUTCOME] + full_term_probabilities[models.STILLBIRTH_OUTCOME]
+        full_term_probabilities[models.LIVE_BIRTH_OUTCOME] = full_term_probabilities[models.LIVE_BIRTH_OUTCOME] / full_term_probabilities[models.FULL_TERM_OUTCOME]
+        full_term_probabilities[models.STILLBIRTH_OUTCOME] = full_term_probabilities[models.STILLBIRTH_OUTCOME] / full_term_probabilities[models.FULL_TERM_OUTCOME]
+        full_term_probabilities = pd.DataFrame(
+            data={models.LIVE_BIRTH_OUTCOME: full_term_probabilities[models.LIVE_BIRTH_OUTCOME],
+                  models.STILLBIRTH_OUTCOME: full_term_probabilities[models.STILLBIRTH_OUTCOME],
+                  models.OTHER_OUTCOME: 0,
+                  models.INVALID_OUTCOME: 0,},
+            index=full_term_probabilities.index)
+        p_outcome[is_full_term_birth] = full_term_probabilities
+
+        pregnancy_outcome = self.randomness.choice(
+            new_prepostpartum.index,
+            choices=p_outcome.columns.tolist(),
+            p=p_outcome,
+            additional_key='pregnancy_outcome',
+        )
+        new_prepostpartum['pregnancy_outcome'] = pregnancy_outcome
 
         # Update event time
         new_prepostpartum['pregnancy_state_change_date'] = event_time
