@@ -25,7 +25,10 @@ MAKE_ARTIFACT_SLEEP = 10
 LOCATIONS = [
     "Sub-Saharan Africa",
     "South Asia",
-    "LMICs"
+    "LMICs",
+    "Ethiopia",
+    "Nigeria",
+    "India",
 ]
 
 
