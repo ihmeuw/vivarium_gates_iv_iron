@@ -163,7 +163,7 @@ class MaternalInterventions:
 
     def update_exposure(self, index, exposure):
         pop = self.population_view.get(index)
-        effect_sizes = self.effect_sizes.loc[index]
+        effect_sizes = self.effect_sizes.loc[pop.index]
         baseline_ifa_coverage = self._get_coverage(self.clock()).loc['baseline_ifa']
 
         has_ifa_status = (pop['baseline_ifa'] != models.INVALID_TREATMENT).rename(None)

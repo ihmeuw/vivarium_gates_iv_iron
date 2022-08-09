@@ -21,6 +21,8 @@ components:
 
 
 configuration:
+    output_data:
+        results_directory: '/home/hjafari/viv_out'
     input_data:
         input_draw_number: 0
         location: 'South Asia'
@@ -34,11 +36,11 @@ configuration:
         random_seed: 0
     time:
         start:
-            year: 2024
+            year: 2019
             month: 1
             day: 1
         end:
-            year:  2041
+            year:  2032
             month: 1
             day: 1
         step_size: 7 # Days
@@ -48,7 +50,7 @@ configuration:
         age_end: 54
         include_sex: 'Female'
         pregnant_lactating_women: False
-        # exit_age: 56
+        exit_age: 56
     intervention:
         start_year: 2025
         scenario: 'antenatal_and_postpartum_iv_iron'
@@ -62,4 +64,3 @@ configuration:
             include: ['pregnancy_status']
         disability:
             include: ['pregnancy_status']
-

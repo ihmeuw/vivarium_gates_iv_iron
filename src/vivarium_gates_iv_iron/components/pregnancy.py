@@ -243,14 +243,18 @@ class Pregnancy:
         gestational_ages: pd.Series
     ):
         p_outcome = self.outcome_probabilities(is_pregnant)
+        # Convert outcomes to dischotomous term outcome (full-term or not full-term)
+        p_outcome[models.FULL_TERM_OUTCOME] = p_outcome[models.LIVE_BIRTH_OUTCOME] + p_outcome[models.STILLBIRTH_OUTCOME]
+        p_outcome[models.NOT_FULL_TERM_OUTCOME] = p_outcome[models.OTHER_OUTCOME]
+        p_outcome = p_outcome[[models.FULL_TERM_OUTCOME, models.NOT_FULL_TERM_OUTCOME]]
+
         pregnancy_outcome = self.randomness.choice(
             is_pregnant,
             choices=p_outcome.columns.tolist(),
             p=p_outcome,
             additional_key='pregnancy_outcome',
         )
-        other_outcome = pregnancy_outcome[pregnancy_outcome == models.OTHER_OUTCOME].index
-        live_or_still_birth = pregnancy_outcome.index.difference(other_outcome)
+        live_or_still_birth = pregnancy_outcome[pregnancy_outcome == models.FULL_TERM_OUTCOME].index
 
         low, high = DURATIONS.DETECTION, DURATIONS.PARTIAL_TERM
         draw = self.randomness.get_draw(is_pregnant, additional_key='pregnancy_duration')
@@ -338,6 +342,44 @@ class Pregnancy:
             p=p_hemorrhage,
             additional_key='maternal_hemorrhage'
         )
+
+        # Update outcome upon birth
+        p_outcome = self.outcome_probabilities(new_prepostpartum.index)
+        # Order matters when updating probabilities
+        p_outcome = p_outcome[[models.LIVE_BIRTH_OUTCOME, models.STILLBIRTH_OUTCOME, models.OTHER_OUTCOME, models.INVALID_OUTCOME]]
+
+        # Update outcome probabilities for short-term births to always be other
+        is_full_term_birth = new_prepostpartum['pregnancy_outcome'] == models.FULL_TERM_OUTCOME
+
+        not_full_term_births = new_prepostpartum[~is_full_term_birth]
+        not_full_term_probabilities = pd.DataFrame(
+            data={models.LIVE_BIRTH_OUTCOME: 0,
+                  models.STILLBIRTH_OUTCOME: 0,
+                  models.OTHER_OUTCOME: 1,
+                  models.INVALID_OUTCOME: 0},
+            index=not_full_term_births.index)
+        p_outcome[~is_full_term_birth] = not_full_term_probabilities
+
+        # Update outcome probabilities for full-term births to live birth or stillbirth
+        full_term_probabilities = p_outcome[is_full_term_birth]
+        full_term_probabilities[models.FULL_TERM_OUTCOME] = full_term_probabilities[models.LIVE_BIRTH_OUTCOME] + full_term_probabilities[models.STILLBIRTH_OUTCOME]
+        full_term_probabilities[models.LIVE_BIRTH_OUTCOME] = full_term_probabilities[models.LIVE_BIRTH_OUTCOME] / full_term_probabilities[models.FULL_TERM_OUTCOME]
+        full_term_probabilities[models.STILLBIRTH_OUTCOME] = full_term_probabilities[models.STILLBIRTH_OUTCOME] / full_term_probabilities[models.FULL_TERM_OUTCOME]
+        full_term_probabilities = pd.DataFrame(
+            data={models.LIVE_BIRTH_OUTCOME: full_term_probabilities[models.LIVE_BIRTH_OUTCOME],
+                  models.STILLBIRTH_OUTCOME: full_term_probabilities[models.STILLBIRTH_OUTCOME],
+                  models.OTHER_OUTCOME: 0,
+                  models.INVALID_OUTCOME: 0,},
+            index=full_term_probabilities.index)
+        p_outcome[is_full_term_birth] = full_term_probabilities
+
+        pregnancy_outcome = self.randomness.choice(
+            new_prepostpartum.index,
+            choices=p_outcome.columns.tolist(),
+            p=p_outcome,
+            additional_key='pregnancy_outcome',
+        )
+        new_prepostpartum['pregnancy_outcome'] = pregnancy_outcome
 
         # Update event time
         new_prepostpartum['pregnancy_state_change_date'] = event_time
