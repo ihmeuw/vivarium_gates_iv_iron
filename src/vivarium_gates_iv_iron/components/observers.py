@@ -48,13 +48,12 @@ class ResultsStratifier(ResultsStratifier_):
 
         original_age_bins = self.age_bins
         is_too_young = original_age_bins['age_start'] < 10
-        is_too_old = original_age_bins['age_end'] > 60
-        original_age_bins = original_age_bins[~(is_too_young) & ~(is_too_old)]
+        original_age_bins = original_age_bins[~(is_too_young)]
 
         new_age_bins = pd.DataFrame(
-            data={'age_start': [0.0, 60.0],
-                  'age_end': [10.0, 130.0],
-                  'age_group_name': ['0_to_10', '60_plus']}
+            data={'age_start': [0.0],
+                  'age_end': [10.0],
+                  'age_group_name': ['0_to_10']}
         )
 
         self.age_bins = pd.concat([original_age_bins, new_age_bins])

@@ -45,10 +45,10 @@ configuration:
     population:
         population_size: 10_000
         age_start: 0
-        age_end: 54
+        age_end: 56
         include_sex: 'Female'
         pregnant_lactating_women: False
-#        exit_age: 56
+        exit_age: 56
     intervention:
         start_year: 2025
         scenario: 'antenatal_and_postpartum_iv_iron'
