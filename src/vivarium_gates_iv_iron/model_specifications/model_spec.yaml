@@ -38,9 +38,9 @@ configuration:
             month: 1
             day: 1
         end:
-            year:  2032
+            year:  2019
             month: 1
-            day: 1
+            day: 15
         step_size: 7 # Days
     population:
         population_size: 10_000
@@ -48,9 +48,9 @@ configuration:
         age_end: 54
         include_sex: 'Female'
         pregnant_lactating_women: False
-        exit_age: 56
+#        exit_age: 56
     intervention:
-        start_year: 2025
+        start_year: 2019
         scenario: 'antenatal_and_postpartum_iv_iron'
     observers:
         default:

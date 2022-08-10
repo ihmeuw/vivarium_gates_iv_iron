@@ -43,6 +43,23 @@ def timeit(name):
 
 
 class ResultsStratifier(ResultsStratifier_):
+    def setup(self, builder: Builder) -> None:
+        super().setup(builder)
+
+        original_age_bins = self.age_bins
+        is_too_young = original_age_bins['age_start'] < 10
+        is_too_old = original_age_bins['age_end'] > 60
+        original_age_bins = original_age_bins[~(is_too_young) & ~(is_too_old)]
+
+        new_age_bins = pd.DataFrame(
+            data={'age_start': [0.0, 60.0],
+                  'age_end': [10.0, 130.0],
+                  'age_group_name': ['0_to_10', '60_plus']}
+        )
+
+        self.age_bins = pd.concat([original_age_bins, new_age_bins])
+
+        self.register_stratifications(builder)
 
     def register_stratifications(self, builder: Builder) -> None:
         start_year = builder.configuration.time.start.year
@@ -209,6 +226,8 @@ class PregnancyObserver:
         self.person_time = Counter()
         self.counts = Counter()
 
+        self.anemia_levels = builder.value.get_value("anemia_levels")
+
         builder.population.initializes_simulants(
             self.on_initialize_simulants,
             creates_columns=['previous_pregnancy_status'],
@@ -243,21 +262,15 @@ class PregnancyObserver:
         pop = self.population_view.get(event.index, query='alive == "alive"')
         step_size = to_years(event.step_size)
 
-        pregnancy_measures = list(itertools.product(
-            models.PREGNANCY_MODEL_STATES,
-            models.PREGNANCY_OUTCOMES,
-        ))
-
         new_person_time = {}
         groups = self.stratifier.group(pop.index, self.config.include, self.config.exclude)
         for label, group_mask in groups:
             group = pop[group_mask]
             for hemorrhage_type in models.MATERNAL_HEMORRHAGE_STATES:
-                for state, outcome in pregnancy_measures:
-                    key = f"{state}_with_{outcome}_with_{hemorrhage_type}_person_time_{label}"
+                for state in models.PREGNANCY_MODEL_STATES:
+                    key = f"{state}_with_{hemorrhage_type}_person_time_{label}"
                     sub_group = group.query(
                         f'pregnancy_status == "{state}" '
-                        f'and pregnancy_outcome == "{outcome}" '
                         f'and maternal_hemorrhage == "{hemorrhage_type}"'
                     )
                     new_person_time[key] = len(sub_group) * step_size
@@ -271,6 +284,7 @@ class PregnancyObserver:
     @timeit('pregnancy_cm')
     def on_collect_metrics(self, event: Event):
         pop = self.population_view.get(event.index)
+        pop["anemia_level"] = self.anemia_levels(pop.index)
         # Might have some dead pops here, but they'll have died this time step.
         pop = pop[pop["pregnancy_state_change_date"] == event.time]
 
@@ -287,13 +301,15 @@ class PregnancyObserver:
                 counts_this_step[key] = len(sub_group)
 
             for outcome in models.PREGNANCY_OUTCOMES:
-                key = f'{outcome}_count_{label}'
-                sub_group = group.query(
-                    f'pregnancy_outcome == "{outcome}" '
-                    f'and (pregnancy_status == "{models.MATERNAL_DISORDER_STATE}" '
-                    f'or pregnancy_status == "{models.NO_MATERNAL_DISORDER_STATE}")'
-                )
-                counts_this_step[key] = len(sub_group)
+                for anemia_level in models.ANEMIA_LEVELS:
+                    key = f'outcome_{outcome}_{anemia_level}_anemia_count_{label}'
+                    sub_group = group.query(
+                        f'pregnancy_outcome == "{outcome}" '
+                        f'and anemia_level == "{anemia_level}" '
+                        f'and (pregnancy_status == "{models.MATERNAL_DISORDER_STATE}" '
+                        f'or pregnancy_status == "{models.NO_MATERNAL_DISORDER_STATE}")'
+                    )
+                    counts_this_step[key] = len(sub_group)
 
             key = f'incident_cases_of_maternal_disorders_{label}'
             sub_group = group.query(
