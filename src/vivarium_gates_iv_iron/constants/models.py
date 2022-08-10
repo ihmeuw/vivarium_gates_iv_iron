@@ -41,6 +41,7 @@ OTHER_OUTCOME = "other"
 INVALID_OUTCOME = "invalid"  # Also used as invalid sex of child
 PREGNANCY_OUTCOMES = (LIVE_BIRTH_OUTCOME, STILLBIRTH_OUTCOME, OTHER_OUTCOME, INVALID_OUTCOME)
 
+ANEMIA_LEVELS = ('no', 'mild', 'moderate', 'severe')
 INVALID_BMI_ANEMIA = "invalid"
 LOW_BMI_ANEMIC = "low_bmi_anemic"
 LOW_BMI_NON_ANEMIC = "low_bmi_non_anemic"
