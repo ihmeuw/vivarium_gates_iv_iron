@@ -36,7 +36,7 @@ YLLS_COLUMN_TEMPLATE = "ylls_due_to_{CAUSE_OF_DEATH}_year_{YEAR}_age_{AGE_GROUP}
 YLDS_COLUMN_TEMPLATE = "ylds_due_to_{CAUSE_OF_DISABILITY}_year_{YEAR}_age_{AGE_GROUP}_pregnancy_status_{PREGNANCY_STATE}"
 PREGNANCY_OUTCOME_COUNT_COLUMN_TEMPLATE = "{PREGNANCY_OUTCOME}_count_year_{YEAR}_age_{AGE_GROUP}"
 PREGNANCY_STATE_PERSON_TIME_COLUMN_TEMPLATE = (
-    "{PREGNANCY_STATE}_with_{PREGNANCY_OUTCOME}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}_age_{AGE_GROUP}"
+    "{PREGNANCY_STATE}_with_{MATERNAL_HEMORRHAGE_STATE}_person_time_year_{YEAR}_age_{AGE_GROUP}"
 )
 PREGNANCY_TRANSITION_COUNT_COLUMN_TEMPLATE = (
     "{PREGNANCY_TRANSITION}_count_year_{YEAR}_age_{AGE_GROUP}"
@@ -84,9 +84,9 @@ NON_COUNT_TEMPLATES = []
 
 POP_STATES = ("living", "dead", "tracked", "untracked")
 SEXES = ("female",)
-YEARS = tuple(range(2024, 2041))
+YEARS = tuple(range(2019, 2033))
 AGE_GROUPS = (
-    "5_to_9",
+    "0_to_10",
     "10_to_14",
     "15_to_19",
     "20_to_24",
