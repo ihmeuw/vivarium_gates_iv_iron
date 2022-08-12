@@ -86,7 +86,7 @@ POP_STATES = ("living", "dead", "tracked", "untracked")
 SEXES = ("female",)
 YEARS = tuple(range(2019, 2033))
 AGE_GROUPS = (
-    "0_to_10",
+    "0_to_9",
     "10_to_14",
     "15_to_19",
     "20_to_24",

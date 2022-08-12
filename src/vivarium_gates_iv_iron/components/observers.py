@@ -300,7 +300,7 @@ class PregnancyObserver:
                 counts_this_step[key] = len(sub_group)
 
             for outcome in models.PREGNANCY_OUTCOMES:
-                for anemia_level in models.ANEMIA_LEVELS:
+                for anemia_level in data_values.ANEMIA_DISABILITY_WEIGHTS.keys():
                     key = f'outcome_{outcome}_{anemia_level}_anemia_count_{label}'
                     sub_group = group.query(
                         f'pregnancy_outcome == "{outcome}" '
