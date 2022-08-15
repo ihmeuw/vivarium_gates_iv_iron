@@ -182,10 +182,6 @@ def load_asfr(key: str, location: str):
 
 
 def load_sbr(key: str, location: str):
-    try:
-        return get_child_sbr(location)
-    except vi_globals.DataDoesNotExistError:
-        pass
 
     births_per_location_year, sbr = [], []
     for child_loc in get_child_locs(location):
@@ -198,7 +194,11 @@ def load_sbr(key: str, location: str):
                         .sum())
         births_per_location_year.append(child_births)
 
-        child_sbr = get_child_sbr(child_loc)
+        try:
+            child_sbr = get_child_sbr(child_loc)
+        except vi_globals.DataDoesNotExistError:
+            pass
+
         child_sbr = (child_sbr
                      .reset_index(level='year_end', drop=True)
                      .reindex(child_births.index, level='year_start'))
