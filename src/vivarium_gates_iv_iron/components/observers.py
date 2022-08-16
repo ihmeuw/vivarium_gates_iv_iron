@@ -53,7 +53,7 @@ class ResultsStratifier(ResultsStratifier_):
         new_age_bins = pd.DataFrame(
             data={'age_start': [0.0],
                   'age_end': [10.0],
-                  'age_group_name': ['0_to_10']}
+                  'age_group_name': ['0_to_9']}
         )
 
         self.age_bins = pd.concat([original_age_bins, new_age_bins])
