@@ -182,10 +182,6 @@ def load_asfr(key: str, location: str):
 
 
 def load_sbr(key: str, location: str):
-    try:
-        return get_child_sbr(location)
-    except vi_globals.DataDoesNotExistError:
-        pass
 
     births_per_location_year, sbr = [], []
     for child_loc in get_child_locs(location):
@@ -198,7 +194,11 @@ def load_sbr(key: str, location: str):
                         .sum())
         births_per_location_year.append(child_births)
 
-        child_sbr = get_child_sbr(child_loc)
+        try:
+            child_sbr = get_child_sbr(child_loc)
+        except vi_globals.DataDoesNotExistError:
+            pass
+
         child_sbr = (child_sbr
                      .reset_index(level='year_end', drop=True)
                      .reindex(child_births.index, level='year_start'))
@@ -585,7 +585,7 @@ def get_hemoglobin_csv_data(key: str, location: str):
     data = data.set_index('location_id').loc[location_id]
     age_bins = utility_data.get_age_bins()
     data = data.merge(age_bins, on="age_group_id")
-    data = data.pivot(index=["age_start", "age_end"], columns='draw', values='value')
+    data = data.pivot(index=["age_start", "age_end"], columns='input_draw', values='value')
     data = (data
             .reset_index(level='age_end', drop=True)
             .reindex(demography.index, level='age_start', fill_value=0.))
@@ -656,6 +656,9 @@ def get_child_locs(location):
     is_country = hierarchy.location_type == "admin0"
     child_locs = hierarchy.loc[is_child_loc & is_country, 'location_name'].tolist()
 
+    # Return just location if location is admin 0 or more granular
+    if len(child_locs) == 0:
+        child_locs.append(location)
     return child_locs
 
 
