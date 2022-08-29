@@ -300,15 +300,13 @@ class PregnancyObserver:
                 counts_this_step[key] = len(sub_group)
 
             for outcome in models.PREGNANCY_OUTCOMES:
-                for anemia_level in data_values.ANEMIA_DISABILITY_WEIGHTS.keys():
-                    key = f'outcome_{outcome}_{anemia_level}_anemia_count_{label}'
-                    sub_group = group.query(
-                        f'pregnancy_outcome == "{outcome}" '
-                        f'and anemia_level == "{anemia_level}" '
-                        f'and (pregnancy_status == "{models.MATERNAL_DISORDER_STATE}" '
-                        f'or pregnancy_status == "{models.NO_MATERNAL_DISORDER_STATE}")'
-                    )
-                    counts_this_step[key] = len(sub_group)
+                key = f'outcome_{outcome}_count_{label}'
+                sub_group = group.query(
+                    f'pregnancy_outcome == "{outcome}" '
+                    f'and (pregnancy_status == "{models.MATERNAL_DISORDER_STATE}" '
+                    f'or pregnancy_status == "{models.NO_MATERNAL_DISORDER_STATE}")'
+                )
+                counts_this_step[key] = len(sub_group)
 
             key = f'incident_cases_of_maternal_disorders_{label}'
             sub_group = group.query(
