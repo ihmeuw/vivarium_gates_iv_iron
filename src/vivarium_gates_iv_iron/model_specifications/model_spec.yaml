@@ -23,7 +23,7 @@ configuration:
     input_data:
         input_draw_number: 0
 #        Artifact can be defined at runtime using -i flag
-#        artifact_path: '../artifacts/south_asia.hdf'
+        artifact_path: '../artifacts/south_asia.hdf'
     interpolation:
         order: 0
         extrapolate: True
