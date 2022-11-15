@@ -22,8 +22,8 @@ components:
 configuration:
     input_data:
         input_draw_number: 0
-#        Artifact should be defined at runtime using -i flag (available in src/vivarium_gates_iv_iron/artifacts)
-#        artifact_path: '/share/costeffectiveness/artifacts/vivarium_gates_iv_iron/south_asia.hdf'
+#        Artifact can be defined at runtime using -i flag
+        artifact_path: '../artifacts/south_asia.hdf'
     interpolation:
         order: 0
         extrapolate: True
