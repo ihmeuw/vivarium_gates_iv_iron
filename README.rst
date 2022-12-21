@@ -2,6 +2,12 @@
 vivarium_gates_iv_iron
 ===============================
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.7470797.svg
+   :target: https://doi.org/10.5281/zenodo.7470797
+
+Cite as
+Matthew Kappel, Alison Bowman, James Albright, Hussain Jafari, Rajan Mudambi, James Collins, & Abraham Flaxman. (2022). ihmeuw/vivarium_gates_iv_iron: Archival release (v1.0.2). Zenodo. https://doi.org/10.5281/zenodo.7470797
+
 Research repository for the vivarium_gates_iv_iron project.
 
 .. contents::
