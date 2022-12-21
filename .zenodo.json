@@ -3,12 +3,42 @@
     "title": "ihmeuw/vivarium_gates_iv_iron: Archival release",
     "upload_type": "software",
     "creators": [
-//        {
-//            "orcid": "0000-0000-0000-0000",
-//            "affiliation": "Institute for Health Metrics and Evaluation",
-//            "name": "TODO: Add authors names, affiliation, and orcid (if applicable) to `creators` array"
-//        }
+	{
+		"orcid": "0000-0003-2430-5661",
+		"affiliation": "Institute for Health Metrics and Evaluation",
+		"name": "Matthew Kappel"
+	},
+	{
+		"orcid": "0000-0003-1585-5100",
+		"affiliation": "Institute for Health Metrics and Evaluation",
+		"name": "Alison Bowman"
+	},
+	{
+		"orcid": "0000-0002-5775-2719",
+		"affiliation": "Institute for Health Metrics and Evaluation",
+		"name": "James Albright"
+	},
+	{
+		"orcid": "0000-0002-7556-2740",
+		"affiliation": "Institute for Health Metrics and Evaluation",
+		"name": "Hussain Jafari"
+	},
+	{
+		"orcid": "0000-0001-8649-7561",
+		"affiliation": "Institute for Health Metrics and Evaluation",
+		"name": "Rajan Mudambi"
+	},
+	{
+		"orcid": "0000-0001-7633-7804",
+		"affiliation": "Institute for Health Metrics and Evaluation",
+		"name": "James Collins"
+	},
+	{
+		"orcid": "0000-0001-6033-4713",
+		"affiliation": "Institute for Health Metrics and Evaluation",
+		"name": "Abraham Flaxman"
+	}
     ],
     "access_right": "open",
-    "description": "<p>TODO: add description (e.g., Archival release of simulation software.)</p>"
+    "description": "Archival release of maternal IV iron supplementation simulation software"
 }
